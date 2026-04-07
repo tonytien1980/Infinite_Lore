@@ -44,6 +44,10 @@ The system is not designed to be:
 - deeper refinement should happen later during use, not during every ingest run
 - Obsidian is the knowledge workspace
 - external tooling handles import, compile, and health-check work
+- documentation and implementation must stay aligned
+- relevant skills must be used when they exist
+- verified milestones must be pushed so local and GitHub stay in sync
+- repeated workflow expectations should be written into repo docs, not left in chat only
 
 ## 4. What Is Already Done
 
@@ -241,9 +245,10 @@ Do not drift into these unless explicitly re-approved:
 When a new implementation turn begins:
 
 1. Read this roadmap.
-2. Read the spec for the current phase.
-3. Read the implementation plan for the current phase.
-4. Only then start changing code.
+2. Read `00_System/Execution Rules.md`.
+3. Read the spec for the current phase.
+4. Read the implementation plan for the current phase.
+5. Only then start changing code.
 
 If there is uncertainty, prefer the next incomplete phase in this roadmap over inventing a new side path.
 
