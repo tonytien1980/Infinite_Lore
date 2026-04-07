@@ -7,6 +7,7 @@
 - [[00_System/Schema]]
 - [[00_System/Workflow Guide]]
 - [[00_System/Health Rules]]
+- [Execution Roadmap](../docs/2026-04-08-execution-roadmap.md)
 
 ## Domains
 
