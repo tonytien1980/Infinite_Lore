@@ -20,3 +20,13 @@
 1. Write in `60_Journal/daily/`.
 2. Route useful insight into `wiki`, `projects`, or `artifacts`.
 3. Create periodic synthesis in `60_Journal/weekly/`.
+
+## Raw Import
+
+Use the importer to normalize new source material into raw bundles:
+
+```bash
+python3 tools/import_bundle.py --source <path-or-url> --domain <primary-domain>
+```
+
+This creates a bundle in `20_Raw/inbox/` containing the original source, `content.md`, and `metadata.md`.
