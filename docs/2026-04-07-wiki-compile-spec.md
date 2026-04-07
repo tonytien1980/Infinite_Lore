@@ -53,6 +53,12 @@ This model avoids two failure modes:
 - one giant note with no reusable knowledge structure
 - too many fragmented notes produced by aggressive slicing
 
+Additional output rules:
+
+- every `synthesis` note is source-specific and should remain separate per raw bundle
+- smaller notes may later converge across multiple sources
+- the system should favor direct-to-wiki compilation rather than a candidate-review lane for the first implementation
+
 ## 4. Source And Interpretation Boundary
 
 The system must preserve four different cognitive layers:
@@ -71,6 +77,11 @@ Hard rules:
 - extracted small notes must not contain implicit personal voice
 - personal interpretation belongs in later reflection-style notes, not inside compile products
 - if personal interpretation later matures into new knowledge, it should become a new note rather than mutating the original compile note
+
+Operational consequence:
+
+- the wiki layer is living and updatable
+- but updates must preserve the distinction between source-grounded knowledge and later personal interpretation
 
 ## 5. Synthesis Note Contract
 
@@ -151,6 +162,18 @@ Preserves the unresolved or high-value questions raised by the source.
 
 Explicitly records the raw bundle and content lineage.
 
+### 5.4 Synthesis filename rule
+
+The first implementation should name synthesis notes using the source-derived slug:
+
+`<source-slug>--synthesis.md`
+
+Example:
+
+- `how-to-build-an-llm-wiki--synthesis.md`
+
+This keeps synthesis notes readable and obviously traceable to the source that produced them.
+
 ## 6. Small Note Extraction Rules
 
 Small notes exist to capture high-value reusable knowledge objects, not to slice source text mechanically.
@@ -222,6 +245,19 @@ Per raw bundle, the first implementation should allow:
 - `1` required synthesis note
 - `0-3` optional small notes
 
+### 6.6 Smaller note filename rule
+
+Smaller notes should use a readable human-oriented filename with source lineage visible in the filename itself:
+
+`<source-slug>--<note-type>--<concept-slug>.md`
+
+Examples:
+
+- `how-to-build-an-llm-wiki--concept--knowledge-compilation.md`
+- `market-report-q2--question--what-drives-repeat-purchase.md`
+
+The filename is for human readability. Stable machine identity should still come from metadata.
+
 ## 7. Extraction Eligibility Test
 
 A smaller note should be extracted only if it satisfies all of these:
@@ -237,7 +273,7 @@ If any of these fail, the content should remain inside the synthesis note.
 
 The formal compile pipeline is:
 
-`raw bundle -> validation -> synthesis generation -> small note selection -> wiki write -> link and lineage write-back -> index update`
+`raw bundle -> validation -> synthesis generation -> small note selection -> merge-or-create decision -> wiki write -> link and lineage write-back -> index update`
 
 ### 8.1 Raw bundle validation
 
@@ -255,13 +291,33 @@ If the bundle requires review, the compiler may still proceed, but the compiled 
 
 The compiler must generate exactly one synthesis note per bundle.
 
+Synthesis notes are always created as source-specific notes and should not be merged with synthesis notes from other bundles.
+
 ### 8.3 Small note selection
 
 The compiler should evaluate whether any concepts, frameworks, questions, or references deserve extraction.
 
 This is a selective elevation step, not a slicing step.
 
-### 8.4 Wiki write
+### 8.4 Merge-or-create decision
+
+For smaller notes, the compiler should prefer a merge-first strategy.
+
+Rules:
+
+- `synthesis` notes are always created per source
+- `concept`, `framework`, and `question` notes may update an existing note when they are highly similar
+- if similarity is not high enough, the compiler should create a new smaller note instead
+
+The first implementation should use conservative merge criteria:
+
+- same note type
+- same primary domain
+- highly similar title or slug
+
+The system should prefer under-merging over incorrect merging.
+
+### 8.5 Wiki write
 
 Compiled notes should normally be written into:
 
@@ -269,7 +325,7 @@ Compiled notes should normally be written into:
 
 The first implementation should bias toward the primary domain rather than aggressively using `30_Wiki/shared/`.
 
-### 8.5 Link and lineage write-back
+### 8.6 Link and lineage write-back
 
 The compiler must preserve at least:
 
@@ -278,7 +334,9 @@ The compiler must preserve at least:
 - small note -> raw bundle
 - small note -> synthesis note
 
-### 8.6 Index update
+If a smaller note is updated instead of newly created, the lineage update must append source lineage rather than replacing prior lineage.
+
+### 8.7 Index update
 
 The compile result should become discoverable from the relevant domain entry point.
 
@@ -301,6 +359,11 @@ The first implementation may handle this minimally by recording:
 
 Recompile behavior should prefer updating the same compile outputs rather than creating parallel duplicates.
 
+This applies differently by note type:
+
+- `synthesis` should update the existing synthesis note for the same raw bundle
+- `small notes` should either update an existing matching note or create a new note if no safe match is found
+
 ## 10. Confidence Rules
 
 Confidence in compile output should derive in part from raw bundle quality.
@@ -316,10 +379,10 @@ Guidance:
 
 The intended user experience is:
 
-1. import a source into a raw bundle
-2. decide whether that source deserves promotion into knowledge
-3. compile it into a synthesis note
-4. optionally review a few extracted reusable notes
+1. send a source into the system
+2. let the system import it into a raw bundle
+3. let the system immediately run a lightweight compile
+4. get a synthesis note plus a few useful smaller notes when appropriate
 5. read the compiled knowledge instead of repeatedly returning to the raw source
 6. later add personal interpretation in separate reflection-style notes
 7. use compiled knowledge and later reflections to support outputs
@@ -332,7 +395,34 @@ Instead of:
 
 `read raw source -> think from scratch -> write from scratch`
 
-## 12. What Compile Does Not Do
+## 12. First Implementation Boundaries
+
+The first implementation should behave like a lightweight library organizer, not a heavy knowledge factory.
+
+It should do the following:
+
+- automatically compile immediately after import in the same top-level command flow
+- generate one synthesis note per source
+- extract a small number of strong smaller notes
+- use conservative merge-first updates for smaller notes
+- update source lineage and domain visibility
+
+It should explicitly avoid the following:
+
+- evaluator score factories
+- heavy multi-pass optimization loops
+- complex semantic merge engines
+- whole-vault rewrite behavior
+- background daemon or watcher requirements in the first version
+
+The first version should optimize for:
+
+- speed
+- traceability
+- clean source-grounded notes
+- future refinement during later use and feedback
+
+## 13. What Compile Does Not Do
 
 The compile subsystem must not:
 
@@ -342,8 +432,14 @@ The compile subsystem must not:
 - create many weak notes from one source just because it can
 - treat candidate links as confirmed relationships
 
-## 13. Summary
+It must also not:
+
+- force a manual second compile step after import
+- run a heavy verification and scoring factory for every source
+- use personal reflections as merge authority for source-grounded notes
+
+## 14. Summary
 
 The wiki compile subsystem is a knowledge compiler, not a generic summarizer and not an opinion generator.
 
-Its job is to convert raw bundles into source-grounded synthesis notes plus a small number of strong reusable knowledge notes, while preserving clean lineage and protecting the wiki layer from interpretation drift.
+Its job is to convert raw bundles into source-grounded synthesis notes plus a small number of strong reusable knowledge notes, while preserving clean lineage, updating the living wiki safely over time, and protecting the wiki layer from interpretation drift.
