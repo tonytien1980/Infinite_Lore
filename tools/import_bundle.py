@@ -466,9 +466,18 @@ def main() -> int:
     parser.add_argument("--related-domain", action="append", default=[], help="Related domain id")
     parser.add_argument("--privacy", default="private", help="Privacy tier")
     parser.add_argument("--root", default=".", help="Vault root path")
+    parser.add_argument("--skip-compile", action="store_true", help="Only import the raw bundle without compiling")
     args = parser.parse_args()
 
-    bundle = import_source(Path(args.root), args.source, args.domain, args.related_domain, args.privacy)
+    root = Path(args.root)
+    bundle = import_source(root, args.source, args.domain, args.related_domain, args.privacy)
+    if not args.skip_compile:
+        try:
+            from tools.wiki_compile import compile_bundle
+        except ModuleNotFoundError:
+            from wiki_compile import compile_bundle
+
+        compile_bundle(root, bundle)
     print(bundle.as_posix())
     return 0
 

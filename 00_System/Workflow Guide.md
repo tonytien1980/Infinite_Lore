@@ -23,10 +23,10 @@
 
 ## Raw Import
 
-Use the importer to normalize new source material into raw bundles:
+Use the importer to normalize new source material into raw bundles and immediately compile it into wiki notes:
 
 ```bash
 python3 tools/import_bundle.py --source <path-or-url> --domain <primary-domain>
 ```
 
-This creates a bundle in `20_Raw/inbox/` containing the original source, `content.md`, and `metadata.md`.
+This creates a raw bundle in `20_Raw/inbox/`, then automatically produces source-grounded wiki notes in `30_Wiki/<domain>/`.
