@@ -130,6 +130,23 @@ Reference files:
 Reference commits:
 
 - `8f2d6e0` `docs: add workbench ui spec`
+- `f012275` `feat: add workbench ui`
+
+### 4.5 Query / Ask Layer
+
+Completed:
+
+- single Ask input with auto routing between Ask and Query
+- local retrieval over compiled wiki notes
+- grounded Ask answers with visible note grounding
+- visible raw lineage trace
+- strict abstention behavior when evidence is insufficient
+- OpenAI-backed answer synthesis when an OpenAI route is configured
+
+Reference files:
+
+- `docs/2026-04-08-query-ask-spec.md`
+- `docs/2026-04-08-query-ask-implementation-plan.md`
 
 ## 5. Current Verified Baseline
 
@@ -139,13 +156,14 @@ As of this roadmap update, the verified baseline is:
 - wiki compile works
 - `import -> compile` runs in one top-level command
 - local Workbench UI runs on localhost
+- grounded Query / Ask works inside the Workbench
 - tests pass
 - health check passes
 
 Verified commands used recently:
 
 ```bash
-python3 -m unittest tests.test_import_bundle tests.test_wiki_compile tests.test_health_check -v
+python3 -m unittest tests.test_import_bundle tests.test_wiki_compile tests.test_workbench_api tests.test_query_ask tests.test_health_check -v
 python3 tools/health_check.py .
 python3 tools/run_workbench.py
 ```
@@ -193,24 +211,21 @@ Background automation, watchers, and batch jobs are multipliers. They should be 
 
 ## 8. Immediate Next Phase
 
-### Phase 5: Query / Ask Layer
+### Phase 6: Reflection / Feedback Layer
 
 This is the next priority.
 
 The purpose of the next phase is:
 
-- turn the new Workbench into a real grounded answering surface
-- let the user ask questions directly against the existing wiki
-- preserve source trace and anti-hallucination behavior
-- make the system useful as an actual personal LLM Wiki, not just an ingestion pipeline
+- let the user attach reflection and feedback to existing knowledge safely
+- preserve the clean boundary between source-grounded wiki and personal interpretation
+- make later refinement possible without polluting source-grounded notes
 
 ### The next phase should cover
 
-- grounded answer retrieval
-- answer composition from synthesis and small notes
-- visible note grounding
-- visible raw lineage
-- graceful abstention when evidence is insufficient
+- linked reflection notes
+- safe attachment of personal interpretation to existing wiki notes
+- feedback pathways that can improve knowledge later without rewriting source-grounded notes directly
 
 ## 9. Phase Boundaries
 
@@ -231,6 +246,8 @@ Definition of done:
 - user can ask questions against the current wiki
 - system can retrieve relevant synthesis and small notes
 - answers stay grounded in existing wiki knowledge
+- answers show note grounding and source lineage
+- insufficient evidence results in a clear abstention
 
 ### Phase 6: Reflection / Feedback Layer
 

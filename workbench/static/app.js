@@ -125,6 +125,7 @@ function populateSettings() {
   document.getElementById("routeScan").value = routes.scan || "no_model";
   document.getElementById("routeImport").value = routes.import || "no_model";
   document.getElementById("routeCompile").value = routes.compile || "balanced";
+  document.getElementById("routeQuery").value = routes.query || "no_model";
   document.getElementById("routeAsk").value = routes.ask || "best_deep";
   document.getElementById("routeReflection").value = routes.reflection || "balanced";
 }
@@ -160,13 +161,52 @@ navLinks.forEach((button) => {
 document.getElementById("homeAskForm").addEventListener("submit", (event) => {
   event.preventDefault();
   document.getElementById("askInput").value = document.getElementById("homeAskInput").value;
+  document.getElementById("askMode").value = "auto";
   setPage("ask");
+  runAsk(document.getElementById("askInput").value, "auto");
 });
 
-document.getElementById("askForm").addEventListener("submit", (event) => {
+async function runAsk(question, mode) {
+  const answerBox = document.getElementById("askAnswer");
+  const groundingBox = document.getElementById("askGrounding");
+  const traceBox = document.getElementById("askTrace");
+  const limitsBox = document.getElementById("askLimits");
+
+  answerBox.textContent = "Thinking through the library…";
+  groundingBox.textContent = "Loading grounding…";
+  traceBox.textContent = "Loading trace…";
+  limitsBox.textContent = "Loading limits…";
+
+  const payload = await fetchJson("/api/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, mode }),
+  });
+
+  answerBox.textContent = payload.answer || "";
+
+  groundingBox.innerHTML = "";
+  (payload.grounding || []).forEach((item) => {
+    groundingBox.appendChild(createListItem(item.title, item.note_type, item.path));
+  });
+  if (!groundingBox.children.length) groundingBox.textContent = "No grounding notes returned.";
+
+  traceBox.innerHTML = "";
+  (payload.trace || []).forEach((item) => {
+    traceBox.appendChild(createListItem(item.source_ref, "source", item.from_note));
+  });
+  if (!traceBox.children.length) traceBox.textContent = "No source trace returned.";
+
+  limitsBox.innerHTML = "";
+  (payload.limits || []).forEach((limit) => {
+    limitsBox.appendChild(createListItem(limit, "limit", "Evidence boundary"));
+  });
+  if (!limitsBox.children.length) limitsBox.textContent = "No explicit limits on this answer.";
+}
+
+document.getElementById("askForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  document.getElementById("askAnswer").textContent =
-    "Grounded Ask backend is the next phase. This shell is ready to show structured answers, grounding, and source trace.";
+  await runAsk(document.getElementById("askInput").value, document.getElementById("askMode").value);
 });
 
 document.getElementById("fileImportForm").addEventListener("submit", async (event) => {
@@ -213,6 +253,7 @@ document.getElementById("settingsForm").addEventListener("submit", async (event)
       scan: document.getElementById("routeScan").value,
       import: document.getElementById("routeImport").value,
       compile: document.getElementById("routeCompile").value,
+      query: document.getElementById("routeQuery").value,
       ask: document.getElementById("routeAsk").value,
       reflection: document.getElementById("routeReflection").value,
     },

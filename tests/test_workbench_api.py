@@ -111,6 +111,36 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(payload["routes"]["ask"], "best_deep")
             self.assertEqual(payload["providers"][0]["provider"], "openai")
 
+    def test_ask_endpoint_returns_grounded_result_structure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "30_Wiki/ai-application").mkdir(parents=True)
+            (root / "30_Wiki/ai-application/library-systems--synthesis.md").write_text(
+                "---\n"
+                "title: Library Systems\n"
+                "note_type: synthesis\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/library\"]\n"
+                "---\n\n"
+                "# Library Systems\n\n"
+                "## Source Summary\n"
+                "A library system organizes knowledge into reusable access points.\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/ask",
+                json={"question": "Summarize what my library knows about library systems.", "mode": "auto"},
+            )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertIn("mode", payload)
+            self.assertIn("answer", payload)
+            self.assertIn("grounding", payload)
+            self.assertIn("trace", payload)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "import": "no_model",
         "compile": "balanced",
         "ask": "best_deep",
+        "query": "no_model",
         "reflection": "balanced",
     },
 }

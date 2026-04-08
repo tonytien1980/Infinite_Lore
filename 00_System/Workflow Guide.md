@@ -40,3 +40,17 @@ python3 tools/run_workbench.py
 ```
 
 Then open the local URL shown in the terminal.
+
+## Ask And Query
+
+Use the Workbench Ask page as the main knowledge entry surface.
+
+- `Auto` is the default mode.
+- `Ask` produces a grounded answer from compiled wiki notes.
+- `Query` shows matching notes and source coverage without forcing a synthesized answer.
+
+The Query / Ask layer serves the library, not the open internet.
+
+- Answers should come from `30_Wiki/` first.
+- Raw bundles are used for trace, not as the first answer layer.
+- If evidence is insufficient, the system should say so instead of inventing an answer.

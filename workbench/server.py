@@ -14,6 +14,7 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from workbench.config_store import load_config, save_config
+from workbench.ask_service import answer_question
 from workbench.services import get_dashboard, get_health, get_system_info, import_file, import_url, list_bundles, list_knowledge
 
 
@@ -63,6 +64,16 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
     @app.post("/api/settings")
     def post_settings(payload: dict) -> dict:
         return save_config(config_path, payload)
+
+    @app.post("/api/ask")
+    def ask(payload: dict) -> dict:
+        settings = load_config(config_path)
+        return answer_question(
+            vault_root=vault_root,
+            question=payload["question"],
+            requested_mode=payload.get("mode", "auto"),
+            settings=settings,
+        )
 
     @app.post("/api/inbox/import-file")
     async def inbox_import_file(file: UploadFile = File(...), primary_domain: Optional[str] = Form(None)) -> dict:
