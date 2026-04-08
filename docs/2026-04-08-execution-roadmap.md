@@ -111,6 +111,26 @@ Reference commits:
 - `501364a` `docs: refine wiki compile workflow`
 - `a5e9b80` `feat: add wiki compile pipeline`
 
+### 4.4 External Workbench UI
+
+Completed:
+
+- local Workbench backend
+- local Workbench frontend
+- browser-based operational surface for non-Obsidian tasks
+- local settings and model routing UI
+- import and compile access through UI
+- system and health visibility through UI
+
+Reference files:
+
+- `docs/2026-04-08-workbench-ui-spec.md`
+- `docs/2026-04-08-workbench-ui-implementation-plan.md`
+
+Reference commits:
+
+- `8f2d6e0` `docs: add workbench ui spec`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -118,6 +138,7 @@ As of this roadmap update, the verified baseline is:
 - import pipeline works
 - wiki compile works
 - `import -> compile` runs in one top-level command
+- local Workbench UI runs on localhost
 - tests pass
 - health check passes
 
@@ -126,6 +147,7 @@ Verified commands used recently:
 ```bash
 python3 -m unittest tests.test_import_bundle tests.test_wiki_compile tests.test_health_check -v
 python3 tools/health_check.py .
+python3 tools/run_workbench.py
 ```
 
 ## 6. Approved Build Order
@@ -171,30 +193,24 @@ Background automation, watchers, and batch jobs are multipliers. They should be 
 
 ## 8. Immediate Next Phase
 
-### Phase 4: External Workbench UI
+### Phase 5: Query / Ask Layer
 
 This is the next priority.
 
-The purpose of the workbench is:
+The purpose of the next phase is:
 
-- provide a proper UI/UX for non-Obsidian operations
-- support testing and inspection more easily
-- expose the current system without requiring terminal use for normal operation
+- turn the new Workbench into a real grounded answering surface
+- let the user ask questions directly against the existing wiki
+- preserve source trace and anti-hallucination behavior
+- make the system useful as an actual personal LLM Wiki, not just an ingestion pipeline
 
-### The first workbench should cover
+### The next phase should cover
 
-- dashboard
-- import flow
-- bundle inspection
-- compile result inspection
-- health status
-
-### The first workbench should not yet cover
-
-- full chat experience
-- full reflection management
-- automation daemon controls
-- team collaboration
+- grounded answer retrieval
+- answer composition from synthesis and small notes
+- visible note grounding
+- visible raw lineage
+- graceful abstention when evidence is insufficient
 
 ## 9. Phase Boundaries
 
@@ -206,6 +222,7 @@ Definition of done:
 - user can see bundle results from a UI
 - user can see compile outputs from a UI
 - user can see health status from a UI
+- user can configure model routing locally
 
 ### Phase 5: Query / Ask Layer
 
@@ -256,4 +273,4 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Design and implement the first External Workbench UI for non-Obsidian operations.`
+`Design and implement the grounded Query / Ask layer inside the Workbench.`

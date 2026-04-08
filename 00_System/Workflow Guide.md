@@ -30,3 +30,13 @@ python3 tools/import_bundle.py --source <path-or-url> --domain <primary-domain>
 ```
 
 This creates a raw bundle in `20_Raw/inbox/`, then automatically produces source-grounded wiki notes in `30_Wiki/<domain>/`.
+
+## Workbench UI
+
+Run the local Workbench UI with:
+
+```bash
+python3 tools/run_workbench.py
+```
+
+Then open the local URL shown in the terminal.

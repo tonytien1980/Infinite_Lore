@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Infinite Lore Workbench</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">IL</div>
+          <div>
+            <p class="eyebrow">Infinite Lore</p>
+            <h1>Workbench</h1>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-link active" data-page="home">Home</button>
+          <button class="nav-link" data-page="inbox">Inbox</button>
+          <button class="nav-link" data-page="knowledge">Knowledge</button>
+          <button class="nav-link" data-page="ask">Ask</button>
+          <button class="nav-link" data-page="system">System</button>
+          <button class="nav-link" data-page="settings">Settings</button>
+        </nav>
+        <div class="sidebar-foot">
+          <p class="eyebrow">Shared Vault</p>
+          <p id="vaultPath">Loading...</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Operational Surface</p>
+            <h2 id="pageTitle">Home</h2>
+          </div>
+          <div class="status-pill" id="healthPill">Checking health…</div>
+        </header>
+
+        <section class="page active" data-page="home">
+          <div class="hero-card">
+            <div>
+              <p class="eyebrow">Grounded Ask</p>
+              <h3>Ask the library, not the chaos.</h3>
+              <p>
+                Use the compiled wiki as your primary answer layer. The system will show what it knows,
+                where that knowledge came from, and where the gaps still are.
+              </p>
+            </div>
+            <form id="homeAskForm" class="ask-form">
+              <textarea id="homeAskInput" placeholder="Ask from your current wiki. Example: What has Infinite Lore compiled recently about AI workflows?"></textarea>
+              <div class="ask-actions">
+                <button type="submit" class="primary-button">Open Ask Workspace</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="grid two-col">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Recent Imports</p>
+                  <h3>Raw intake activity</h3>
+                </div>
+              </div>
+              <div id="recentImports" class="list-stack empty-state">Loading…</div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Recent Knowledge</p>
+                  <h3>Freshly compiled notes</h3>
+                </div>
+              </div>
+              <div id="recentKnowledge" class="list-stack empty-state">Loading…</div>
+            </section>
+          </div>
+
+          <div class="grid three-col" id="snapshotCards"></div>
+        </section>
+
+        <section class="page" data-page="inbox">
+          <div class="grid two-col">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Raw Intake</p>
+                  <h3>Import file</h3>
+                </div>
+              </div>
+              <form id="fileImportForm" class="stack-form">
+                <label>
+                  <span>File</span>
+                  <input type="file" name="file" required />
+                </label>
+                <label>
+                  <span>Primary domain override</span>
+                  <input type="text" name="primary_domain" placeholder="Optional. Leave blank for auto classification." />
+                </label>
+                <button type="submit" class="primary-button">Import and compile</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Web Article</p>
+                  <h3>Import URL</h3>
+                </div>
+              </div>
+              <form id="urlImportForm" class="stack-form">
+                <label>
+                  <span>Article URL</span>
+                  <input type="url" name="url" placeholder="https://example.com/article" required />
+                </label>
+                <label>
+                  <span>Primary domain override</span>
+                  <input type="text" name="primary_domain" placeholder="Optional. Leave blank for auto classification." />
+                </label>
+                <button type="submit" class="secondary-button">Capture and compile</button>
+              </form>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head split">
+              <div>
+                <p class="eyebrow">Inbox Monitor</p>
+                <h3>Bundle queue</h3>
+              </div>
+              <div class="button-row">
+                <button id="scanNowButton" class="ghost-button" type="button">Scan now</button>
+                <button id="refreshBundlesButton" class="ghost-button" type="button">Refresh list</button>
+              </div>
+            </div>
+            <div id="bundleList" class="list-stack empty-state">Loading…</div>
+          </section>
+        </section>
+
+        <section class="page" data-page="knowledge">
+          <div class="grid two-col">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Synthesis</p>
+                  <h3>Compiled source entries</h3>
+                </div>
+              </div>
+              <div id="synthesisList" class="list-stack empty-state">Loading…</div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Small Notes</p>
+                  <h3>Concepts, frameworks, questions</h3>
+                </div>
+              </div>
+              <div id="smallNotesList" class="list-stack empty-state">Loading…</div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" data-page="ask">
+          <div class="grid ask-layout">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Strict Grounded Mode</p>
+                  <h3>Ask from compiled knowledge</h3>
+                </div>
+              </div>
+              <form id="askForm" class="stack-form">
+                <label>
+                  <span>Question</span>
+                  <textarea id="askInput" placeholder="Ask using your current wiki. The response layer will be wired in next phase."></textarea>
+                </label>
+                <label>
+                  <span>Answer mode</span>
+                  <select id="askMode">
+                    <option value="direct">Direct Answer</option>
+                    <option value="evidence">Evidence-first</option>
+                  </select>
+                </label>
+                <button type="submit" class="primary-button">Prepare grounded workspace</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Answer</p>
+                  <h3>Grounded response shell</h3>
+                </div>
+              </div>
+              <div id="askAnswer" class="empty-state">
+                Ask integration is the next backend phase. This view is ready for grounded answers, note grounding, and source trace.
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Trace</p>
+                  <h3>Notes and source lineage</h3>
+                </div>
+              </div>
+              <div id="askTrace" class="empty-state">
+                Once Ask is connected, relevant synthesis, small notes, and raw lineage will appear here.
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" data-page="system">
+          <div class="grid two-col">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Health</p>
+                  <h3>Vault status</h3>
+                </div>
+              </div>
+              <div id="healthDetails" class="list-stack empty-state">Loading…</div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Environment</p>
+                  <h3>Local runtime</h3>
+                </div>
+              </div>
+              <dl class="env-list">
+                <div><dt>Vault root</dt><dd id="systemVaultPath">Loading…</dd></div>
+                <div><dt>Runtime</dt><dd>Local web app + Python backend</dd></div>
+                <div><dt>Source of truth</dt><dd>Shared vault filesystem</dd></div>
+              </dl>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" data-page="settings">
+          <div class="grid two-col">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Provider Control</p>
+                  <h3>Model routing and API access</h3>
+                </div>
+              </div>
+              <form id="settingsForm" class="stack-form">
+                <label>
+                  <span>Provider</span>
+                  <input type="text" id="providerName" value="openai" />
+                </label>
+                <label>
+                  <span>Provider ID</span>
+                  <input type="text" id="providerId" value="openai-main" />
+                </label>
+                <label>
+                  <span>API Key</span>
+                  <input type="password" id="providerApiKey" placeholder="Stored in local config, not in vault" />
+                </label>
+                <label>
+                  <span>Balanced model</span>
+                  <input type="text" id="balancedModel" placeholder="model id" />
+                </label>
+                <label>
+                  <span>Best / Deep model</span>
+                  <input type="text" id="bestModel" placeholder="model id" />
+                </label>
+                <button type="submit" class="primary-button">Save local settings</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Feature Routes</p>
+                  <h3>Cost-aware behavior</h3>
+                </div>
+              </div>
+              <div class="route-grid">
+                <label><span>Scan</span><select id="routeScan"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced">Balanced</option><option value="best_deep">Best / Deep</option></select></label>
+                <label><span>Import</span><select id="routeImport"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced">Balanced</option><option value="best_deep">Best / Deep</option></select></label>
+                <label><span>Compile</span><select id="routeCompile"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced" selected>Balanced</option><option value="best_deep">Best / Deep</option></select></label>
+                <label><span>Ask</span><select id="routeAsk"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced">Balanced</option><option value="best_deep" selected>Best / Deep</option></select></label>
+                <label><span>Reflection</span><select id="routeReflection"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced" selected>Balanced</option><option value="best_deep">Best / Deep</option></select></label>
+              </div>
+              <div id="settingsStatus" class="empty-state">Local config is kept outside the vault and outside git.</div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
