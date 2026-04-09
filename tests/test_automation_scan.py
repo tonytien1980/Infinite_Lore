@@ -688,6 +688,44 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(final_state["exhausted_failed_items"][0]["retry_count"], 2)
             self.assertEqual(final_state["exhausted_failed_items"][0]["retry_status"], "exhausted")
 
+    def test_run_scan_prefers_higher_metadata_retry_count_over_stale_lower_sidecar(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            source_path = inbox / "stale-sidecar.txt"
+            source_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+            bundle_path = _dated_bundle_path(root, "stale-sidecar")
+            content_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
+            _write_imported_bundle_metadata(bundle_path, source_path, content_hash, retry_count=1)
+            (bundle_path / ".automation-retry.json").write_text(json.dumps({"compile_retry_count": 0}), encoding="utf-8")
+            source_path.unlink()
+            state_path.write_text("{not json", encoding="utf-8")
+
+            with mock.patch("tools.automation_scan.import_source", side_effect=AssertionError("should not re-import")), mock.patch(
+                "tools.automation_scan.compile_bundle",
+                side_effect=RuntimeError("compile boom"),
+            ) as compile_mock:
+                result = run_scan(root, [], state_path)
+
+            final_state = load_source_state(state_path)
+            source_key = "local-file:20_Raw/inbox/stale-sidecar.txt"
+
+            self.assertEqual(result["imported_count"], 0)
+            self.assertEqual(result["compiled_count"], 0)
+            self.assertEqual(result["failed_count"], 0)
+            self.assertEqual(result["exhausted_failed_count"], 1)
+            self.assertEqual(compile_mock.call_count, 1)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(len(final_state["exhausted_failed_items"]), 1)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["source_key"], source_key)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["retry_count"], 2)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["retry_status"], "exhausted")
+
     def test_run_scan_recovers_imported_bundle_after_metadata_write_failure_and_source_removal_preserves_retry_count(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

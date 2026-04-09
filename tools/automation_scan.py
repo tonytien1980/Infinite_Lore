@@ -195,6 +195,7 @@ def _bundle_retry_state_path(bundle_path: Path) -> Path:
 
 
 def _load_bundle_retry_count(bundle_path: Path, metadata_retry_count: Any = 0) -> int:
+    metadata_count = _retry_count({"retry_count": metadata_retry_count})
     sidecar_path = _bundle_retry_state_path(bundle_path)
     if sidecar_path.exists():
         try:
@@ -203,9 +204,10 @@ def _load_bundle_retry_count(bundle_path: Path, metadata_retry_count: Any = 0) -
             pass
         else:
             if isinstance(sidecar_payload, dict):
-                return _retry_count({"retry_count": sidecar_payload.get("compile_retry_count", 0)})
+                sidecar_count = _retry_count({"retry_count": sidecar_payload.get("compile_retry_count", 0)})
+                return max(sidecar_count, metadata_count)
 
-    return _retry_count({"retry_count": metadata_retry_count})
+    return metadata_count
 
 
 def _write_bundle_retry_sidecar(bundle_path: Path, retry_count: int) -> None:
