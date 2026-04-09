@@ -422,6 +422,9 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
                 continue
             if processed_entry.get("stage") != "imported" or not processed_entry.get("bundle_path"):
                 continue
+            if _is_retry_exhausted(processed_entry):
+                blocked_exhausted_count += 1
+                continue
 
             source_key = str(processed_entry.get("source_key") or "")
             if not source_key or source_key in discovered_source_keys or source_key in fresh_source_keys:
