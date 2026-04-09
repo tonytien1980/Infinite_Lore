@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import hashlib
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
@@ -13,6 +15,7 @@ from workbench.source_store import load_source_state, summarize_source_state, up
 
 
 MAX_FAILED_RETRY_COUNT = 2
+BUNDLE_RETRY_STATE_FILENAME = ".automation-retry.json"
 
 
 def now_iso() -> str:
@@ -187,15 +190,62 @@ def _unquote_scalar(value: str) -> str:
     return text
 
 
+def _bundle_retry_state_path(bundle_path: Path) -> Path:
+    return bundle_path / BUNDLE_RETRY_STATE_FILENAME
+
+
+def _load_bundle_retry_count(bundle_path: Path, metadata_retry_count: Any = 0) -> int:
+    sidecar_path = _bundle_retry_state_path(bundle_path)
+    if sidecar_path.exists():
+        try:
+            sidecar_payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            pass
+        else:
+            if isinstance(sidecar_payload, dict):
+                return _retry_count({"retry_count": sidecar_payload.get("compile_retry_count", 0)})
+
+    return _retry_count({"retry_count": metadata_retry_count})
+
+
+def _write_bundle_retry_sidecar(bundle_path: Path, retry_count: int) -> None:
+    sidecar_path = _bundle_retry_state_path(bundle_path)
+    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "compile_retry_count": retry_count,
+        "updated_at": now_iso(),
+    }
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=bundle_path,
+        prefix=f"{sidecar_path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as handle:
+        handle.write(json.dumps(payload, indent=2, ensure_ascii=True) + "\n")
+        tmp_path = Path(handle.name)
+    tmp_path.replace(sidecar_path)
+
+
 def _persist_bundle_retry_count(bundle_path: Path, retry_count: int) -> None:
+    try:
+        current_retry_count = _load_bundle_retry_count(bundle_path)
+    except Exception:
+        return
+
+    if retry_count <= current_retry_count:
+        return
+
+    try:
+        _write_bundle_retry_sidecar(bundle_path, retry_count)
+    except Exception:
+        pass
+
     metadata_path = bundle_path / "metadata.md"
     try:
         metadata, body = read_note(metadata_path)
     except Exception:
-        return
-
-    current_retry_count = _retry_count({"retry_count": metadata.get("compile_retry_count", 0)})
-    if retry_count <= current_retry_count:
         return
 
     metadata["compile_retry_count"] = retry_count
@@ -247,7 +297,7 @@ def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[
         compiled_at = str(metadata.get("compiled_at") or "").strip()
         compiled_note_refs = metadata.get("compiled_note_refs")
         has_compiled_proof = bool(compiled_at or compiled_note_refs)
-        compile_retry_count = _retry_count({"retry_count": metadata.get("compile_retry_count", 0)})
+        compile_retry_count = _load_bundle_retry_count(bundle_path, metadata.get("compile_retry_count", 0))
         recovered[source_key] = {
             "source_key": source_key,
             "source": str(source_path),
@@ -258,7 +308,7 @@ def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[
             "related_domains": list(metadata.get("related_domains") or []),
             "bundle_path": bundle_path.relative_to(vault_root).as_posix(),
             "stage": "compiled" if has_compiled_proof else "imported",
-            "retry_count": 0 if has_compiled_proof else max(1, compile_retry_count),
+            "retry_count": 0 if has_compiled_proof else compile_retry_count,
             "completed_at": compiled_at if has_compiled_proof else str(metadata.get("imported_at") or ""),
         }
 
@@ -383,9 +433,10 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             if not bundle_path.exists():
                 continue
 
+            retry_entry = retryable_by_key.get(source_key)
             merged_candidate = dict(processed_entry)
             merged_candidate["stage"] = "imported"
-            merged_candidate["retry_count"] = max(1, _retry_count(processed_entry))
+            merged_candidate["retry_count"] = max(_retry_count(processed_entry), _retry_count(retry_entry) if retry_entry else 0)
             if not merged_candidate.get("primary_domain"):
                 merged_candidate["primary_domain"] = str(processed_entry.get("primary_domain") or "")
             if not merged_candidate.get("related_domains"):
