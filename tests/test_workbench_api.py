@@ -1055,6 +1055,20 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(payload["failed_items"], [])
             self.assertEqual(payload["exhausted_failed_items"], [])
 
+    def test_scan_now_frontend_flow_persists_sources_before_scan_request(self) -> None:
+        app_js_path = Path(__file__).resolve().parents[1] / "workbench" / "static" / "app.js"
+        script = app_js_path.read_text(encoding="utf-8")
+
+        run_scan_start = script.index("async function runInboxScan()")
+        persist_index = script.index("await persistInboxSources();", run_scan_start)
+        save_guard_index = script.index("Could not save sources before scanning", run_scan_start)
+        save_guard_return_index = script.index("return;", save_guard_index)
+        scan_index = script.index('const summary = await fetchJson("/api/inbox/scan"', run_scan_start)
+
+        self.assertLess(persist_index, scan_index)
+        self.assertLess(save_guard_index, save_guard_return_index)
+        self.assertLess(save_guard_return_index, scan_index)
+
 
 if __name__ == "__main__":
     unittest.main()
