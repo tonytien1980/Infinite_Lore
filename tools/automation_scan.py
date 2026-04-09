@@ -4,7 +4,7 @@ import json
 import hashlib
 import tempfile
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -16,6 +16,7 @@ from workbench.source_store import load_source_state, summarize_source_state, up
 
 
 MAX_FAILED_RETRY_COUNT = 2
+CONFIGURED_ARTICLE_RETRY_COOLDOWN = timedelta(hours=1)
 BUNDLE_RETRY_STATE_FILENAME = ".automation-retry.json"
 
 
@@ -62,12 +63,43 @@ def _active_configured_source_urls(configured_sources: List[Dict[str, Any]]) -> 
     return urls
 
 
-def _is_stale_configured_state_item(item: Dict[str, Any], active_source_urls: set[str]) -> bool:
+def _parse_utc_timestamp(value: str) -> datetime | None:
+    text = value.strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _configured_article_retry_ready(item: Dict[str, Any], current_time: datetime) -> bool:
+    source_key = str(item.get("source_key") or "")
+    if not source_key.startswith("configured-article:"):
+        return False
+    last_attempt = _parse_utc_timestamp(str(item.get("last_attempt_at") or item.get("completed_at") or ""))
+    if last_attempt is None:
+        return False
+    return current_time - last_attempt >= CONFIGURED_ARTICLE_RETRY_COOLDOWN
+
+
+def _is_stale_configured_state_item(
+    item: Dict[str, Any], active_source_urls: set[str], discovered_configured_article_keys: set[str]
+) -> bool:
     source_key = str(item.get("source_key") or "")
     if not source_key.startswith("configured-"):
         return False
     source_url = str(item.get("source_url") or "").strip()
-    return source_url not in active_source_urls
+    if source_url not in active_source_urls:
+        return True
+    if source_key.startswith("configured-article:"):
+        return source_key not in discovered_configured_article_keys
+    return False
 
 
 def _fetch_url_bytes(url: str) -> bytes:
@@ -460,6 +492,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     state = load_source_state(state_path)
     state_summary = summarize_source_state(state_path)
     active_configured_source_urls = _active_configured_source_urls(configured_sources)
+    current_time = _parse_utc_timestamp(now_iso()) or datetime.now(timezone.utc)
     processed_sources = state.get("processed_sources", {})
     if state_summary.get("recovered_from_corruption"):
         recovered_processed_sources = _recover_processed_sources_from_bundles(vault_root)
@@ -469,19 +502,31 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             processed_sources = merged_processed_sources
     exhausted_failed_items = [_normalize_failed_item(item) for item in state.get("exhausted_failed_items", [])]
     exhausted_failed_items = [item for item in exhausted_failed_items if item is not None]
-    exhausted_failed_items = [item for item in exhausted_failed_items if not _is_stale_configured_state_item(item, active_configured_source_urls)]
     failed_items = [_normalize_failed_item(item) for item in state.get("failed_items", [])]
     failed_items = [item for item in failed_items if item is not None]
-    failed_items = [item for item in failed_items if not _is_stale_configured_state_item(item, active_configured_source_urls)]
+
+    configured_candidates, configured_failed_items, configured_successful_source_keys = discover_configured_candidates(configured_sources)
+    discovered_candidates, discovery_failed_items = discover_local_candidates(vault_root)
+    discovered_configured_article_keys = {
+        candidate["source_key"] for candidate in configured_candidates if str(candidate.get("source_key") or "").startswith("configured-article:")
+    }
+
+    exhausted_failed_items = [
+        item
+        for item in exhausted_failed_items
+        if not _is_stale_configured_state_item(item, active_configured_source_urls, discovered_configured_article_keys)
+    ]
+    failed_items = [
+        item
+        for item in failed_items
+        if not _is_stale_configured_state_item(item, active_configured_source_urls, discovered_configured_article_keys)
+    ]
     retryable_failed_items = [item for item in failed_items if not _is_retry_exhausted(item)]
 
     processed_by_key = _index_by_source_key(list(processed_sources.values())) if isinstance(processed_sources, dict) else {}
     retryable_by_key = _index_by_source_key(retryable_failed_items)
     exhausted_by_key = _index_by_source_key(exhausted_failed_items)
     resolved_source_keys: set[str] = set()
-
-    configured_candidates, configured_failed_items, configured_successful_source_keys = discover_configured_candidates(configured_sources)
-    discovered_candidates, discovery_failed_items = discover_local_candidates(vault_root)
     fresh_candidates: List[Dict[str, Any]] = []
     skipped_count = 0
     blocked_exhausted_count = 0
@@ -516,11 +561,28 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             fresh_candidates.append(merged_candidate)
             continue
         exhausted_entry = exhausted_by_key.get(source_key)
-        if source_key.startswith("configured-article:"):
-            exhausted_entry = None
-        if exhausted_entry and exhausted_entry.get("content_hash") and exhausted_entry.get("content_hash") == content_hash:
-            blocked_exhausted_count += 1
-            continue
+        if exhausted_entry:
+            if source_key.startswith("configured-article:"):
+                if not _configured_article_retry_ready(exhausted_entry, current_time):
+                    blocked_exhausted_count += 1
+                    continue
+                merged_candidate = dict(candidate)
+                if str(exhausted_entry.get("stage") or "") == "imported" and exhausted_entry.get("bundle_path"):
+                    merged_candidate["stage"] = "imported"
+                    merged_candidate["bundle_path"] = str(exhausted_entry.get("bundle_path") or "")
+                merged_candidate["retry_count"] = max(
+                    _retry_count(exhausted_entry),
+                    _retry_count(retryable_by_key.get(source_key)) if retryable_by_key.get(source_key) else 0,
+                )
+                if not merged_candidate.get("primary_domain"):
+                    merged_candidate["primary_domain"] = str(exhausted_entry.get("primary_domain") or "")
+                if not merged_candidate.get("related_domains"):
+                    merged_candidate["related_domains"] = list(exhausted_entry.get("related_domains") or [])
+                fresh_candidates.append(merged_candidate)
+                continue
+            if exhausted_entry.get("content_hash") and exhausted_entry.get("content_hash") == content_hash:
+                blocked_exhausted_count += 1
+                continue
         retry_entry = retryable_by_key.get(source_key)
         if retry_entry and (not retry_entry.get("content_hash") or retry_entry.get("content_hash") == content_hash):
             merged_candidate = dict(candidate)

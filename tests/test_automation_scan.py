@@ -255,7 +255,7 @@ class AutomationScanTests(unittest.TestCase):
             final_state = load_source_state(state_path)
             self.assertIn("configured-article:https://example.com/posts/alpha", final_state["processed_sources"])
 
-    def test_run_scan_allows_configured_article_retry_after_exhaustion(self) -> None:
+    def test_run_scan_blocks_exhausted_configured_article_on_immediate_follow_up_scan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             state_path = root / "automation-state.json"
@@ -295,6 +295,71 @@ class AutomationScanTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+
+            def fake_urlopen(url, *args, **kwargs):
+                if url == list_source["url"]:
+                    return _FakeResponse(
+                        b"<html><body><a href=\"https://example.com/posts/alpha\">Alpha</a></body></html>",
+                        "text/html",
+                    )
+                raise AssertionError(f"unexpected urlopen call: {url}")
+
+            with mock.patch("tools.automation_scan.now_iso", return_value="2026-04-10T00:05:00Z"), mock.patch(
+                "urllib.request.urlopen", side_effect=fake_urlopen
+            ), mock.patch("tools.automation_scan.import_source", side_effect=AssertionError("should not import")), mock.patch(
+                "tools.automation_scan.compile_bundle", side_effect=AssertionError("should not compile")
+            ):
+                result = run_scan(root, [list_source], state_path)
+
+            self.assertEqual(result["imported_count"], 0)
+            self.assertEqual(result["compiled_count"], 0)
+            self.assertEqual(result["blocked_exhausted_count"], 1)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(len(final_state["exhausted_failed_items"]), 1)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["source_key"], f"configured-article:{article_url}")
+
+    def test_run_scan_allows_configured_article_retry_after_cooldown_and_recovers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            list_source = {
+                "id": "list-example",
+                "name": "Example List",
+                "source_type": "article-list-page",
+                "url": "https://example.com/blog",
+                "enabled": True,
+            }
+            article_url = "https://example.com/posts/alpha"
+            content_hash = hashlib.sha256(article_url.encode("utf-8")).hexdigest()
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [list_source],
+                        "last_scan": None,
+                        "failed_items": [],
+                        "exhausted_failed_items": [
+                            {
+                                "source_key": f"configured-article:{article_url}",
+                                "source": article_url,
+                                "source_url": list_source["url"],
+                                "url": article_url,
+                                "content_hash": content_hash,
+                                "primary_domain": "ai-application",
+                                "related_domains": [],
+                                "stage": "imported",
+                                "error_stage": "compile",
+                                "retry_count": 2,
+                                "retry_status": "exhausted",
+                                "last_attempt_at": "2026-04-10T00:00:00Z",
+                                "bundle_path": "",
+                            }
+                        ],
+                        "processed_sources": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
             bundle_path = root / "20_Raw/inbox/recovered-configured-article"
             bundle_path.mkdir(parents=True)
 
@@ -306,9 +371,11 @@ class AutomationScanTests(unittest.TestCase):
                     )
                 raise AssertionError(f"unexpected urlopen call: {url}")
 
-            with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), mock.patch(
-                "tools.automation_scan.import_source", return_value=bundle_path
-            ) as import_source, mock.patch("tools.automation_scan.compile_bundle", return_value=None) as compile_bundle:
+            with mock.patch("tools.automation_scan.now_iso", return_value="2026-04-10T02:00:00Z"), mock.patch(
+                "urllib.request.urlopen", side_effect=fake_urlopen
+            ), mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_source, mock.patch(
+                "tools.automation_scan.compile_bundle", return_value=None
+            ) as compile_bundle:
                 result = run_scan(root, [list_source], state_path)
 
             self.assertEqual(result["imported_count"], 1)
@@ -380,6 +447,64 @@ class AutomationScanTests(unittest.TestCase):
             final_state = load_source_state(state_path)
             self.assertEqual(result["failed_count"], 0)
             self.assertEqual(result["exhausted_failed_count"], 0)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
+
+    def test_run_scan_prunes_exhausted_configured_article_when_source_stops_returning_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            list_source = {
+                "id": "list-example",
+                "name": "Example List",
+                "source_type": "article-list-page",
+                "url": "https://example.com/blog",
+                "enabled": True,
+            }
+            article_url = "https://example.com/posts/alpha"
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [list_source],
+                        "last_scan": None,
+                        "failed_items": [],
+                        "exhausted_failed_items": [
+                            {
+                                "source_key": f"configured-article:{article_url}",
+                                "source": article_url,
+                                "source_url": list_source["url"],
+                                "url": article_url,
+                                "content_hash": hashlib.sha256(article_url.encode("utf-8")).hexdigest(),
+                                "primary_domain": "ai-application",
+                                "related_domains": [],
+                                "stage": "imported",
+                                "error_stage": "compile",
+                                "retry_count": 2,
+                                "retry_status": "exhausted",
+                                "last_attempt_at": "2026-04-10T00:00:00Z",
+                                "bundle_path": "",
+                            }
+                        ],
+                        "processed_sources": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def fake_urlopen(url, *args, **kwargs):
+                if url == list_source["url"]:
+                    return _FakeResponse(b"<html><body>No articles here.</body></html>", "text/html")
+                raise AssertionError(f"unexpected urlopen call: {url}")
+
+            with mock.patch("tools.automation_scan.now_iso", return_value="2026-04-10T00:05:00Z"), mock.patch(
+                "urllib.request.urlopen", side_effect=fake_urlopen
+            ), mock.patch("tools.automation_scan.import_source", side_effect=AssertionError("should not import")), mock.patch(
+                "tools.automation_scan.compile_bundle", side_effect=AssertionError("should not compile")
+            ):
+                result = run_scan(root, [list_source], state_path)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(result["blocked_exhausted_count"], 0)
             self.assertEqual(final_state["failed_items"], [])
             self.assertEqual(final_state["exhausted_failed_items"], [])
 
