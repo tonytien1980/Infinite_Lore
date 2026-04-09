@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from tools.automation_scan import run_scan
 from tools.source_connectors import (
     choose_canonical_url,
     dedup_candidates,
@@ -222,6 +223,21 @@ class AutomationScanTests(unittest.TestCase):
         )
         self.assertEqual(len(unique), 1)
         self.assertEqual(unique[0]["canonical_url"], "https://example.com/good")
+
+    def test_run_scan_imports_local_file_and_updates_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "20_Raw/inbox").mkdir(parents=True)
+            (root / "10_Domains/ai-application").mkdir(parents=True)
+            (root / "10_Domains/ai-application/index.md").write_text("# AI Application\n", encoding="utf-8")
+            (root / "30_Wiki/ai-application").mkdir(parents=True)
+            (root / "20_Raw/inbox/note.txt").write_text("# Library Systems\n\nKnowledge access matters.\n", encoding="utf-8")
+
+            result = run_scan(root, [], root / "automation-state.json")
+
+            self.assertGreaterEqual(result["imported_count"], 1)
+            self.assertGreaterEqual(result["compiled_count"], 1)
+            self.assertEqual(result["failed_count"], 0)
 
     def test_dedup_falls_back_to_discovered_url_when_canonical_and_hash_are_empty(self) -> None:
         unique = dedup_candidates(

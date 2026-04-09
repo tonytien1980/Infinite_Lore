@@ -253,6 +253,13 @@ def save_source_state(path: Path, payload: Dict[str, Any]) -> Dict[str, Any]:
     return state
 
 
+def update_scan_state(path: Path, *, summary: Dict[str, Any], failed_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    state = load_source_state(path)
+    state["last_scan"] = summary
+    state["failed_items"] = failed_items
+    return save_source_state(path, state)
+
+
 def replace_sources(path: Path, sources: List[Dict[str, Any]]) -> Dict[str, Any]:
     state = load_source_state(path)
     state["sources"] = _normalize_source_entries(sources, strict=True)
