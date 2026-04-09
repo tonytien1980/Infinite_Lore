@@ -11,11 +11,12 @@ DEFAULT_SOURCE_STATE: Dict[str, Any] = {
     "sources": [],
     "last_scan": None,
     "failed_items": [],
+    "processed_sources": {},
 }
 
 SOURCE_REQUIRED_FIELDS = ("id", "name", "source_type", "url", "enabled")
 ALLOWED_SOURCE_TYPES = {"rss-feed", "article-list-page"}
-KNOWN_SOURCE_STATE_KEYS = {"sources", "last_scan", "failed_items"}
+KNOWN_SOURCE_STATE_KEYS = {"sources", "last_scan", "failed_items", "processed_sources"}
 
 
 def _clone_default_state() -> Dict[str, Any]:
@@ -50,6 +51,22 @@ def _normalize_last_scan(value: Any, strict: bool = False) -> Dict[str, Any] | N
     if strict:
         raise ValueError("last_scan must be an object or null")
     return None
+
+
+def _normalize_processed_sources(value: Any, strict: bool = False) -> Dict[str, Dict[str, Any]]:
+    if not isinstance(value, dict):
+        if strict:
+            raise ValueError("processed_sources must be an object")
+        return {}
+
+    normalized: Dict[str, Dict[str, Any]] = {}
+    for key, entry in value.items():
+        if isinstance(entry, dict):
+            normalized[str(key)] = dict(entry)
+            continue
+        if strict:
+            raise ValueError("processed_sources must contain objects only")
+    return normalized
 
 
 def _normalize_text_field(value: Any, strict: bool = False, field_name: str = "field") -> str | None:
@@ -196,6 +213,7 @@ def _normalize_source_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         state["sources"] = _normalize_source_entries(payload.get("sources"))
         state["last_scan"] = _normalize_last_scan(payload.get("last_scan"))
         state["failed_items"] = _normalize_failed_item_entries(payload.get("failed_items"))
+        state["processed_sources"] = _normalize_processed_sources(payload.get("processed_sources"))
         for key, value in payload.items():
             if key not in KNOWN_SOURCE_STATE_KEYS:
                 state[key] = value
@@ -227,11 +245,15 @@ def _source_state_has_recovery_signal(payload: Any) -> bool:
     failed_items = payload.get("failed_items", [])
     if not isinstance(failed_items, list):
         return True
+    if not isinstance(payload.get("processed_sources", {}), dict):
+        return True
     sources = payload.get("sources", [])
     normalized_sources = _normalize_source_entries(sources)
     if len(normalized_sources) != len(sources):
         return True
     if any(not isinstance(item, dict) for item in failed_items):
+        return True
+    if any(not isinstance(entry, dict) for entry in payload.get("processed_sources", {}).values()):
         return True
     return False
 
@@ -253,10 +275,24 @@ def save_source_state(path: Path, payload: Dict[str, Any]) -> Dict[str, Any]:
     return state
 
 
-def update_scan_state(path: Path, *, summary: Dict[str, Any], failed_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+def update_scan_state(
+    path: Path,
+    *,
+    summary: Dict[str, Any],
+    failed_items: List[Dict[str, Any]],
+    processed_sources: Dict[str, Dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
     state = load_source_state(path)
     state["last_scan"] = summary
     state["failed_items"] = failed_items
+    if processed_sources is not None:
+        state["processed_sources"] = _normalize_processed_sources(processed_sources)
+    return save_source_state(path, state)
+
+
+def set_processed_sources(path: Path, processed_sources: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    state = load_source_state(path)
+    state["processed_sources"] = _normalize_processed_sources(processed_sources)
     return save_source_state(path, state)
 
 
@@ -286,6 +322,7 @@ def summarize_source_state(path: Path) -> Dict[str, Any]:
         "last_scan": _normalize_last_scan(state.get("last_scan")),
         "failed_count": len(_normalize_failed_item_entries(state.get("failed_items"))),
         "failed_items": _normalize_failed_item_entries(state.get("failed_items")),
+        "processed_count": len(_normalize_processed_sources(state.get("processed_sources"))),
         "recovered_from_corruption": recovered_from_corruption,
         "state_warning": warning,
     }
