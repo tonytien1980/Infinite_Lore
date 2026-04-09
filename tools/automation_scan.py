@@ -218,6 +218,9 @@ def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[
             continue
 
         source_key = _local_source_key(vault_root, source_path)
+        compiled_at = str(metadata.get("compiled_at") or "").strip()
+        compiled_note_refs = metadata.get("compiled_note_refs")
+        has_compiled_proof = bool(compiled_at or compiled_note_refs)
         recovered[source_key] = {
             "source_key": source_key,
             "source": str(source_path),
@@ -227,9 +230,9 @@ def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[
             "primary_domain": str(metadata.get("primary_domain") or "ai-application"),
             "related_domains": list(metadata.get("related_domains") or []),
             "bundle_path": bundle_path.relative_to(vault_root).as_posix(),
-            "stage": "compiled",
+            "stage": "compiled" if has_compiled_proof else "imported",
             "retry_count": 0,
-            "completed_at": str(metadata.get("updated_at") or metadata.get("imported_at") or ""),
+            "completed_at": compiled_at if has_compiled_proof else str(metadata.get("imported_at") or ""),
         }
 
     return recovered
@@ -267,6 +270,21 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
         if _processed_matches(candidate, processed_entry):
             skipped_count += 1
             resolved_source_keys.add(source_key)
+            continue
+        if (
+            isinstance(processed_entry, dict)
+            and processed_entry.get("stage") == "imported"
+            and processed_entry.get("content_hash") == content_hash
+            and processed_entry.get("bundle_path")
+        ):
+            merged_candidate = dict(candidate)
+            merged_candidate["stage"] = "imported"
+            merged_candidate["bundle_path"] = str(processed_entry.get("bundle_path") or "")
+            if not merged_candidate.get("primary_domain"):
+                merged_candidate["primary_domain"] = str(processed_entry.get("primary_domain") or "")
+            if not merged_candidate.get("related_domains"):
+                merged_candidate["related_domains"] = list(processed_entry.get("related_domains") or [])
+            fresh_candidates.append(merged_candidate)
             continue
         exhausted_entry = exhausted_by_key.get(source_key)
         if exhausted_entry and exhausted_entry.get("content_hash") and exhausted_entry.get("content_hash") == content_hash:
