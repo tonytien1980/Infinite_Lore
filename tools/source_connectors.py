@@ -67,11 +67,11 @@ def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
         digest = item.get("content_hash", "") or ""
         if canonical and canonical in seen_urls:
             continue
-        if digest and digest in seen_hashes:
-            continue
         if canonical:
             seen_urls.add(canonical)
-        if digest:
+        elif digest and digest in seen_hashes:
+            continue
+        if not canonical and digest:
             seen_hashes.add(digest)
         kept.append(item)
     return kept

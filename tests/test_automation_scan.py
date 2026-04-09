@@ -39,3 +39,21 @@ class AutomationScanTests(unittest.TestCase):
             ]
         )
         self.assertEqual(len(unique), 2)
+
+    def test_dedup_keeps_different_canonical_urls_even_when_hash_matches(self) -> None:
+        unique = dedup_candidates(
+            [
+                {"canonical_url": "https://example.com/a", "content_hash": "same"},
+                {"canonical_url": "https://example.com/b", "content_hash": "same"},
+            ]
+        )
+        self.assertEqual(len(unique), 2)
+
+    def test_dedup_uses_hash_only_when_canonical_url_is_empty(self) -> None:
+        unique = dedup_candidates(
+            [
+                {"canonical_url": "", "content_hash": "same"},
+                {"canonical_url": "", "content_hash": "same"},
+            ]
+        )
+        self.assertEqual(len(unique), 1)
