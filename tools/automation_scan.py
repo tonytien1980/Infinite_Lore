@@ -360,6 +360,35 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             merged_candidate["related_domains"] = list(retry_entry.get("related_domains") or [])
         fresh_candidates.append(merged_candidate)
 
+    if state_summary.get("recovered_from_corruption"):
+        fresh_source_keys = {candidate["source_key"] for candidate in fresh_candidates}
+        for processed_entry in processed_by_key.values():
+            if not isinstance(processed_entry, dict):
+                continue
+            if processed_entry.get("stage") != "imported" or not processed_entry.get("bundle_path"):
+                continue
+
+            source_key = str(processed_entry.get("source_key") or "")
+            if not source_key or source_key in discovered_source_keys or source_key in fresh_source_keys:
+                continue
+
+            source_path = _resolve_source_path(vault_root, str(processed_entry.get("source") or ""))
+            if source_path.exists():
+                continue
+
+            bundle_path = vault_root / str(processed_entry.get("bundle_path") or "")
+            if not bundle_path.exists():
+                continue
+
+            merged_candidate = dict(processed_entry)
+            merged_candidate["stage"] = "imported"
+            merged_candidate["retry_count"] = _retry_count(processed_entry)
+            if not merged_candidate.get("primary_domain"):
+                merged_candidate["primary_domain"] = str(processed_entry.get("primary_domain") or "")
+            if not merged_candidate.get("related_domains"):
+                merged_candidate["related_domains"] = list(processed_entry.get("related_domains") or [])
+            fresh_candidates.append(merged_candidate)
+
     candidates = dedup_candidates(fresh_candidates)
 
     imported_count = 0
