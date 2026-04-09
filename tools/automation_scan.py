@@ -31,21 +31,43 @@ def _local_source_key(vault_root: Path, path: Path) -> str:
     return f"local-file:{relative.as_posix()}"
 
 
-def discover_local_candidates(vault_root: Path) -> List[Dict[str, Any]]:
+def discover_local_candidates(vault_root: Path) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     inbox = vault_root / "20_Raw/inbox"
     candidates: List[Dict[str, Any]] = []
+    failed_items: List[Dict[str, Any]] = []
     if not inbox.exists():
-        return candidates
+        return candidates, failed_items
 
     for path in sorted(inbox.iterdir()):
         if not path.is_file():
             continue
-        data = path.read_bytes()
-        content_text = data.decode("utf-8", errors="replace")
-        primary_domain, related_domains = infer_domains(path.name, content_text)
+        source_key = _local_source_key(vault_root, path)
+        try:
+            data = path.read_bytes()
+            content_text = data.decode("utf-8", errors="replace")
+            primary_domain, related_domains = infer_domains(path.name, content_text)
+        except Exception as exc:
+            fallback_primary, fallback_related = infer_domains(path.name, "")
+            failed_items.append(
+                {
+                    "source_key": source_key,
+                    "source": str(path),
+                    "source_url": str(path),
+                    "url": str(path),
+                    "content_hash": "",
+                    "primary_domain": fallback_primary,
+                    "related_domains": fallback_related,
+                    "stage": "discovery-failed",
+                    "error_stage": "discover",
+                    "error": f"{exc.__class__.__name__}: {exc}",
+                    "retry_count": 0,
+                    "bundle_path": "",
+                }
+            )
+            continue
         candidate = {
             "title": path.name,
-            "source_key": _local_source_key(vault_root, path),
+            "source_key": source_key,
             "source": str(path),
             "source_kind": "local-file",
             "url": str(path),
@@ -58,7 +80,7 @@ def discover_local_candidates(vault_root: Path) -> List[Dict[str, Any]]:
             "retry_count": 0,
         }
         candidates.append(candidate)
-    return candidates
+    return candidates, failed_items
 
 
 def _normalize_failed_item(item: Any) -> Dict[str, Any] | None:
@@ -186,7 +208,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     retryable_by_key = _index_by_source_key(retryable_failed_items)
     exhausted_by_key = _index_by_source_key(exhausted_failed_items)
 
-    discovered_candidates = discover_local_candidates(vault_root)
+    discovered_candidates, discovery_failed_items = discover_local_candidates(vault_root)
     fresh_candidates: List[Dict[str, Any]] = []
     skipped_count = 0
     blocked_exhausted_count = 0
@@ -219,8 +241,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
 
     imported_count = 0
     compiled_count = 0
-    new_failed: List[Dict[str, Any]] = []
-    new_exhausted_failed_items = list(exhausted_failed_items)
+    new_failed: List[Dict[str, Any]] = list(discovery_failed_items)
     added_exhausted_items: List[Dict[str, Any]] = []
     new_processed_sources = dict(processed_sources) if isinstance(processed_sources, dict) else {}
     resolved_source_keys: set[str] = set()
@@ -324,7 +345,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
 
     summary = {
         "ran_at": now_iso(),
-        "discovered_count": len(discovered_candidates),
+        "discovered_count": len(discovered_candidates) + len(discovery_failed_items),
         "skipped_count": skipped_count,
         "blocked_exhausted_count": blocked_exhausted_count,
         "deduplicated_count": len(candidates),

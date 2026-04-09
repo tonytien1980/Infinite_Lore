@@ -242,6 +242,41 @@ class AutomationScanTests(unittest.TestCase):
             self.assertGreaterEqual(result["compiled_count"], 1)
             self.assertEqual(result["failed_count"], 0)
 
+    def test_run_scan_records_unreadable_local_file_and_continues(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            (root / "10_Domains/business-strategy").mkdir(parents=True)
+            (root / "10_Domains/business-strategy/index.md").write_text("# Business Strategy\n", encoding="utf-8")
+            (root / "30_Wiki/business-strategy").mkdir(parents=True)
+            readable = inbox / "readable.txt"
+            unreadable = inbox / "unreadable.txt"
+            readable.write_text("# Market Positioning\n\nBusiness strategy and positioning.\n", encoding="utf-8")
+            unreadable.write_text("blocked", encoding="utf-8")
+
+            original_read_bytes = Path.read_bytes
+
+            def patched_read_bytes(self: Path) -> bytes:
+                if self == unreadable:
+                    raise PermissionError("nope")
+                return original_read_bytes(self)
+
+            with mock.patch.object(Path, "read_bytes", patched_read_bytes):
+                result = run_scan(root, [], root / "automation-state.json")
+
+            state = load_source_state(root / "automation-state.json")
+            failed_item = next(item for item in state["failed_items"] if item["source"] == str(unreadable))
+
+            self.assertEqual(result["imported_count"], 1)
+            self.assertEqual(result["compiled_count"], 1)
+            self.assertEqual(result["failed_count"], 1)
+            self.assertEqual(failed_item["stage"], "discovery-failed")
+            self.assertEqual(failed_item["error_stage"], "discover")
+            self.assertIn("PermissionError", failed_item["error"])
+            self.assertEqual(state["last_scan"]["failed_count"], 1)
+            self.assertEqual(state["last_scan"]["discovered_count"], 2)
+
     def test_run_scan_skips_already_processed_local_file_on_rerun(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
