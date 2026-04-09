@@ -695,6 +695,30 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertIn("duplicate source url", response.json()["detail"])
 
+    def test_inbox_sources_persists_ipv6_literal_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-ipv6",
+                            "name": "IPv6 Feed",
+                            "source_type": "rss-feed",
+                            "url": "https://[2001:db8::1]/feed/",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+            payload = client.get("/api/inbox/sources").json()
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(payload["sources"][0]["url"], "https://[2001:db8::1]/feed/")
+
     def test_inbox_sources_rejects_duplicate_source_ids(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

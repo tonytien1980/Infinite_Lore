@@ -22,10 +22,6 @@ def _clone_default_state() -> Dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_SOURCE_STATE))
 
 
-def _normalize_source_list(value: Any) -> List[Dict[str, Any]]:
-    return value if isinstance(value, list) else []
-
-
 def _normalize_failed_items(value: Any) -> List[Any]:
     return value if isinstance(value, list) else []
 
@@ -95,6 +91,7 @@ def _normalize_http_url(value: Any, strict: bool = False) -> str | None:
 
     canonical_scheme = parsed.scheme.lower()
     canonical_host = parsed.hostname.lower()
+    display_host = f"[{canonical_host}]" if ":" in canonical_host else canonical_host
     default_port = 80 if canonical_scheme == "http" else 443
     try:
         parsed_port = parsed.port
@@ -103,9 +100,9 @@ def _normalize_http_url(value: Any, strict: bool = False) -> str | None:
             raise ValueError("url must be a non-empty http(s) URL")
         return None
     if parsed_port and parsed_port != default_port:
-        netloc = f"{canonical_host}:{parsed_port}"
+        netloc = f"{display_host}:{parsed_port}"
     else:
-        netloc = canonical_host
+        netloc = display_host
     if parsed.username or parsed.password:
         auth = parsed.username or ""
         if parsed.password:
