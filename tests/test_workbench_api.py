@@ -140,6 +140,164 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertIn("answer", payload)
             self.assertIn("grounding", payload)
             self.assertIn("trace", payload)
+            self.assertIn("reflections", payload)
+
+    def test_reflection_endpoints_draft_and_confirm(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "30_Wiki/ai-application").mkdir(parents=True)
+            (root / "30_Wiki/ai-application/library-systems--synthesis.md").write_text(
+                "---\n"
+                "title: Library Systems\n"
+                "note_type: synthesis\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/library\"]\n"
+                "---\n\n"
+                "# Library Systems\n\n"
+                "## Source Summary\n"
+                "A library system organizes reusable access points.\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            draft = client.post(
+                "/api/ask/reflection/draft",
+                json={
+                    "question": "What is a library system?",
+                    "ask_mode": "ask",
+                    "raw_input": "知識入口比堆資料更重要。",
+                    "grounding": [
+                        {
+                            "path": "30_Wiki/ai-application/library-systems--synthesis.md",
+                            "title": "Library Systems",
+                            "primary_domain": "ai-application",
+                        }
+                    ],
+                },
+            )
+            payload = draft.json()
+            payload.update(
+                {
+                    "kind": "reflection",
+                    "target_ref": payload["linked_note_ref"],
+                    "target_note_ref": payload["linked_note_ref"],
+                    "target_note_title": payload["linked_note_title"],
+                    "proposed_content": payload["body"],
+                    "content": payload["body"],
+                    "input": payload["raw_input"],
+                    "feedback_input": payload["raw_input"],
+                }
+            )
+            saved = client.post("/api/ask/reflection/confirm", json=payload)
+
+            self.assertEqual(draft.status_code, 200)
+            self.assertEqual(saved.status_code, 200)
+            saved_path = root / saved.json()["path"]
+            self.assertTrue(saved_path.exists())
+            self.assertIn("50_Brainstorming/reflections/ai-application/", saved.json()["path"])
+            saved_text = saved_path.read_text(encoding="utf-8")
+            self.assertNotIn("\nkind:", saved_text)
+            self.assertNotIn("\ntarget_ref:", saved_text)
+            self.assertNotIn("\nproposed_content:", saved_text)
+
+    def test_correction_endpoints_draft_and_apply(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            note_path = root / "30_Wiki/ai-application/library-systems--synthesis.md"
+            note_path.parent.mkdir(parents=True)
+            note_path.write_text(
+                "---\n"
+                "title: Library Systems\n"
+                "note_type: synthesis\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/library\"]\n"
+                "---\n\n"
+                "# Library Systems\n\n"
+                "## Source Summary\n"
+                "A library system organizes retrieval.\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            draft = client.post(
+                "/api/ask/correction/draft",
+                json={
+                    "question": "What is a library system?",
+                    "ask_mode": "ask",
+                    "raw_input": "請改成 reusable access points。",
+                    "grounding": [
+                        {
+                            "path": "30_Wiki/ai-application/library-systems--synthesis.md",
+                            "title": "Library Systems",
+                            "primary_domain": "ai-application",
+                        }
+                    ],
+                },
+            )
+            payload = draft.json()
+            applied = client.post("/api/ask/correction/apply", json=payload)
+
+            self.assertEqual(draft.status_code, 200)
+            self.assertEqual(applied.status_code, 200)
+            self.assertEqual(note_path.read_text(encoding="utf-8"), payload["proposed_content"].rstrip() + "\n")
+            self.assertIn("80_Archive/wiki-versions/ai-application/", applied.json()["archive_version_ref"])
+
+    def test_correction_apply_rejects_without_pending_review_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            note_path = root / "30_Wiki/ai-application/library-systems--synthesis.md"
+            note_path.parent.mkdir(parents=True)
+            note_path.write_text(
+                "---\n"
+                "title: Library Systems\n"
+                "note_type: synthesis\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/library\"]\n"
+                "---\n\n"
+                "# Library Systems\n\n"
+                "## Source Summary\n"
+                "A library system organizes retrieval.\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/ask/correction/apply",
+                json={
+                    "target_note_ref": "30_Wiki/ai-application/library-systems--synthesis.md",
+                    "target_note_title": "Library Systems",
+                    "primary_domain": "ai-application",
+                    "proposed_content": "not allowed",
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("pending proposal", response.json()["detail"])
+            self.assertIn("retrieval", note_path.read_text(encoding="utf-8"))
+
+    def test_reflection_draft_rejects_paths_outside_the_vault(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/ask/reflection/draft",
+                json={
+                    "question": "What is a library system?",
+                    "ask_mode": "ask",
+                    "raw_input": "test",
+                    "grounding": [
+                        {
+                            "path": "../outside.md",
+                            "title": "Outside",
+                            "primary_domain": "ai-application",
+                        }
+                    ],
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("inside the vault", response.json()["detail"])
 
 
 if __name__ == "__main__":

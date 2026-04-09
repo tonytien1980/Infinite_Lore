@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +15,7 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
 
 from workbench.config_store import load_config, save_config
 from workbench.ask_service import answer_question
+from workbench.reflection_service import apply_correction, draft_correction, draft_reflection, save_reflection
 from workbench.services import get_dashboard, get_health, get_system_info, import_file, import_url, list_bundles, list_knowledge
 
 
@@ -74,6 +75,46 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
             requested_mode=payload.get("mode", "auto"),
             settings=settings,
         )
+
+    @app.post("/api/ask/reflection/draft")
+    def ask_reflection_draft(payload: dict) -> dict:
+        try:
+            return draft_reflection(
+                vault_root=vault_root,
+                ask_question=payload["question"],
+                ask_mode=payload["ask_mode"],
+                raw_input=payload["raw_input"],
+                grounding=payload["grounding"],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/ask/reflection/confirm")
+    def ask_reflection_confirm(payload: dict) -> dict:
+        try:
+            return save_reflection(vault_root, payload)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/ask/correction/draft")
+    def ask_correction_draft(payload: dict) -> dict:
+        try:
+            return draft_correction(
+                vault_root=vault_root,
+                ask_question=payload["question"],
+                ask_mode=payload["ask_mode"],
+                raw_input=payload["raw_input"],
+                grounding=payload["grounding"],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/ask/correction/apply")
+    def ask_correction_apply(payload: dict) -> dict:
+        try:
+            return apply_correction(vault_root, payload)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/inbox/import-file")
     async def inbox_import_file(file: UploadFile = File(...), primary_domain: Optional[str] = Form(None)) -> dict:

@@ -74,6 +74,37 @@ class QueryAskTests(unittest.TestCase):
             self.assertEqual(result["answer"], "")
             self.assertGreaterEqual(len(result["grounding"]), 1)
 
+    def test_ask_mode_retrieves_cjk_notes_without_false_abstention(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            note_path = root / "30_Wiki/ai-application/knowledge-entry--synthesis.md"
+            write_note(
+                note_path,
+                (
+                    "---\n"
+                    "title: 知識入口\n"
+                    "note_type: synthesis\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/cjk\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# 知識入口\n\n"
+                    "## Source Summary\n"
+                    "知識入口是讓使用者更快找到答案的設計。\n"
+                ),
+            )
+
+            result = answer_question(
+                vault_root=root,
+                question="知識入口是什麼？",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            self.assertIn("知識入口是讓使用者更快找到答案的設計", result["answer"])
+            self.assertGreaterEqual(len(result["grounding"]), 1)
+
     def test_ask_mode_returns_grounded_local_answer_when_no_provider_is_configured(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -90,6 +121,48 @@ class QueryAskTests(unittest.TestCase):
             self.assertIn("Knowledge compilation", result["answer"])
             self.assertGreaterEqual(len(result["grounding"]), 1)
             self.assertGreaterEqual(len(result["trace"]), 1)
+
+    def test_local_ask_prefers_synthesis_over_small_note_for_primary_answer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_vault(root)
+
+            synthesis_path = root / "30_Wiki/ai-application/library-systems--synthesis.md"
+            synthesis_path.write_text(
+                "---\n"
+                "title: Library Systems\n"
+                "note_type: synthesis\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/library\"]\n"
+                "---\n\n"
+                "# Library Systems\n\n"
+                "## Source Summary\n"
+                "A library system organizes trusted knowledge access points.\n",
+                encoding="utf-8",
+            )
+
+            concept_path = root / "30_Wiki/ai-application/library-systems--concept--knowledge-compilation.md"
+            concept_path.write_text(
+                "---\n"
+                "title: Knowledge Compilation\n"
+                "note_type: concept\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/library\"]\n"
+                "---\n\n"
+                "# Knowledge Compilation\n\n"
+                "## Definition\n"
+                "Knowledge compilation turns raw material into reusable notes.\n",
+                encoding="utf-8",
+            )
+
+            result = answer_question(
+                vault_root=root,
+                question="What is a library system?",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            self.assertIn("trusted knowledge access points", result["answer"])
 
     def test_ask_mode_uses_provider_route_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

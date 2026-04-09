@@ -54,3 +54,13 @@ The Query / Ask layer serves the library, not the open internet.
 - Answers should come from `30_Wiki/` first.
 - Raw bundles are used for trace, not as the first answer layer.
 - If evidence is insufficient, the system should say so instead of inventing an answer.
+
+## Reflection And Feedback
+
+Use the same Ask page for lightweight correction and interpretation after the library answers.
+
+- Keep `Library Answer` separate from `Your Reflections`.
+- Show the latest `3` linked reflections on the page, with a `View all` control for the full set.
+- Use `Respond Now` with one shared input for either `Correct this knowledge` or `Add my interpretation`.
+- Drafts stay inline on the same page so the user can review and edit them before confirmation.
+- A correction must be confirmed before it applies, and the Ask answer should be ready to refresh immediately after the apply step.

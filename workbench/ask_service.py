@@ -65,11 +65,27 @@ def infer_mode(question: str, requested_mode: str) -> str:
 
 
 def normalize_terms(text: str) -> List[str]:
-    return [
+    terms = [
         term
         for term in re.findall(r"[a-zA-Z0-9]+", text.lower())
         if len(term) > 2 and term not in STOPWORDS
     ]
+
+    seen = set(terms)
+    for run in re.findall(r"[\u4e00-\u9fff]+", text):
+        run_length = len(run)
+        if run_length < 2:
+            continue
+        max_width = min(4, run_length)
+        for width in range(2, max_width + 1):
+            for start in range(0, run_length - width + 1):
+                term = run[start : start + width]
+                if term in seen:
+                    continue
+                seen.add(term)
+                terms.append(term)
+
+    return terms
 
 
 def read_note(path: Path) -> Tuple[Dict[str, object], str]:
@@ -117,6 +133,7 @@ def retrieve_notes(vault_root: Path, question: str) -> Tuple[List[Dict[str, obje
             "primary_domain": metadata.get("primary_domain", ""),
             "source_refs": metadata.get("source_refs", []),
             "body": body,
+            "score": score,
         }
         if note_type == "synthesis":
             synthesis.append((score, entry))
@@ -137,7 +154,10 @@ def local_answer(question: str, synthesis_notes: List[Dict[str, object]], small_
             ["Insufficient evidence in the current wiki."],
         )
 
-    strongest = small_notes[0] if small_notes else synthesis_notes[0]
+    strongest = max(
+        synthesis_notes + small_notes,
+        key=lambda note: (int(note.get("score", 0)), 1 if note.get("note_type") == "synthesis" else 0),
+    )
     body = strongest["body"]
     definition_match = re.search(r"## Definition\s+(.+?)(?:\n##|\Z)", body, re.S)
     summary_match = re.search(r"## Source Summary\s+(.+?)(?:\n##|\Z)", body, re.S)
@@ -163,6 +183,33 @@ def build_trace(notes: List[Dict[str, object]]) -> List[Dict[str, object]]:
             seen.add(source_ref)
             traces.append({"source_ref": source_ref, "from_note": note["path"]})
     return traces
+
+
+def retrieve_reflections(vault_root: Path, grounding: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    reflections_root = vault_root / "50_Brainstorming" / "reflections"
+    if not reflections_root.exists() or not grounding:
+        return []
+
+    linked_paths = {note["path"] for note in grounding}
+    matches: List[Dict[str, object]] = []
+    for reflection_path in reflections_root.rglob("*.md"):
+        metadata, body = read_note(reflection_path)
+        linked_note_ref = str(metadata.get("linked_note_ref", ""))
+        if linked_note_ref not in linked_paths:
+            continue
+        matches.append(
+            {
+                "path": reflection_path.relative_to(vault_root).as_posix(),
+                "title": metadata.get("title", reflection_path.stem),
+                "linked_note_ref": linked_note_ref,
+                "linked_note_title": metadata.get("linked_note_title", ""),
+                "created_at": metadata.get("created_at", ""),
+                "body": body,
+            }
+        )
+
+    matches.sort(key=lambda item: (item["created_at"], item["path"]), reverse=True)
+    return matches
 
 
 def resolve_route_model(settings: Dict[str, object], route_name: str) -> Optional[Dict[str, str]]:
@@ -219,6 +266,7 @@ def answer_question(
     synthesis_notes, small_notes = retrieve_notes(vault_root, question)
     grounding = synthesis_notes + small_notes
     trace = build_trace(grounding)
+    reflections = retrieve_reflections(vault_root, grounding)
 
     if mode == "query":
         return {
@@ -226,6 +274,7 @@ def answer_question(
             "answer": "",
             "grounding": grounding,
             "trace": trace,
+            "reflections": reflections,
             "limits": [] if grounding else ["No matching notes found in the current library."],
             "answer_source": "local",
         }
@@ -237,6 +286,7 @@ def answer_question(
             "answer": answer,
             "grounding": grounding,
             "trace": trace,
+            "reflections": reflections,
             "limits": limits,
             "answer_source": "local",
         }
@@ -255,6 +305,7 @@ def answer_question(
             "answer": answer,
             "grounding": grounding,
             "trace": trace,
+            "reflections": reflections,
             "limits": [],
             "answer_source": "model",
         }
@@ -265,6 +316,7 @@ def answer_question(
         "answer": answer,
         "grounding": grounding,
         "trace": trace,
+        "reflections": reflections,
         "limits": limits,
         "answer_source": "local",
     }

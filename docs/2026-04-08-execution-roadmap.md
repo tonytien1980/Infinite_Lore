@@ -209,23 +209,32 @@ This avoids designing a reflection layer too early and keeps the source-grounded
 
 Background automation, watchers, and batch jobs are multipliers. They should be added after the manual and UI-based workflows feel correct.
 
-## 8. Immediate Next Phase
+## 8. Current Phase
 
 ### Phase 6: Reflection / Feedback Layer
 
-This is the next priority.
+This phase is now delivered and should be treated as the current reflection / feedback layer.
 
-The purpose of the next phase is:
+The Ask page now becomes the same-page feedback loop for the library answer.
+
+The purpose of this phase is:
 
 - let the user attach reflection and feedback to existing knowledge safely
 - preserve the clean boundary between source-grounded wiki and personal interpretation
+- keep `Library Answer` visually separate from `Your Reflections`
+- let the user review a drafted reflection or a full proposed corrected note inline before confirmation
 - make later refinement possible without polluting source-grounded notes
 
-### The next phase should cover
+### This phase covers
 
 - linked reflection notes
 - safe attachment of personal interpretation to existing wiki notes
-- feedback pathways that can improve knowledge later without rewriting source-grounded notes directly
+- a visible `Your Reflections` section with the latest `3` linked reflections and a `View all` control
+- a `Respond Now` section with one shared input and two explicit actions:
+  - `Correct this knowledge`
+  - `Add my interpretation`
+- an inline feedback editor for reviewing the drafted reflection or proposed corrected note before confirmation
+- correction confirmation that refreshes the current Ask answer after apply
 
 ## 9. Phase Boundaries
 
@@ -253,9 +262,12 @@ Definition of done:
 
 Definition of done:
 
+- user can ask on one page, read the library answer, and keep reflections separate from that answer
 - user can attach reflection or feedback without polluting source-grounded wiki
 - reflection notes can link to wiki notes cleanly
+- user can draft and confirm a correction or interpretation inline on the Ask page
 - user feedback can trigger later refinement pathways
+- a confirmed correction refreshes the Ask answer immediately
 
 ### Phase 7: Automation / Watcher Layer
 
@@ -290,4 +302,4 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Design and implement the grounded Query / Ask layer inside the Workbench.`
+`Design and implement the automation / watcher layer after the Reflection / Feedback layer is in place.`
