@@ -43,6 +43,8 @@ FILTERED_LIST_HTML = """
 <html><body>
   <a href="https://example.com/posts/alpha">Alpha</a>
   <a href="/posts/beta?story=1#section">Beta</a>
+  <a href="?page=2">Next page</a>
+  <a href="/search?q=alpha">Search</a>
   <a href="mailto:test@example.com">Email</a>
   <a href="javascript:void(0)">JS</a>
   <a href="https://other.example.com/posts/gamma">Off domain</a>
@@ -76,10 +78,23 @@ class AutomationScanTests(unittest.TestCase):
             ["https://example.com/posts/alpha", "https://example.com/posts/beta?story=1"],
         )
 
+    def test_discovers_article_links_treats_www_and_apex_as_same_domain(self) -> None:
+        items = discover_article_list_items(
+            '<html><body><a href="https://example.com/posts/alpha">Alpha</a></body></html>',
+            "https://www.example.com/blog",
+        )
+        self.assertEqual([item["url"] for item in items], ["https://example.com/posts/alpha"])
+
     def test_choose_canonical_url_preserves_query_but_strips_fragment(self) -> None:
         self.assertEqual(
             choose_canonical_url("https://example.com/posts/alpha?story=1&utm_source=newsletter#frag"),
             "https://example.com/posts/alpha?story=1&utm_source=newsletter",
+        )
+
+    def test_choose_canonical_url_normalizes_host_case_and_empty_path(self) -> None:
+        self.assertEqual(
+            choose_canonical_url("HTTPS://WWW.EXAMPLE.COM"),
+            "https://www.example.com/",
         )
 
     def test_dedup_prefers_canonical_url_then_hash(self) -> None:
@@ -115,6 +130,15 @@ class AutomationScanTests(unittest.TestCase):
         unique = dedup_candidates(
             [
                 {"canonical_url": "", "content_hash": "same"},
+                {"canonical_url": "https://example.com/a", "content_hash": "same"},
+            ]
+        )
+        self.assertEqual(len(unique), 1)
+
+    def test_dedup_drops_mixed_canonical_and_hash_duplicate_regardless_of_order(self) -> None:
+        unique = dedup_candidates(
+            [
+                {"content_hash": "same"},
                 {"canonical_url": "https://example.com/a", "content_hash": "same"},
             ]
         )

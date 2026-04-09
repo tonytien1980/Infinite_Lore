@@ -21,7 +21,16 @@ class LinkCollector(HTMLParser):
 
 def normalize_url(url: str) -> str:
     parsed = urllib.parse.urlparse(url.strip())
-    clean = parsed._replace(fragment="")
+    path = parsed.path or "/"
+    host = (parsed.hostname or "").lower()
+    if parsed.port:
+        host = f"{host}:{parsed.port}"
+    if parsed.username:
+        userinfo = parsed.username
+        if parsed.password:
+            userinfo = f"{userinfo}:{parsed.password}"
+        host = f"{userinfo}@{host}"
+    clean = parsed._replace(fragment="", path=path, netloc=host)
     return urllib.parse.urlunparse(clean)
 
 
@@ -47,10 +56,14 @@ def _is_http_url(url: str) -> bool:
 def _is_same_domain(url: str, source_url: str) -> bool:
     parsed_url = urllib.parse.urlparse(url)
     parsed_source = urllib.parse.urlparse(source_url)
-    return parsed_url.hostname == parsed_source.hostname
+    host_url = (parsed_url.hostname or "").lower().removeprefix("www.")
+    host_source = (parsed_source.hostname or "").lower().removeprefix("www.")
+    return host_url == host_source
 
 
-def _looks_like_non_article_path(path: str) -> bool:
+def _looks_like_non_article_url(url: str) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    path = parsed.path
     segments = [segment for segment in path.lower().split("/") if segment]
     if not segments:
         return True
@@ -66,7 +79,12 @@ def _looks_like_non_article_path(path: str) -> bool:
         "terms",
         "tags",
     }
-    return segments[0] in blocked
+    if segments[0] in blocked or segments[0] == "search" or segments[0] == "page":
+        return True
+    query_keys = {key.lower() for key in urllib.parse.parse_qs(parsed.query).keys()}
+    if "page" in query_keys:
+        return True
+    return False
 
 
 def discover_rss_items(feed_bytes: bytes, source_url: str) -> List[Dict[str, str]]:
@@ -122,7 +140,7 @@ def discover_article_list_items(html: str, source_url: str) -> List[Dict[str, st
             continue
         if normalized in seen or normalized == base:
             continue
-        if _looks_like_non_article_path(parsed.path):
+        if _looks_like_non_article_url(normalized):
             continue
         seen.add(normalized)
         items.append({"title": normalized, "url": normalized, "source_url": source_url})
