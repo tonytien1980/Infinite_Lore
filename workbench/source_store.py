@@ -112,7 +112,8 @@ def _normalize_http_url(value: Any, strict: bool = False) -> str | None:
             auth = f"{auth}:{parsed.password}"
         netloc = f"{auth}@{netloc}"
 
-    return urlunparse((canonical_scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+    canonical_path = parsed.path or "/"
+    return urlunparse((canonical_scheme, netloc, canonical_path, parsed.params, parsed.query, ""))
 
 
 def _normalize_source_entry(entry: Any, strict: bool = False) -> Dict[str, Any] | None:
