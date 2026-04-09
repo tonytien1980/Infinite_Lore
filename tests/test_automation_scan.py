@@ -12,6 +12,7 @@ from tools.source_connectors import (
     discover_article_list_items,
     discover_rss_items,
 )
+from tools.wiki_compile import read_note
 from workbench.source_store import load_source_state
 
 
@@ -474,6 +475,49 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(final_state["processed_sources"][source_key]["stage"], "compiled")
             self.assertEqual(final_state["failed_items"], [])
             self.assertEqual(final_state["exhausted_failed_items"], [])
+
+    def test_run_scan_preserves_compile_retry_budget_across_state_corruption(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            note_path = inbox / "budget-after-corruption.txt"
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+            bundle_path = root / "20_Raw/inbox/2026-04-10-budget-after-corruption"
+
+            with mock.patch("tools.automation_scan.compile_bundle", side_effect=RuntimeError("compile boom")):
+                first = run_scan(root, [], state_path)
+
+            state = load_source_state(state_path)
+            self.assertEqual(state["failed_items"][0]["retry_count"], 1)
+            self.assertEqual(read_note(bundle_path / "metadata.md")[0].get("compile_retry_count"), "1")
+
+            state_path.write_text("{not json", encoding="utf-8")
+
+            with mock.patch("tools.automation_scan.import_source", side_effect=AssertionError("should not re-import")), mock.patch(
+                "tools.automation_scan.compile_bundle",
+                side_effect=RuntimeError("compile boom again"),
+            ) as compile_mock:
+                second = run_scan(root, [], state_path)
+
+            final_state = load_source_state(state_path)
+            source_key = "local-file:20_Raw/inbox/budget-after-corruption.txt"
+
+            self.assertEqual(first["imported_count"], 1)
+            self.assertEqual(first["compiled_count"], 0)
+            self.assertEqual(second["imported_count"], 0)
+            self.assertEqual(second["compiled_count"], 0)
+            self.assertEqual(second["failed_count"], 0)
+            self.assertEqual(second["exhausted_failed_count"], 1)
+            self.assertEqual(compile_mock.call_count, 1)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(len(final_state["exhausted_failed_items"]), 1)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["source_key"], source_key)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["retry_count"], 2)
 
     def test_run_scan_retry_success_updates_processed_state_for_next_scan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

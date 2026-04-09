@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from tools.import_bundle import import_source
 from tools.source_connectors import dedup_candidates
-from tools.wiki_compile import compile_bundle, read_note
+from tools.wiki_compile import compile_bundle, read_note, write_note
 from workbench.services import infer_domains
 from workbench.source_store import load_source_state, summarize_source_state, update_scan_state
 
@@ -187,6 +187,22 @@ def _unquote_scalar(value: str) -> str:
     return text
 
 
+def _persist_bundle_retry_count(bundle_path: Path, retry_count: int) -> None:
+    metadata_path = bundle_path / "metadata.md"
+    try:
+        metadata, body = read_note(metadata_path)
+    except Exception:
+        return
+
+    current_retry_count = _retry_count({"retry_count": metadata.get("compile_retry_count", 0)})
+    if retry_count <= current_retry_count:
+        return
+
+    metadata["compile_retry_count"] = retry_count
+    metadata["updated_at"] = now_iso()
+    write_note(metadata_path, metadata, body)
+
+
 def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[str, Any]]:
     inbox = vault_root / "20_Raw/inbox"
     recovered: Dict[str, Dict[str, Any]] = {}
@@ -221,6 +237,7 @@ def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[
         compiled_at = str(metadata.get("compiled_at") or "").strip()
         compiled_note_refs = metadata.get("compiled_note_refs")
         has_compiled_proof = bool(compiled_at or compiled_note_refs)
+        compile_retry_count = _retry_count({"retry_count": metadata.get("compile_retry_count", 0)})
         recovered[source_key] = {
             "source_key": source_key,
             "source": str(source_path),
@@ -231,7 +248,7 @@ def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[
             "related_domains": list(metadata.get("related_domains") or []),
             "bundle_path": bundle_path.relative_to(vault_root).as_posix(),
             "stage": "compiled" if has_compiled_proof else "imported",
-            "retry_count": 0,
+            "retry_count": 0 if has_compiled_proof else compile_retry_count,
             "completed_at": compiled_at if has_compiled_proof else str(metadata.get("imported_at") or ""),
         }
 
@@ -280,6 +297,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             merged_candidate = dict(candidate)
             merged_candidate["stage"] = "imported"
             merged_candidate["bundle_path"] = str(processed_entry.get("bundle_path") or "")
+            merged_candidate["retry_count"] = int(processed_entry.get("retry_count", 0))
             if not merged_candidate.get("primary_domain"):
                 merged_candidate["primary_domain"] = str(processed_entry.get("primary_domain") or "")
             if not merged_candidate.get("related_domains"):
@@ -343,6 +361,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             try:
                 compile_bundle(vault_root, bundle_path)
             except Exception as exc:
+                _persist_bundle_retry_count(bundle_path, retry_count + 1)
                 failure = _failure_record(
                     candidate,
                     vault_root=vault_root,
@@ -395,6 +414,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
         try:
             compile_bundle(vault_root, bundle)
         except Exception as exc:
+            _persist_bundle_retry_count(bundle, retry_count + 1)
             failure = _failure_record(
                 candidate,
                 vault_root=vault_root,
