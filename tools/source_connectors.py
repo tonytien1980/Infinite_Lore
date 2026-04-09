@@ -94,7 +94,8 @@ def discover_rss_items(feed_bytes: bytes, source_url: str) -> List[Dict[str, str
             elif local == "link":
                 href = child.attrib.get("href", "").strip()
                 rel = child.attrib.get("rel", "").strip().lower()
-                if href and (_is_http_url(href) or href.startswith("/")) and (not link or rel in {"alternate", ""}):
+                parsed_href = urllib.parse.urlparse(href)
+                if href and (not parsed_href.scheme or parsed_href.scheme.lower() in {"http", "https"}) and (not link or rel in {"alternate", ""}):
                     link = href
         if link:
             absolute = urllib.parse.urljoin(source_url, link)
@@ -130,23 +131,34 @@ def discover_article_list_items(html: str, source_url: str) -> List[Dict[str, st
 
 def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
     kept: List[Dict[str, str]] = []
-    seen_urls = set()
-    seen_hashes = set()
+    seen_canonical_urls = set()
+    seen_canonical_hashes = set()
+    seen_fallback_hashes = set()
+    seen_fallback_urls = set()
+    fallback_items: List[Dict[str, str]] = []
     for item in items:
         canonical = item.get("canonical_url", "") or ""
         digest = item.get("content_hash", "") or ""
         fallback = item.get("url", "") or item.get("source_url", "") or ""
-        if canonical and canonical in seen_urls:
-            continue
         if canonical:
-            seen_urls.add(canonical)
-        elif digest and digest in seen_hashes:
-            continue
-        if not canonical and digest:
-            seen_hashes.add(digest)
-        elif not canonical and not digest and fallback:
-            if fallback in seen_urls:
+            if canonical in seen_canonical_urls:
                 continue
-            seen_urls.add(fallback)
+            seen_canonical_urls.add(canonical)
+            if digest:
+                seen_canonical_hashes.add(digest)
+            kept.append(item)
+            continue
+        fallback_items.append(item)
+    for item in fallback_items:
+        digest = item.get("content_hash", "") or ""
+        fallback = item.get("url", "") or item.get("source_url", "") or ""
+        if digest:
+            if digest in seen_canonical_hashes or digest in seen_fallback_hashes:
+                continue
+            seen_fallback_hashes.add(digest)
+        elif fallback:
+            if fallback in seen_canonical_urls or fallback in seen_fallback_urls:
+                continue
+            seen_fallback_urls.add(fallback)
         kept.append(item)
     return kept

@@ -27,7 +27,7 @@ ATOM_XML = b"""<?xml version="1.0"?>
   </entry>
   <entry>
     <title>Atom Beta</title>
-    <link href="/atom-b?story=1#frag" />
+    <link href="post-b?story=1#frag" />
   </entry>
 </feed>
 """
@@ -62,7 +62,7 @@ class AutomationScanTests(unittest.TestCase):
         items = discover_rss_items(ATOM_XML, "https://example.com/feed")
         self.assertEqual(
             [item["url"] for item in items],
-            ["https://example.com/atom-a", "https://example.com/atom-b?story=1"],
+            ["https://example.com/atom-a", "https://example.com/post-b?story=1"],
         )
 
     def test_discovers_article_links_from_list_page(self) -> None:
@@ -107,6 +107,15 @@ class AutomationScanTests(unittest.TestCase):
             [
                 {"canonical_url": "", "content_hash": "same"},
                 {"canonical_url": "", "content_hash": "same"},
+            ]
+        )
+        self.assertEqual(len(unique), 1)
+
+    def test_dedup_drops_hash_only_duplicate_when_canonical_peer_exists(self) -> None:
+        unique = dedup_candidates(
+            [
+                {"canonical_url": "", "content_hash": "same"},
+                {"canonical_url": "https://example.com/a", "content_hash": "same"},
             ]
         )
         self.assertEqual(len(unique), 1)
