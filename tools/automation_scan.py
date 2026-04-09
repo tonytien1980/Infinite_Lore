@@ -60,7 +60,8 @@ def discover_local_candidates(vault_root: Path) -> tuple[List[Dict[str, Any]], L
                     "stage": "discovery-failed",
                     "error_stage": "discover",
                     "error": f"{exc.__class__.__name__}: {exc}",
-                    "retry_count": 0,
+                    "retry_count": 1,
+                    "last_attempt_at": now_iso(),
                     "bundle_path": "",
                 }
             )
@@ -241,11 +242,31 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
 
     imported_count = 0
     compiled_count = 0
-    new_failed: List[Dict[str, Any]] = list(discovery_failed_items)
+    new_failed: List[Dict[str, Any]] = []
     added_exhausted_items: List[Dict[str, Any]] = []
     new_processed_sources = dict(processed_sources) if isinstance(processed_sources, dict) else {}
     resolved_source_keys: set[str] = set()
     updated_retry_keys: set[str] = set()
+
+    for discovery_failure in discovery_failed_items:
+        source_key = str(discovery_failure.get("source_key") or "")
+        if not source_key:
+            continue
+
+        exhausted_entry = exhausted_by_key.get(source_key)
+        if exhausted_entry:
+            continue
+
+        retry_entry = retryable_by_key.get(source_key)
+        retry_count = _retry_count(retry_entry) + 1 if retry_entry else int(discovery_failure.get("retry_count", 1))
+        failure = dict(discovery_failure)
+        failure["retry_count"] = retry_count
+        failure["retry_status"] = "exhausted" if retry_count >= MAX_FAILED_RETRY_COUNT else "retrying"
+        if retry_count >= MAX_FAILED_RETRY_COUNT:
+            added_exhausted_items.append(failure)
+        else:
+            new_failed.append(failure)
+        updated_retry_keys.add(source_key)
 
     for candidate in candidates:
         retry_count = int(candidate.get("retry_count", 0))

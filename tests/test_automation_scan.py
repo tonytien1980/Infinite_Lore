@@ -277,6 +277,45 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(state["last_scan"]["failed_count"], 1)
             self.assertEqual(state["last_scan"]["discovered_count"], 2)
 
+    def test_run_scan_retries_and_exhausts_unreadable_local_file_without_duplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            unreadable = inbox / "unreadable.txt"
+            unreadable.write_text("blocked", encoding="utf-8")
+            state_path = root / "automation-state.json"
+
+            original_read_bytes = Path.read_bytes
+
+            def patched_read_bytes(self: Path) -> bytes:
+                if self == unreadable:
+                    raise PermissionError("nope")
+                return original_read_bytes(self)
+
+            with mock.patch.object(Path, "read_bytes", patched_read_bytes):
+                first = run_scan(root, [], state_path)
+                state_after_first = load_source_state(state_path)
+                second = run_scan(root, [], state_path)
+                state_after_second = load_source_state(state_path)
+                third = run_scan(root, [], state_path)
+
+            final_state = load_source_state(state_path)
+
+            self.assertEqual(first["failed_count"], 1)
+            self.assertEqual(state_after_first["failed_items"][0]["retry_count"], 1)
+            self.assertEqual(state_after_first["failed_items"][0]["stage"], "discovery-failed")
+            self.assertEqual(second["failed_count"], 0)
+            self.assertEqual(state_after_second["failed_items"], [])
+            self.assertEqual(len(state_after_second["exhausted_failed_items"]), 1)
+            self.assertEqual(state_after_second["exhausted_failed_items"][0]["retry_count"], 2)
+            self.assertEqual(state_after_second["exhausted_failed_items"][0]["retry_status"], "exhausted")
+            self.assertEqual(third["failed_count"], 0)
+            self.assertEqual(third["exhausted_failed_count"], 1)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(len(final_state["exhausted_failed_items"]), 1)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["retry_count"], 2)
+
     def test_run_scan_skips_already_processed_local_file_on_rerun(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
