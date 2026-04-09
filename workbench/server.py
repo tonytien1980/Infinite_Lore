@@ -19,13 +19,14 @@ from workbench.reflection_service import apply_correction, draft_correction, dra
 from workbench.services import (
     get_dashboard,
     get_health,
+    get_inbox_summary,
     get_system_info,
     import_file,
     import_url,
     list_bundles,
     list_knowledge,
 )
-from workbench.source_store import load_source_state, replace_sources, summarize_source_state
+from workbench.source_store import load_source_state, replace_sources
 
 
 def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = None) -> FastAPI:
@@ -141,12 +142,15 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
 
     @app.post("/api/inbox/sources")
     def inbox_save_sources(payload: dict) -> dict:
-        state = replace_sources(source_state_path, payload.get("sources", []))
+        sources = payload.get("sources", [])
+        if not isinstance(sources, list):
+            raise HTTPException(status_code=400, detail="sources must be a list")
+        state = replace_sources(source_state_path, sources)
         return {"sources": state.get("sources", [])}
 
     @app.get("/api/inbox/summary")
     def inbox_summary() -> dict:
-        return summarize_source_state(source_state_path)
+        return get_inbox_summary(source_state_path)
 
     return app
 

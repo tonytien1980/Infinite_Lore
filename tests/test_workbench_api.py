@@ -360,6 +360,51 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(payload["sources"][0]["source_type"], "rss-feed")
             self.assertEqual(payload["sources"][1]["source_type"], "article-list-page")
 
+    def test_inbox_sources_rejects_invalid_sources_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post("/api/inbox/sources", json={"sources": "not-a-list"})
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("sources", response.json()["detail"])
+
+    def test_inbox_summary_handles_malformed_source_state_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "workbench-config.json"
+            (config_path.with_name("automation-state.json")).write_text("{not-json", encoding="utf-8")
+            client = self.make_client(root, config_path)
+
+            response = client.get("/api/inbox/summary")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["sources"], [])
+            self.assertEqual(payload["last_scan"], None)
+            self.assertEqual(payload["failed_count"], 0)
+            self.assertEqual(payload["failed_items"], [])
+
+    def test_inbox_summary_normalizes_null_failed_items_to_empty_list(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "workbench-config.json"
+            (config_path.with_name("automation-state.json")).write_text(
+                '{"sources": [], "last_scan": null, "failed_items": null}',
+                encoding="utf-8",
+            )
+            client = self.make_client(root, config_path)
+
+            response = client.get("/api/inbox/summary")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["sources"], [])
+            self.assertEqual(payload["last_scan"], None)
+            self.assertEqual(payload["failed_count"], 0)
+            self.assertEqual(payload["failed_items"], [])
+
     def test_inbox_summary_returns_source_and_scan_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

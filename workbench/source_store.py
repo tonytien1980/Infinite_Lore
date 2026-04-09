@@ -12,14 +12,40 @@ DEFAULT_SOURCE_STATE: Dict[str, Any] = {
 }
 
 
+def _clone_default_state() -> Dict[str, Any]:
+    return json.loads(json.dumps(DEFAULT_SOURCE_STATE))
+
+
+def _normalize_source_list(value: Any) -> List[Dict[str, Any]]:
+    return value if isinstance(value, list) else []
+
+
+def _normalize_failed_items(value: Any) -> List[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _normalize_source_state(payload: Dict[str, Any]) -> Dict[str, Any]:
+    state = _clone_default_state()
+    if isinstance(payload, dict):
+        state["sources"] = _normalize_source_list(payload.get("sources"))
+        state["last_scan"] = payload.get("last_scan")
+        state["failed_items"] = _normalize_failed_items(payload.get("failed_items"))
+    return state
+
+
 def load_source_state(path: Path) -> Dict[str, Any]:
     if not path.exists():
-        return json.loads(json.dumps(DEFAULT_SOURCE_STATE))
+        return _clone_default_state()
 
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    state = json.loads(json.dumps(DEFAULT_SOURCE_STATE))
-    state.update(payload)
-    return state
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return _clone_default_state()
+
+    if not isinstance(payload, dict):
+        return _clone_default_state()
+
+    return _normalize_source_state(payload)
 
 
 def save_source_state(path: Path, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -30,15 +56,15 @@ def save_source_state(path: Path, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def replace_sources(path: Path, sources: List[Dict[str, Any]]) -> Dict[str, Any]:
     state = load_source_state(path)
-    state["sources"] = sources
+    state["sources"] = _normalize_source_list(sources)
     return save_source_state(path, state)
 
 
 def summarize_source_state(path: Path) -> Dict[str, Any]:
-    state = load_source_state(path)
+    state = _normalize_source_state(load_source_state(path))
     return {
-        "sources": state.get("sources", []),
+        "sources": _normalize_source_list(state.get("sources")),
         "last_scan": state.get("last_scan"),
-        "failed_count": len(state.get("failed_items", [])),
-        "failed_items": state.get("failed_items", []),
+        "failed_count": len(_normalize_failed_items(state.get("failed_items"))),
+        "failed_items": _normalize_failed_items(state.get("failed_items")),
     }
