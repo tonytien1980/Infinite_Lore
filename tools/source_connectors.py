@@ -189,7 +189,10 @@ def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
         digest = item.get("content_hash", "") or ""
         fallback = item.get("url", "") or item.get("source_url", "") or ""
         if canonical:
-            normalized_canonical = normalize_url(canonical)
+            try:
+                normalized_canonical = normalize_url(canonical)
+            except (ValueError, TypeError):
+                continue
             if normalized_canonical in seen_canonical_urls:
                 continue
             seen_canonical_urls.add(normalized_canonical)
@@ -203,7 +206,10 @@ def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
         fallback = item.get("url", "") or item.get("source_url", "") or ""
         normalized_fallback = ""
         if fallback:
-            normalized_fallback = normalize_url(fallback)
+            try:
+                normalized_fallback = normalize_url(fallback)
+            except (ValueError, TypeError):
+                continue
             if normalized_fallback in seen_canonical_urls or normalized_fallback in seen_fallback_urls:
                 continue
         if digest and (digest in seen_canonical_hashes or digest in seen_fallback_hashes):

@@ -213,6 +213,16 @@ class AutomationScanTests(unittest.TestCase):
         )
         self.assertEqual(len(unique), 1)
 
+    def test_dedup_skips_malformed_candidate_urls_and_keeps_good_items(self) -> None:
+        unique = dedup_candidates(
+            [
+                {"canonical_url": "https://example.com:bad/post", "content_hash": "bad"},
+                {"canonical_url": "https://example.com/good", "content_hash": "good"},
+            ]
+        )
+        self.assertEqual(len(unique), 1)
+        self.assertEqual(unique[0]["canonical_url"], "https://example.com/good")
+
     def test_dedup_falls_back_to_discovered_url_when_canonical_and_hash_are_empty(self) -> None:
         unique = dedup_candidates(
             [
@@ -271,3 +281,13 @@ class AutomationScanTests(unittest.TestCase):
             target.write_text("not utf8", encoding="utf-8")
             with mock.patch.object(Path, "read_text", side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "boom")):
                 self.assertEqual(load_json(target, {"sources": []}), {"sources": []})
+
+    def test_load_json_permission_error_still_raises(self) -> None:
+        from tools.automation_cache import load_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "forbidden.json"
+            target.write_text("{}", encoding="utf-8")
+            with mock.patch.object(Path, "read_text", side_effect=PermissionError("nope")):
+                with self.assertRaises(PermissionError):
+                    load_json(target, {"sources": []})

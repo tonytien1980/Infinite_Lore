@@ -42,5 +42,5 @@ def load_json(path: Path, default: Any) -> Any:
         return json.loads(json.dumps(default))
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError, OSError, ValueError):
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
         return json.loads(json.dumps(default))
