@@ -215,6 +215,174 @@ class AutomationScanTests(unittest.TestCase):
             self.assertIn("configured-article:https://example.com/a", final_state["processed_sources"])
             self.assertIn("configured-article:https://example.com/b", final_state["processed_sources"])
 
+    def test_run_scan_processes_configured_article_list_page_source_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            state_path.write_text(
+                json.dumps({"sources": [], "last_scan": None, "failed_items": [], "processed_sources": {}}),
+                encoding="utf-8",
+            )
+            list_source = {
+                "id": "list-example",
+                "name": "Example List",
+                "source_type": "article-list-page",
+                "url": "https://example.com/blog",
+                "enabled": True,
+            }
+            bundle_path = root / "20_Raw/inbox/configured-article-list"
+            bundle_path.mkdir(parents=True)
+
+            def fake_urlopen(url, *args, **kwargs):
+                if url == list_source["url"]:
+                    return _FakeResponse(
+                        b"<html><body><a href=\"https://example.com/posts/alpha\">Alpha</a></body></html>",
+                        "text/html",
+                    )
+                raise AssertionError(f"unexpected urlopen call: {url}")
+
+            with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), mock.patch(
+                "tools.automation_scan.import_source", return_value=bundle_path
+            ) as import_source, mock.patch("tools.automation_scan.compile_bundle", return_value=None) as compile_bundle:
+                summary = run_scan(root, [list_source], state_path)
+
+            self.assertEqual(summary["imported_count"], 1)
+            self.assertEqual(summary["compiled_count"], 1)
+            self.assertEqual(import_source.call_count, 1)
+            self.assertEqual(import_source.call_args.args[1], "https://example.com/posts/alpha")
+            self.assertEqual(compile_bundle.call_count, 1)
+
+            final_state = load_source_state(state_path)
+            self.assertIn("configured-article:https://example.com/posts/alpha", final_state["processed_sources"])
+
+    def test_run_scan_allows_configured_article_retry_after_exhaustion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            list_source = {
+                "id": "list-example",
+                "name": "Example List",
+                "source_type": "article-list-page",
+                "url": "https://example.com/blog",
+                "enabled": True,
+            }
+            article_url = "https://example.com/posts/alpha"
+            content_hash = hashlib.sha256(article_url.encode("utf-8")).hexdigest()
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [list_source],
+                        "last_scan": None,
+                        "failed_items": [],
+                        "exhausted_failed_items": [
+                            {
+                                "source_key": f"configured-article:{article_url}",
+                                "source": article_url,
+                                "source_url": list_source["url"],
+                                "url": article_url,
+                                "content_hash": content_hash,
+                                "primary_domain": "ai-application",
+                                "related_domains": [],
+                                "stage": "imported",
+                                "error_stage": "compile",
+                                "retry_count": 2,
+                                "retry_status": "exhausted",
+                                "bundle_path": "",
+                            }
+                        ],
+                        "processed_sources": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            bundle_path = root / "20_Raw/inbox/recovered-configured-article"
+            bundle_path.mkdir(parents=True)
+
+            def fake_urlopen(url, *args, **kwargs):
+                if url == list_source["url"]:
+                    return _FakeResponse(
+                        b"<html><body><a href=\"https://example.com/posts/alpha\">Alpha</a></body></html>",
+                        "text/html",
+                    )
+                raise AssertionError(f"unexpected urlopen call: {url}")
+
+            with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), mock.patch(
+                "tools.automation_scan.import_source", return_value=bundle_path
+            ) as import_source, mock.patch("tools.automation_scan.compile_bundle", return_value=None) as compile_bundle:
+                result = run_scan(root, [list_source], state_path)
+
+            self.assertEqual(result["imported_count"], 1)
+            self.assertEqual(result["compiled_count"], 1)
+            self.assertEqual(result["blocked_exhausted_count"], 0)
+            self.assertEqual(import_source.call_count, 1)
+            self.assertEqual(compile_bundle.call_count, 1)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
+            self.assertIn(f"configured-article:{article_url}", final_state["processed_sources"])
+
+    def test_run_scan_clears_stale_configured_source_state_when_source_is_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            disabled_source = {
+                "id": "feed-techcrunch",
+                "name": "TechCrunch",
+                "source_type": "rss-feed",
+                "url": "https://techcrunch.com/feed/",
+                "enabled": False,
+            }
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [disabled_source],
+                        "last_scan": None,
+                        "failed_items": [
+                            {
+                                "source_key": "configured-source:feed-techcrunch",
+                                "source": disabled_source["url"],
+                                "source_url": disabled_source["url"],
+                                "url": disabled_source["url"],
+                                "content_hash": "",
+                                "primary_domain": "ai-application",
+                                "related_domains": [],
+                                "stage": "discovery-failed",
+                                "error_stage": "fetch",
+                                "retry_count": 1,
+                                "bundle_path": "",
+                            }
+                        ],
+                        "exhausted_failed_items": [
+                            {
+                                "source_key": "configured-article:https://example.com/posts/alpha",
+                                "source": "https://example.com/posts/alpha",
+                                "source_url": disabled_source["url"],
+                                "url": "https://example.com/posts/alpha",
+                                "content_hash": hashlib.sha256("https://example.com/posts/alpha".encode("utf-8")).hexdigest(),
+                                "primary_domain": "ai-application",
+                                "related_domains": [],
+                                "stage": "imported",
+                                "error_stage": "compile",
+                                "retry_count": 2,
+                                "bundle_path": "",
+                            }
+                        ],
+                        "processed_sources": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch("urllib.request.urlopen", side_effect=AssertionError("disabled sources should not be fetched")):
+                result = run_scan(root, [disabled_source], state_path)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(result["failed_count"], 0)
+            self.assertEqual(result["exhausted_failed_count"], 0)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
+
     def test_run_scan_records_configured_source_fetch_failure_with_stable_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

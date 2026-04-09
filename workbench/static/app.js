@@ -477,7 +477,14 @@ async function runInboxScan() {
   }
   setInboxBusy(true, "Saving sources and scanning configured sources and raw intake...");
   try {
-    await persistInboxSources();
+    try {
+      await persistInboxSources();
+    } catch (error) {
+      state.inbox.status = `Could not save sources before scanning: ${error.message}`;
+      inboxScanStatus.textContent = state.inbox.status;
+      return;
+    }
+
     const summary = await fetchJson("/api/inbox/scan", { method: "POST" });
     state.inbox.summary = {
       ...(state.inbox.summary || {}),

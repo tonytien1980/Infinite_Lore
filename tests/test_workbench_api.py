@@ -994,6 +994,67 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(len(source_state["sources"]), 1)
             self.assertEqual(source_state["sources"][0]["id"], "feed-techcrunch")
 
+    def test_scan_now_drops_stale_configured_source_state_when_source_is_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "workbench-config.json"
+            state_path = config_path.with_name("automation-state.json")
+            disabled_source = {
+                "id": "feed-techcrunch",
+                "name": "TechCrunch",
+                "source_type": "rss-feed",
+                "url": "https://techcrunch.com/feed/",
+                "enabled": False,
+            }
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [disabled_source],
+                        "last_scan": None,
+                        "failed_items": [
+                            {
+                                "source_key": "configured-source:feed-techcrunch",
+                                "source": disabled_source["url"],
+                                "source_url": disabled_source["url"],
+                                "url": disabled_source["url"],
+                                "content_hash": "",
+                                "primary_domain": "ai-application",
+                                "related_domains": [],
+                                "stage": "discovery-failed",
+                                "error_stage": "fetch",
+                                "retry_count": 1,
+                                "bundle_path": "",
+                            }
+                        ],
+                        "exhausted_failed_items": [
+                            {
+                                "source_key": "configured-article:https://example.com/posts/alpha",
+                                "source": "https://example.com/posts/alpha",
+                                "source_url": disabled_source["url"],
+                                "url": "https://example.com/posts/alpha",
+                                "content_hash": "",
+                                "primary_domain": "ai-application",
+                                "related_domains": [],
+                                "stage": "imported",
+                                "error_stage": "compile",
+                                "retry_count": 2,
+                                "bundle_path": "",
+                            }
+                        ],
+                        "processed_sources": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            client = self.make_client(root, config_path)
+
+            response = client.post("/api/inbox/scan")
+
+            self.assertEqual(response.status_code, 200)
+            payload = load_source_state(state_path)
+            self.assertEqual(payload["failed_items"], [])
+            self.assertEqual(payload["exhausted_failed_items"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -47,6 +47,29 @@ def _configured_article_key(article_url: str) -> str:
     return f"configured-article:{choose_canonical_url(article_url)}"
 
 
+def _active_configured_source_urls(configured_sources: List[Dict[str, Any]]) -> set[str]:
+    urls: set[str] = set()
+    for source in configured_sources:
+        if not isinstance(source, dict):
+            continue
+        if source.get("enabled") is False:
+            continue
+        if str(source.get("source_type") or "") not in {"rss-feed", "article-list-page"}:
+            continue
+        source_url = str(source.get("url") or "").strip()
+        if source_url:
+            urls.add(source_url)
+    return urls
+
+
+def _is_stale_configured_state_item(item: Dict[str, Any], active_source_urls: set[str]) -> bool:
+    source_key = str(item.get("source_key") or "")
+    if not source_key.startswith("configured-"):
+        return False
+    source_url = str(item.get("source_url") or "").strip()
+    return source_url not in active_source_urls
+
+
 def _fetch_url_bytes(url: str) -> bytes:
     with urllib.request.urlopen(url) as response:
         return response.read()
@@ -436,6 +459,7 @@ def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[
 def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_path: Path) -> Dict[str, Any]:
     state = load_source_state(state_path)
     state_summary = summarize_source_state(state_path)
+    active_configured_source_urls = _active_configured_source_urls(configured_sources)
     processed_sources = state.get("processed_sources", {})
     if state_summary.get("recovered_from_corruption"):
         recovered_processed_sources = _recover_processed_sources_from_bundles(vault_root)
@@ -445,8 +469,10 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             processed_sources = merged_processed_sources
     exhausted_failed_items = [_normalize_failed_item(item) for item in state.get("exhausted_failed_items", [])]
     exhausted_failed_items = [item for item in exhausted_failed_items if item is not None]
+    exhausted_failed_items = [item for item in exhausted_failed_items if not _is_stale_configured_state_item(item, active_configured_source_urls)]
     failed_items = [_normalize_failed_item(item) for item in state.get("failed_items", [])]
     failed_items = [item for item in failed_items if item is not None]
+    failed_items = [item for item in failed_items if not _is_stale_configured_state_item(item, active_configured_source_urls)]
     retryable_failed_items = [item for item in failed_items if not _is_retry_exhausted(item)]
 
     processed_by_key = _index_by_source_key(list(processed_sources.values())) if isinstance(processed_sources, dict) else {}
@@ -490,6 +516,8 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             fresh_candidates.append(merged_candidate)
             continue
         exhausted_entry = exhausted_by_key.get(source_key)
+        if source_key.startswith("configured-article:"):
+            exhausted_entry = None
         if exhausted_entry and exhausted_entry.get("content_hash") and exhausted_entry.get("content_hash") == content_hash:
             blocked_exhausted_count += 1
             continue
