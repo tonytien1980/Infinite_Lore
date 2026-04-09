@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Any, Dict, List
 
 
@@ -12,6 +14,7 @@ DEFAULT_SOURCE_STATE: Dict[str, Any] = {
 }
 
 SOURCE_REQUIRED_FIELDS = ("id", "name", "source_type", "url", "enabled")
+ALLOWED_SOURCE_TYPES = {"rss-feed", "article-list-page"}
 
 
 def _clone_default_state() -> Dict[str, Any]:
@@ -24,6 +27,27 @@ def _normalize_source_list(value: Any) -> List[Dict[str, Any]]:
 
 def _normalize_failed_items(value: Any) -> List[Any]:
     return value if isinstance(value, list) else []
+
+
+def _normalize_http_url(value: Any, strict: bool = False) -> str | None:
+    if not isinstance(value, str):
+        if strict:
+            raise ValueError("url must be a non-empty http(s) URL")
+        return None
+
+    candidate = value.strip()
+    if not candidate:
+        if strict:
+            raise ValueError("url must be a non-empty http(s) URL")
+        return None
+
+    parsed = urlparse(candidate)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        if strict:
+            raise ValueError("url must be a non-empty http(s) URL")
+        return None
+
+    return candidate
 
 
 def _normalize_source_entry(entry: Any, strict: bool = False) -> Dict[str, Any] | None:
@@ -44,6 +68,15 @@ def _normalize_source_entry(entry: Any, strict: bool = False) -> Dict[str, Any] 
         if strict:
             raise ValueError("source id, name, source_type, and url must be strings")
         return None
+    if normalized["source_type"] not in ALLOWED_SOURCE_TYPES:
+        if strict:
+            allowed = ", ".join(sorted(ALLOWED_SOURCE_TYPES))
+            raise ValueError(f"source_type must be one of: {allowed}")
+        return None
+    normalized_url = _normalize_http_url(normalized["url"], strict=strict)
+    if normalized_url is None:
+        return None
+    normalized["url"] = normalized_url
     if not isinstance(normalized["enabled"], bool):
         if strict:
             raise ValueError("source enabled must be a boolean")
@@ -97,8 +130,16 @@ def load_source_state(path: Path) -> Dict[str, Any]:
 def save_source_state(path: Path, payload: Dict[str, Any]) -> Dict[str, Any]:
     state = _normalize_source_state(payload)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(f"{path.name}.tmp")
-    tmp_path.write_text(json.dumps(state, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=f"{path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as handle:
+        handle.write(json.dumps(state, indent=2, ensure_ascii=True) + "\n")
+        tmp_path = Path(handle.name)
     tmp_path.replace(path)
     return state
 

@@ -370,6 +370,16 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertIn("sources", response.json()["detail"])
 
+    def test_inbox_sources_rejects_missing_sources_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post("/api/inbox/sources", json={})
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("sources key is required", response.json()["detail"])
+
     def test_inbox_sources_rejects_malformed_list_entries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -379,6 +389,68 @@ class WorkbenchApiTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 400)
             self.assertIn("each source must be an object", response.json()["detail"])
+
+    def test_inbox_sources_rejects_invalid_source_type(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-techcrunch",
+                            "name": "TechCrunch",
+                            "source_type": "blog-feed",
+                            "url": "https://techcrunch.com/feed/",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("source_type must be one of", response.json()["detail"])
+
+    def test_inbox_sources_rejects_empty_or_unusable_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            empty_response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-empty",
+                            "name": "Empty",
+                            "source_type": "rss-feed",
+                            "url": "   ",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+            unusable_response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-ftp",
+                            "name": "FTP Feed",
+                            "source_type": "rss-feed",
+                            "url": "ftp://example.com/feed",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+
+            self.assertEqual(empty_response.status_code, 400)
+            self.assertEqual(unusable_response.status_code, 400)
+            self.assertIn("url must be a non-empty http(s) URL", empty_response.json()["detail"])
+            self.assertIn("url must be a non-empty http(s) URL", unusable_response.json()["detail"])
 
     def test_inbox_sources_sanitizes_sources_to_required_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -142,7 +142,9 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
 
     @app.post("/api/inbox/sources")
     def inbox_save_sources(payload: dict) -> dict:
-        sources = payload.get("sources", [])
+        if "sources" not in payload:
+            raise HTTPException(status_code=400, detail="sources key is required")
+        sources = payload["sources"]
         try:
             state = replace_sources(source_state_path, sources)
         except ValueError as exc:
