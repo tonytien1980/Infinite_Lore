@@ -41,6 +41,24 @@ python3 tools/run_workbench.py
 
 Then open the local URL shown in the terminal.
 
+## Automation And Scan Now
+
+Use the Workbench `Inbox` for practical automation.
+
+- Configure explicit sources inside Inbox.
+- `Scan now` persists the current Inbox source list before the scan starts.
+- Each scan processes:
+  - local intake
+  - configured `rss-feed` sources
+  - configured `article-list-page` sources
+- The scan deduplicates candidates before running `import + compile`.
+- Failed items remain visible for later retries.
+- Configured-article retries stay bounded:
+  - immediate repeat scans stay blocked after exhaustion
+  - later manual scans can retry again after cooldown
+  - stale configured-article failures are cleared when a source is removed, disabled, or a successful source scan no longer returns that article
+- Inbox shows the latest scan summary so the user can quickly see discovered candidates, imports, compiles, failures, and exhausted retry state.
+
 ## Ask And Query
 
 Use the Workbench Ask page as the main knowledge entry surface.

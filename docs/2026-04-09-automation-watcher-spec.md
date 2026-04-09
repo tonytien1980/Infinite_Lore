@@ -1,6 +1,6 @@
 # Automation And Watcher Layer Specification
 
-**Status:** Draft v1 for review  
+**Status:** Delivered v1  
 **Date:** 2026-04-09  
 **Project:** Infinite Lore
 
@@ -165,6 +165,13 @@ However:
 
 - retry should remain bounded
 - the system should surface repeated failures clearly instead of retrying forever without visibility
+- configured article retries should not be permanently blocked forever after exhaustion
+- immediate repeat scans should stay blocked after exhaustion
+- later manual scans may retry configured articles again after cooldown
+- stale configured-article exhaustion should clear when:
+  - the source is removed or disabled
+  - a successful source scan no longer returns that article
+  - but not when the source has only a temporary fetch or discovery outage
 
 ## 10. Deduplication Rules
 
@@ -280,6 +287,8 @@ Each configured source should store:
 - last checked time
 - last result summary
 
+Inside the Workbench UI, `Scan now` should persist the current in-memory source list before issuing the scan request so the user does not accidentally scan stale saved configuration.
+
 The source types for this version are:
 
 - `rss-feed`
@@ -294,6 +303,8 @@ After a scan completes, the user should be able to understand quickly:
 - how many imported successfully
 - how many compiled successfully
 - how many failed
+
+The `Discovered` count should mean actual discovered candidates, not fetch or discovery failures.
 
 The UI should feel like:
 
@@ -359,3 +370,4 @@ Phase 7 succeeds when:
 - failures are visible and retried later
 - Inbox makes the result understandable without extra pages
 - the system feels easier to use, not heavier
+- configured-source scans use practical timeouts instead of waiting indefinitely

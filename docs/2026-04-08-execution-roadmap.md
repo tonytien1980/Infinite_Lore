@@ -157,6 +157,12 @@ As of this roadmap update, the verified baseline is:
 - `import -> compile` runs in one top-level command
 - local Workbench UI runs on localhost
 - grounded Query / Ask works inside the Workbench
+- Workbench Inbox can `Scan now` across:
+  - local intake
+  - configured RSS / feed sources
+  - configured article-list-page sources
+- Inbox source edits are persisted before scan runs
+- automation retry and stale-state behavior are implemented for the practical automation layer
 - tests pass
 - health check passes
 
@@ -273,7 +279,11 @@ Definition of done:
 
 Definition of done:
 
-- system can optionally watch intake locations or run scheduled jobs
+- user can manage sources inside Inbox
+- `Scan now` scans local intake and configured sources together
+- duplicates are filtered out reasonably before `import + compile`
+- scan results stay understandable inside Inbox without a new page
+- retry state is visible and bounded
 - automation remains lightweight and does not become mandatory for normal use
 
 ## 10. Things We Are Explicitly Avoiding
@@ -302,11 +312,13 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Design and implement the automation / watcher layer after the Reflection / Feedback layer is in place.`
+`Finish the Phase 7 docs sync and full verification, then move into Graphify-inspired relation-aware retrieval and multimodal planning.`
 
 ## 13. Future Adoption Direction
 
-After Phase 7 is delivered, the next meaningful capability expansion should not be a graph UI.
+Phase 7 is now delivered.
+
+The next meaningful capability expansion should not be a graph UI.
 
 It should be selective adoption of Graphify-inspired engine capabilities:
 
