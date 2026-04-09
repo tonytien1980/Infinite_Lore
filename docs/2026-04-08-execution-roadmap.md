@@ -303,3 +303,19 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 The next action should be:
 
 `Design and implement the automation / watcher layer after the Reflection / Feedback layer is in place.`
+
+## 13. Future Adoption Direction
+
+After Phase 7 is delivered, the next meaningful capability expansion should not be a graph UI.
+
+It should be selective adoption of Graphify-inspired engine capabilities:
+
+- cache-first incremental processing
+- watcher behavior split by cost
+- explicit relation extraction schema
+- confidence-labeled relations
+- later multimodal expansion
+
+Reference:
+
+- `docs/2026-04-09-graphify-selective-adoption-note.md`

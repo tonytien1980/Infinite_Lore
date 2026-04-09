@@ -9,6 +9,7 @@
 - [[00_System/Health Rules]]
 - [[00_System/Execution Rules]]
 - [Execution Roadmap](../docs/2026-04-08-execution-roadmap.md)
+- [Graphify Selective Adoption Note](../docs/2026-04-09-graphify-selective-adoption-note.md)
 
 ## Domains
 
