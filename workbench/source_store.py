@@ -29,6 +29,32 @@ def _normalize_failed_items(value: Any) -> List[Any]:
     return value if isinstance(value, list) else []
 
 
+def _normalize_failed_item_entries(value: Any, strict: bool = False) -> List[Dict[str, Any]]:
+    if not isinstance(value, list):
+        if strict:
+            raise ValueError("failed_items must be a list")
+        return []
+
+    normalized: List[Dict[str, Any]] = []
+    for entry in value:
+        if isinstance(entry, dict):
+            normalized.append(dict(entry))
+            continue
+        if strict:
+            raise ValueError("failed_items must contain objects only")
+    return normalized
+
+
+def _normalize_last_scan(value: Any, strict: bool = False) -> Dict[str, Any] | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return dict(value)
+    if strict:
+        raise ValueError("last_scan must be an object or null")
+    return None
+
+
 def _normalize_text_field(value: Any, strict: bool = False, field_name: str = "field") -> str | None:
     if not isinstance(value, str):
         if strict:
@@ -132,8 +158,8 @@ def _normalize_source_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     state = _clone_default_state()
     if isinstance(payload, dict):
         state["sources"] = _normalize_source_entries(payload.get("sources"))
-        state["last_scan"] = payload.get("last_scan")
-        state["failed_items"] = _normalize_failed_items(payload.get("failed_items"))
+        state["last_scan"] = _normalize_last_scan(payload.get("last_scan"))
+        state["failed_items"] = _normalize_failed_item_entries(payload.get("failed_items"))
     return state
 
 
@@ -157,10 +183,15 @@ def _source_state_has_recovery_signal(payload: Any) -> bool:
         return True
     if not isinstance(payload.get("sources", []), list):
         return True
-    if not isinstance(payload.get("failed_items", []), list):
+    if not isinstance(payload.get("last_scan"), (dict, type(None))):
+        return True
+    failed_items = payload.get("failed_items", [])
+    if not isinstance(failed_items, list):
         return True
     sources = payload.get("sources", [])
     if any(_normalize_source_entry(entry) is None for entry in sources):
+        return True
+    if any(not isinstance(item, dict) for item in failed_items):
         return True
     return False
 
@@ -205,9 +236,9 @@ def summarize_source_state(path: Path) -> Dict[str, Any]:
     state = _normalize_source_state(load_source_state(path))
     return {
         "sources": _normalize_source_entries(state.get("sources")),
-        "last_scan": state.get("last_scan"),
-        "failed_count": len(_normalize_failed_items(state.get("failed_items"))),
-        "failed_items": _normalize_failed_items(state.get("failed_items")),
+        "last_scan": _normalize_last_scan(state.get("last_scan")),
+        "failed_count": len(_normalize_failed_item_entries(state.get("failed_items"))),
+        "failed_items": _normalize_failed_item_entries(state.get("failed_items")),
         "recovered_from_corruption": recovered_from_corruption,
         "state_warning": warning,
     }

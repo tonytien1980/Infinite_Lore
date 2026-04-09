@@ -573,6 +573,27 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertTrue(payload["recovered_from_corruption"])
             self.assertEqual(payload["state_warning"], "recovered_from_corruption")
 
+    def test_inbox_summary_normalizes_bad_runtime_state_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "workbench-config.json"
+            (config_path.with_name("automation-state.json")).write_text(
+                '{"sources": [], "last_scan": "bad", "failed_items": ["oops"]}',
+                encoding="utf-8",
+            )
+            client = self.make_client(root, config_path)
+
+            response = client.get("/api/inbox/summary")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["sources"], [])
+            self.assertEqual(payload["last_scan"], None)
+            self.assertEqual(payload["failed_count"], 0)
+            self.assertEqual(payload["failed_items"], [])
+            self.assertTrue(payload["recovered_from_corruption"])
+            self.assertEqual(payload["state_warning"], "recovered_from_corruption")
+
     def test_inbox_summary_returns_source_and_scan_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
