@@ -7,9 +7,9 @@ from typing import Any, Dict, List
 
 from tools.import_bundle import import_source
 from tools.source_connectors import dedup_candidates
-from tools.wiki_compile import compile_bundle
+from tools.wiki_compile import compile_bundle, read_note
 from workbench.services import infer_domains
-from workbench.source_store import load_source_state, update_scan_state
+from workbench.source_store import load_source_state, summarize_source_state, update_scan_state
 
 
 MAX_FAILED_RETRY_COUNT = 2
@@ -161,22 +161,6 @@ def _failure_record(
     return record
 
 
-def _retry_candidate(item: Dict[str, Any]) -> Dict[str, Any]:
-    candidate = dict(item)
-    source = candidate.get("source") or candidate.get("source_url") or candidate.get("url") or ""
-    candidate["source"] = str(source)
-    candidate["source_url"] = str(candidate.get("source_url") or candidate["source"])
-    candidate["url"] = str(candidate.get("url") or candidate["source"])
-    candidate["source_key"] = str(candidate.get("source_key") or f"retry:{candidate['source']}")
-    candidate["primary_domain"] = str(candidate.get("primary_domain") or "ai-application")
-    candidate["related_domains"] = list(candidate.get("related_domains") or [])
-    candidate["content_hash"] = str(candidate.get("content_hash") or "")
-    candidate["stage"] = str(candidate.get("stage") or "import-failed")
-    candidate["retry_count"] = int(candidate.get("retry_count") or 0)
-    candidate["bundle_path"] = str(candidate.get("bundle_path") or "")
-    return candidate
-
-
 def _processed_matches(candidate: Dict[str, Any], processed_entry: Dict[str, Any] | None) -> bool:
     if not isinstance(processed_entry, dict):
         return False
@@ -196,9 +180,71 @@ def _index_by_source_key(items: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any
     return indexed
 
 
+def _unquote_scalar(value: str) -> str:
+    text = value.strip()
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        return text[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+    return text
+
+
+def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[str, Any]]:
+    inbox = vault_root / "20_Raw/inbox"
+    recovered: Dict[str, Dict[str, Any]] = {}
+    if not inbox.exists():
+        return recovered
+
+    for bundle_path in sorted(path for path in inbox.iterdir() if path.is_dir()):
+        metadata_path = bundle_path / "metadata.md"
+        if not metadata_path.exists():
+            continue
+
+        try:
+            metadata, _ = read_note(metadata_path)
+        except Exception:
+            continue
+
+        source_ref = _unquote_scalar(str(metadata.get("source_ref") or ""))
+        content_hash = str(metadata.get("content_hash") or "")
+        if not source_ref or not content_hash:
+            continue
+
+        source_path = Path(source_ref)
+        if not source_path.is_absolute():
+            source_path = vault_root / source_path
+
+        try:
+            source_path.relative_to(vault_root)
+        except ValueError:
+            continue
+
+        source_key = _local_source_key(vault_root, source_path)
+        recovered[source_key] = {
+            "source_key": source_key,
+            "source": str(source_path),
+            "source_url": str(source_path),
+            "url": str(source_path),
+            "content_hash": content_hash,
+            "primary_domain": str(metadata.get("primary_domain") or "ai-application"),
+            "related_domains": list(metadata.get("related_domains") or []),
+            "bundle_path": bundle_path.relative_to(vault_root).as_posix(),
+            "stage": "compiled",
+            "retry_count": 0,
+            "completed_at": str(metadata.get("updated_at") or metadata.get("imported_at") or ""),
+        }
+
+    return recovered
+
+
 def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_path: Path) -> Dict[str, Any]:
     state = load_source_state(state_path)
+    state_summary = summarize_source_state(state_path)
     processed_sources = state.get("processed_sources", {})
+    if state_summary.get("recovered_from_corruption"):
+        recovered_processed_sources = _recover_processed_sources_from_bundles(vault_root)
+        if recovered_processed_sources:
+            merged_processed_sources = dict(processed_sources) if isinstance(processed_sources, dict) else {}
+            merged_processed_sources.update(recovered_processed_sources)
+            processed_sources = merged_processed_sources
     exhausted_failed_items = [_normalize_failed_item(item) for item in state.get("exhausted_failed_items", [])]
     exhausted_failed_items = [item for item in exhausted_failed_items if item is not None]
     failed_items = [_normalize_failed_item(item) for item in state.get("failed_items", [])]

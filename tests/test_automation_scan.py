@@ -369,6 +369,38 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(second["compiled_count"], 0)
             self.assertGreaterEqual(second["skipped_count"], 1)
 
+    def test_run_scan_recovers_processed_local_file_after_state_corruption_without_reimporting(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            note_path = inbox / "corruption-guard.txt"
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+
+            first = run_scan(root, [], state_path)
+            state_path.write_text("{not json", encoding="utf-8")
+
+            with mock.patch("tools.automation_scan.import_source", side_effect=AssertionError("should not re-import")), mock.patch(
+                "tools.automation_scan.compile_bundle",
+                side_effect=AssertionError("should not recompile"),
+            ):
+                second = run_scan(root, [], state_path)
+
+            final_state = load_source_state(state_path)
+            source_key = "local-file:20_Raw/inbox/corruption-guard.txt"
+
+            self.assertGreaterEqual(first["imported_count"], 1)
+            self.assertGreaterEqual(first["compiled_count"], 1)
+            self.assertEqual(second["imported_count"], 0)
+            self.assertEqual(second["compiled_count"], 0)
+            self.assertGreaterEqual(second["skipped_count"], 1)
+            self.assertIn(source_key, final_state["processed_sources"])
+            self.assertEqual(final_state["processed_sources"][source_key]["content_hash"], hashlib.sha256(note_path.read_bytes()).hexdigest())
+
     def test_run_scan_resumes_compile_failure_without_reimporting(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
