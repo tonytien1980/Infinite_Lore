@@ -356,6 +356,9 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             and processed_entry.get("content_hash") == content_hash
             and processed_entry.get("bundle_path")
         ):
+            if _is_retry_exhausted(processed_entry):
+                blocked_exhausted_count += 1
+                continue
             retry_entry = retryable_by_key.get(source_key)
             merged_candidate = dict(candidate)
             merged_candidate["stage"] = "imported"
@@ -422,9 +425,6 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
                 continue
             if processed_entry.get("stage") != "imported" or not processed_entry.get("bundle_path"):
                 continue
-            if _is_retry_exhausted(processed_entry):
-                blocked_exhausted_count += 1
-                continue
 
             source_key = str(processed_entry.get("source_key") or "")
             if not source_key or source_key in discovered_source_keys or source_key in fresh_source_keys:
@@ -436,6 +436,10 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
 
             bundle_path = vault_root / str(processed_entry.get("bundle_path") or "")
             if not bundle_path.exists():
+                continue
+
+            if _is_retry_exhausted(processed_entry):
+                blocked_exhausted_count += 1
                 continue
 
             retry_entry = retryable_by_key.get(source_key)
