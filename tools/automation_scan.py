@@ -208,6 +208,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     processed_by_key = _index_by_source_key(list(processed_sources.values())) if isinstance(processed_sources, dict) else {}
     retryable_by_key = _index_by_source_key(retryable_failed_items)
     exhausted_by_key = _index_by_source_key(exhausted_failed_items)
+    resolved_source_keys: set[str] = set()
 
     discovered_candidates, discovery_failed_items = discover_local_candidates(vault_root)
     fresh_candidates: List[Dict[str, Any]] = []
@@ -219,9 +220,10 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
         processed_entry = processed_by_key.get(source_key)
         if _processed_matches(candidate, processed_entry):
             skipped_count += 1
+            resolved_source_keys.add(source_key)
             continue
         exhausted_entry = exhausted_by_key.get(source_key)
-        if exhausted_entry and (not exhausted_entry.get("content_hash") or exhausted_entry.get("content_hash") == content_hash):
+        if exhausted_entry and exhausted_entry.get("content_hash") and exhausted_entry.get("content_hash") == content_hash:
             blocked_exhausted_count += 1
             continue
         retry_entry = retryable_by_key.get(source_key)
@@ -245,7 +247,6 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     new_failed: List[Dict[str, Any]] = []
     added_exhausted_items: List[Dict[str, Any]] = []
     new_processed_sources = dict(processed_sources) if isinstance(processed_sources, dict) else {}
-    resolved_source_keys: set[str] = set()
     updated_retry_keys: set[str] = set()
 
     for discovery_failure in discovery_failed_items:

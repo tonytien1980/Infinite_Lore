@@ -316,6 +316,38 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(len(final_state["exhausted_failed_items"]), 1)
             self.assertEqual(final_state["exhausted_failed_items"][0]["retry_count"], 2)
 
+    def test_run_scan_recovered_unreadable_local_file_is_eligible_again_after_becoming_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            unreadable = inbox / "unreadable.txt"
+            unreadable.write_text("# Market Positioning\n\nBusiness strategy and positioning.\n", encoding="utf-8")
+            state_path = root / "automation-state.json"
+
+            original_read_bytes = Path.read_bytes
+
+            def patched_read_bytes(self: Path) -> bytes:
+                if self == unreadable:
+                    raise PermissionError("nope")
+                return original_read_bytes(self)
+
+            with mock.patch.object(Path, "read_bytes", patched_read_bytes):
+                first = run_scan(root, [], state_path)
+                second = run_scan(root, [], state_path)
+
+            third = run_scan(root, [], state_path)
+            final_state = load_source_state(state_path)
+
+            self.assertEqual(first["failed_count"], 1)
+            self.assertEqual(second["exhausted_failed_count"], 1)
+            self.assertEqual(third["failed_count"], 0)
+            self.assertEqual(third["exhausted_failed_count"], 0)
+            self.assertEqual(third["imported_count"], 1)
+            self.assertEqual(third["compiled_count"], 1)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
+
     def test_run_scan_skips_already_processed_local_file_on_rerun(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -451,6 +483,46 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(final_state["processed_sources"][source_key]["content_hash"], expected_hash)
             self.assertEqual(final_state["failed_items"], [])
             self.assertEqual(final_state["exhausted_failed_items"], [])
+
+    def test_run_scan_clears_stale_failed_retry_when_local_file_reverts_to_processed_content(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            note_path = inbox / "revert-me.txt"
+            state_path = root / "automation-state.json"
+
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            first = run_scan(root, [], state_path)
+
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat, updated.\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch("tools.automation_scan.compile_bundle", side_effect=RuntimeError("compile boom")):
+                second = run_scan(root, [], state_path)
+
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            third = run_scan(root, [], state_path)
+            final_state = load_source_state(state_path)
+            source_key = "local-file:20_Raw/inbox/revert-me.txt"
+
+            self.assertGreaterEqual(first["imported_count"], 1)
+            self.assertGreaterEqual(first["compiled_count"], 1)
+            self.assertEqual(second["compiled_count"], 0)
+            self.assertEqual(second["failed_count"], 1)
+            self.assertEqual(third["failed_count"], 0)
+            self.assertEqual(third["skipped_count"], 1)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
+            self.assertIn(source_key, final_state["processed_sources"])
 
     def test_run_scan_recovers_from_malformed_persisted_retry_count(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
