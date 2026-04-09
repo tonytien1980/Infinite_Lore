@@ -18,6 +18,12 @@ RSS_XML = b"""<?xml version="1.0"?>
 </channel></rss>
 """
 
+RSS_RELATIVE_XML = b"""<?xml version="1.0"?>
+<rss><channel>
+<item><title>Alpha</title><link>post-a?story=1#frag</link></item>
+</channel></rss>
+"""
+
 ATOM_XML = b"""<?xml version="1.0"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>Example Feed</title>
@@ -59,6 +65,10 @@ class AutomationScanTests(unittest.TestCase):
     def test_discovers_rss_items(self) -> None:
         items = discover_rss_items(RSS_XML, "https://example.com/feed")
         self.assertEqual([item["url"] for item in items], ["https://example.com/a", "https://example.com/b"])
+
+    def test_discovers_relative_rss_links_against_source_url(self) -> None:
+        items = discover_rss_items(RSS_RELATIVE_XML, "https://example.com/feed")
+        self.assertEqual([item["url"] for item in items], ["https://example.com/post-a?story=1"])
 
     def test_discovers_atom_items(self) -> None:
         items = discover_rss_items(ATOM_XML, "https://example.com/feed")
@@ -166,6 +176,15 @@ class AutomationScanTests(unittest.TestCase):
         )
         self.assertEqual(len(unique), 1)
 
+    def test_dedup_collapses_same_hash_when_fallback_urls_differ_and_canonical_missing(self) -> None:
+        unique = dedup_candidates(
+            [
+                {"content_hash": "same", "url": "https://example.com/a"},
+                {"content_hash": "same", "url": "https://example.com/b"},
+            ]
+        )
+        self.assertEqual(len(unique), 1)
+
     def test_dedup_falls_back_to_discovered_url_when_canonical_and_hash_are_empty(self) -> None:
         unique = dedup_candidates(
             [
@@ -208,3 +227,10 @@ class AutomationScanTests(unittest.TestCase):
             loaded = load_json(target, default)
             loaded["sources"].append("x")
             self.assertEqual(default, {"sources": []})
+
+    def test_discovers_article_links_skips_malformed_anchor(self) -> None:
+        items = discover_article_list_items(
+            '<html><body><a href="https://example.com:bad/post">Bad</a><a href="https://example.com/posts/good">Good</a></body></html>',
+            "https://example.com/blog",
+        )
+        self.assertEqual([item["url"] for item in items], ["https://example.com/posts/good"])

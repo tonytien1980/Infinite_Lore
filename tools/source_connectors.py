@@ -109,7 +109,8 @@ def discover_rss_items(feed_bytes: bytes, source_url: str) -> List[Dict[str, str
             elif local == "title" and child.text:
                 title = child.text.strip()
         if link:
-            items.append({"title": title or link, "url": normalize_url(link), "source_url": source_url})
+            absolute = urllib.parse.urljoin(source_url, link)
+            items.append({"title": title or absolute, "url": normalize_url(absolute), "source_url": source_url})
             continue
     for entry in _iter_local(root, "entry"):
         link = ""
@@ -137,19 +138,21 @@ def discover_article_list_items(html: str, source_url: str) -> List[Dict[str, st
     seen = set()
     items: List[Dict[str, str]] = []
     for href in parser.links:
-        parsed_href = urllib.parse.urlparse(href.strip())
-        if parsed_href.scheme and parsed_href.scheme.lower() not in {"http", "https"}:
-            continue
-        absolute = urllib.parse.urljoin(base, href)
-        normalized = normalize_url(absolute)
-        parsed = urllib.parse.urlparse(normalized)
-        if not _is_http_url(normalized):
-            continue
-        if not _is_same_domain(normalized, source_url):
-            continue
-        if normalized in seen or normalized == base:
-            continue
-        if _looks_like_non_article_url(normalized):
+        try:
+            parsed_href = urllib.parse.urlparse(href.strip())
+            if parsed_href.scheme and parsed_href.scheme.lower() not in {"http", "https"}:
+                continue
+            absolute = urllib.parse.urljoin(base, href)
+            normalized = normalize_url(absolute)
+            if not _is_http_url(normalized):
+                continue
+            if not _is_same_domain(normalized, source_url):
+                continue
+            if normalized in seen or normalized == base:
+                continue
+            if _looks_like_non_article_url(normalized):
+                continue
+        except (ValueError, TypeError):
             continue
         seen.add(normalized)
         items.append({"title": normalized, "url": normalized, "source_url": source_url})
@@ -180,14 +183,16 @@ def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
     for item in fallback_items:
         digest = item.get("content_hash", "") or ""
         fallback = item.get("url", "") or item.get("source_url", "") or ""
+        normalized_fallback = ""
         if fallback:
             normalized_fallback = normalize_url(fallback)
             if normalized_fallback in seen_canonical_urls or normalized_fallback in seen_fallback_urls:
                 continue
+        if digest and (digest in seen_canonical_hashes or digest in seen_fallback_hashes):
+            continue
+        if normalized_fallback:
             seen_fallback_urls.add(normalized_fallback)
-        elif digest:
-            if digest in seen_canonical_hashes or digest in seen_fallback_hashes:
-                continue
+        if digest:
             seen_fallback_hashes.add(digest)
         kept.append(item)
     return kept
