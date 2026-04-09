@@ -89,7 +89,10 @@ def _configured_article_retry_ready(item: Dict[str, Any], current_time: datetime
 
 
 def _is_stale_configured_state_item(
-    item: Dict[str, Any], active_source_urls: set[str], discovered_configured_article_keys: set[str]
+    item: Dict[str, Any],
+    active_source_urls: set[str],
+    successful_source_urls: set[str],
+    discovered_configured_article_keys: set[str],
 ) -> bool:
     source_key = str(item.get("source_key") or "")
     if not source_key.startswith("configured-"):
@@ -97,9 +100,11 @@ def _is_stale_configured_state_item(
     source_url = str(item.get("source_url") or "").strip()
     if source_url not in active_source_urls:
         return True
+    if source_url not in successful_source_urls:
+        return False
     if source_key.startswith("configured-article:"):
         return source_key not in discovered_configured_article_keys
-    return False
+    return True
 
 
 def _fetch_url_bytes(url: str) -> bytes:
@@ -135,10 +140,11 @@ def _configured_source_failure(
 
 def discover_configured_candidates(
     configured_sources: List[Dict[str, Any]]
-) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], set[str]]:
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], set[str], set[str]]:
     candidates: List[Dict[str, Any]] = []
     failed_items: List[Dict[str, Any]] = []
     successful_source_keys: set[str] = set()
+    successful_source_urls: set[str] = set()
 
     for source in configured_sources:
         if not isinstance(source, dict):
@@ -174,6 +180,7 @@ def discover_configured_candidates(
             continue
 
         successful_source_keys.add(_configured_source_key(source))
+        successful_source_urls.add(source_url)
         for item in discovered_items:
             article_url = str(item.get("url") or "").strip()
             if not article_url:
@@ -199,7 +206,7 @@ def discover_configured_candidates(
                 }
             )
 
-    return candidates, failed_items, successful_source_keys
+    return candidates, failed_items, successful_source_keys, successful_source_urls
 
 
 def discover_local_candidates(vault_root: Path) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
@@ -505,7 +512,12 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     failed_items = [_normalize_failed_item(item) for item in state.get("failed_items", [])]
     failed_items = [item for item in failed_items if item is not None]
 
-    configured_candidates, configured_failed_items, configured_successful_source_keys = discover_configured_candidates(configured_sources)
+    (
+        configured_candidates,
+        configured_failed_items,
+        configured_successful_source_keys,
+        configured_successful_source_urls,
+    ) = discover_configured_candidates(configured_sources)
     discovered_candidates, discovery_failed_items = discover_local_candidates(vault_root)
     discovered_configured_article_keys = {
         candidate["source_key"] for candidate in configured_candidates if str(candidate.get("source_key") or "").startswith("configured-article:")
@@ -514,12 +526,22 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     exhausted_failed_items = [
         item
         for item in exhausted_failed_items
-        if not _is_stale_configured_state_item(item, active_configured_source_urls, discovered_configured_article_keys)
+        if not _is_stale_configured_state_item(
+            item,
+            active_configured_source_urls,
+            configured_successful_source_urls,
+            discovered_configured_article_keys,
+        )
     ]
     failed_items = [
         item
         for item in failed_items
-        if not _is_stale_configured_state_item(item, active_configured_source_urls, discovered_configured_article_keys)
+        if not _is_stale_configured_state_item(
+            item,
+            active_configured_source_urls,
+            configured_successful_source_urls,
+            discovered_configured_article_keys,
+        )
     ]
     retryable_failed_items = [item for item in failed_items if not _is_retry_exhausted(item)]
 

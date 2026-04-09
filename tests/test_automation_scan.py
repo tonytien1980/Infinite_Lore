@@ -389,6 +389,117 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(final_state["exhausted_failed_items"], [])
             self.assertIn(f"configured-article:{article_url}", final_state["processed_sources"])
 
+    def test_run_scan_preserves_exhausted_configured_article_when_source_fetch_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            feed_source = {
+                "id": "feed-techcrunch",
+                "name": "TechCrunch",
+                "source_type": "rss-feed",
+                "url": "https://techcrunch.com/feed/",
+                "enabled": True,
+            }
+            article_url = "https://example.com/posts/alpha"
+            exhausted_item = {
+                "source_key": f"configured-article:{article_url}",
+                "source": article_url,
+                "source_url": feed_source["url"],
+                "url": article_url,
+                "content_hash": hashlib.sha256(article_url.encode("utf-8")).hexdigest(),
+                "primary_domain": "ai-application",
+                "related_domains": [],
+                "stage": "imported",
+                "error_stage": "compile",
+                "retry_count": 2,
+                "retry_status": "exhausted",
+                "last_attempt_at": "2026-04-10T00:00:00Z",
+                "bundle_path": "",
+            }
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [feed_source],
+                        "last_scan": None,
+                        "failed_items": [],
+                        "exhausted_failed_items": [exhausted_item],
+                        "processed_sources": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch("urllib.request.urlopen", side_effect=OSError("network down")), mock.patch(
+                "tools.automation_scan.import_source", side_effect=AssertionError("should not import")
+            ), mock.patch("tools.automation_scan.compile_bundle", side_effect=AssertionError("should not compile")):
+                result = run_scan(root, [feed_source], state_path)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(result["failed_count"], 1)
+            self.assertEqual(result["exhausted_failed_count"], 1)
+            self.assertEqual(len(final_state["failed_items"]), 1)
+            self.assertEqual(final_state["failed_items"][0]["source_key"], "configured-source:feed-techcrunch")
+            self.assertEqual(len(final_state["exhausted_failed_items"]), 1)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["source_key"], exhausted_item["source_key"])
+
+    def test_run_scan_preserves_exhausted_configured_article_when_discovery_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            feed_source = {
+                "id": "feed-techcrunch",
+                "name": "TechCrunch",
+                "source_type": "rss-feed",
+                "url": "https://techcrunch.com/feed/",
+                "enabled": True,
+            }
+            article_url = "https://example.com/posts/alpha"
+            exhausted_item = {
+                "source_key": f"configured-article:{article_url}",
+                "source": article_url,
+                "source_url": feed_source["url"],
+                "url": article_url,
+                "content_hash": hashlib.sha256(article_url.encode("utf-8")).hexdigest(),
+                "primary_domain": "ai-application",
+                "related_domains": [],
+                "stage": "imported",
+                "error_stage": "compile",
+                "retry_count": 2,
+                "retry_status": "exhausted",
+                "last_attempt_at": "2026-04-10T00:00:00Z",
+                "bundle_path": "",
+            }
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [feed_source],
+                        "last_scan": None,
+                        "failed_items": [],
+                        "exhausted_failed_items": [exhausted_item],
+                        "processed_sources": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def fake_urlopen(url, *args, **kwargs):
+                if url == feed_source["url"]:
+                    return _FakeResponse(b"<rss><channel><item><title>Bad</title></item>", "application/rss+xml")
+                raise AssertionError(f"unexpected urlopen call: {url}")
+
+            with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), mock.patch(
+                "tools.automation_scan.import_source", side_effect=AssertionError("should not import")
+            ), mock.patch("tools.automation_scan.compile_bundle", side_effect=AssertionError("should not compile")):
+                result = run_scan(root, [feed_source], state_path)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(result["failed_count"], 1)
+            self.assertEqual(result["exhausted_failed_count"], 1)
+            self.assertEqual(len(final_state["failed_items"]), 1)
+            self.assertEqual(final_state["failed_items"][0]["source_key"], "configured-source:feed-techcrunch")
+            self.assertEqual(len(final_state["exhausted_failed_items"]), 1)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["source_key"], exhausted_item["source_key"])
+
     def test_run_scan_clears_stale_configured_source_state_when_source_is_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
