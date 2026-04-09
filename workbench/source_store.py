@@ -147,6 +147,8 @@ def _normalize_source_entries(value: Any, strict: bool = False) -> List[Dict[str
         return []
 
     normalized: List[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    seen_urls: set[str] = set()
     for index, entry in enumerate(value):
         try:
             normalized_entry = _normalize_source_entry(entry, strict=strict)
@@ -155,6 +157,15 @@ def _normalize_source_entries(value: Any, strict: bool = False) -> List[Dict[str
                 raise ValueError(f"sources[{index}]: {exc}") from exc
             continue
         if normalized_entry is not None:
+            if strict:
+                source_id = normalized_entry["id"]
+                source_url = normalized_entry["url"]
+                if source_id in seen_ids:
+                    raise ValueError(f"sources[{index}]: duplicate source id: {source_id}")
+                if source_url in seen_urls:
+                    raise ValueError(f"sources[{index}]: duplicate source url: {source_url}")
+                seen_ids.add(source_id)
+                seen_urls.add(source_url)
             normalized.append(normalized_entry)
     return normalized
 

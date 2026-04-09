@@ -605,6 +605,66 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertIn("scan_cache", saved_state)
             self.assertEqual(saved_state["scan_cache"], {"cursor": "abc123"})
 
+    def test_inbox_sources_rejects_duplicate_source_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-techcrunch",
+                            "name": "TechCrunch",
+                            "source_type": "rss-feed",
+                            "url": "https://techcrunch.com/feed/",
+                            "enabled": True,
+                        },
+                        {
+                            "id": "feed-techcrunch",
+                            "name": "TechCrunch Duplicate",
+                            "source_type": "article-list-page",
+                            "url": "https://www.searchenginejournal.com/category/seo/",
+                            "enabled": True,
+                        },
+                    ]
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("duplicate source id", response.json()["detail"])
+
+    def test_inbox_sources_rejects_duplicate_normalized_source_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-techcrunch",
+                            "name": "TechCrunch",
+                            "source_type": "rss-feed",
+                            "url": "https://techcrunch.com/feed/",
+                            "enabled": True,
+                        },
+                        {
+                            "id": "list-techcrunch",
+                            "name": "TechCrunch Mirror",
+                            "source_type": "article-list-page",
+                            "url": " https://techcrunch.com/feed/ ",
+                            "enabled": True,
+                        },
+                    ]
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("duplicate source url", response.json()["detail"])
+
     def test_inbox_summary_handles_malformed_source_state_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
