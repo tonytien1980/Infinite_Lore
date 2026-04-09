@@ -97,7 +97,8 @@ def discover_rss_items(feed_bytes: bytes, source_url: str) -> List[Dict[str, str
                 if href and (_is_http_url(href) or href.startswith("/")) and (not link or rel in {"alternate", ""}):
                     link = href
         if link:
-            items.append({"title": title or link, "url": normalize_url(link), "source_url": source_url})
+            absolute = urllib.parse.urljoin(source_url, link)
+            items.append({"title": title or absolute, "url": normalize_url(absolute), "source_url": source_url})
     return items
 
 
@@ -134,6 +135,7 @@ def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
     for item in items:
         canonical = item.get("canonical_url", "") or ""
         digest = item.get("content_hash", "") or ""
+        fallback = item.get("url", "") or item.get("source_url", "") or ""
         if canonical and canonical in seen_urls:
             continue
         if canonical:
@@ -142,5 +144,9 @@ def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
             continue
         if not canonical and digest:
             seen_hashes.add(digest)
+        elif not canonical and not digest and fallback:
+            if fallback in seen_urls:
+                continue
+            seen_urls.add(fallback)
         kept.append(item)
     return kept

@@ -1,4 +1,7 @@
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from tools.source_connectors import (
     choose_canonical_url,
@@ -24,7 +27,7 @@ ATOM_XML = b"""<?xml version="1.0"?>
   </entry>
   <entry>
     <title>Atom Beta</title>
-    <link href="https://example.com/atom-b?story=1#frag" />
+    <link href="/atom-b?story=1#frag" />
   </entry>
 </feed>
 """
@@ -107,3 +110,36 @@ class AutomationScanTests(unittest.TestCase):
             ]
         )
         self.assertEqual(len(unique), 1)
+
+    def test_dedup_falls_back_to_discovered_url_when_canonical_and_hash_are_empty(self) -> None:
+        unique = dedup_candidates(
+            [
+                {"canonical_url": "", "content_hash": "", "url": "https://example.com/discovered"},
+                {"canonical_url": "", "content_hash": "", "url": "https://example.com/discovered"},
+            ]
+        )
+        self.assertEqual(len(unique), 1)
+
+    def test_atomic_write_json_uses_unique_temp_files(self) -> None:
+        from tools import automation_cache
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "state.json"
+            temp_names = []
+
+            real_named_tempfile = automation_cache.tempfile.NamedTemporaryFile
+
+            def tracking_named_tempfile(*args, **kwargs):
+                handle = real_named_tempfile(*args, **kwargs)
+                temp_names.append(handle.name)
+                return handle
+
+            with mock.patch.object(automation_cache.tempfile, "NamedTemporaryFile", side_effect=tracking_named_tempfile), mock.patch.object(
+                automation_cache.os, "replace"
+            ) as replace_mock:
+                automation_cache.atomic_write_json(target, {"one": 1})
+                automation_cache.atomic_write_json(target, {"two": 2})
+
+            self.assertEqual(replace_mock.call_count, 2)
+            self.assertEqual(len(set(temp_names)), 2)
+            self.assertTrue(all(name.endswith(".tmp") for name in temp_names))
