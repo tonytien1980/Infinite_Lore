@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -274,22 +275,65 @@ class AutomationScanTests(unittest.TestCase):
 
             with mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_mock, mock.patch(
                 "tools.automation_scan.compile_bundle",
-                side_effect=[RuntimeError("compile boom"), None],
+                side_effect=[RuntimeError("compile boom"), RuntimeError("compile boom again")],
             ) as compile_mock:
                 first = run_scan(root, [], state_path)
                 state_after_first = load_source_state(state_path)
                 second = run_scan(root, [], state_path)
+                third = run_scan(root, [], state_path)
 
             self.assertEqual(import_mock.call_count, 1)
             self.assertEqual(compile_mock.call_count, 2)
             self.assertEqual(first["imported_count"], 1)
             self.assertEqual(first["compiled_count"], 0)
             self.assertEqual(second["imported_count"], 0)
-            self.assertEqual(second["compiled_count"], 1)
+            self.assertEqual(second["compiled_count"], 0)
+            self.assertEqual(third["imported_count"], 0)
+            self.assertEqual(third["compiled_count"], 0)
             self.assertEqual(state_after_first["failed_items"][0]["stage"], "imported")
             self.assertEqual(state_after_first["failed_items"][0]["error_stage"], "compile")
             self.assertGreaterEqual(state_after_first["failed_items"][0]["retry_count"], 1)
-            self.assertEqual(load_source_state(state_path)["failed_items"], [])
+            final_state = load_source_state(state_path)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(len(final_state["exhausted_failed_items"]), 1)
+            self.assertEqual(final_state["exhausted_failed_items"][0]["retry_status"], "exhausted")
+            self.assertEqual(final_state["last_scan"]["exhausted_failed_count"], 1)
+            self.assertEqual(final_state["last_scan"]["retry_limit"], 2)
+
+    def test_run_scan_recovers_from_malformed_persisted_retry_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "20_Raw/inbox").mkdir(parents=True)
+            (root / "20_Raw/inbox/retry-me.txt").write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+            bundle_path = root / "20_Raw/inbox/2026-04-10-retry-me"
+
+            with mock.patch("tools.automation_scan.import_source", return_value=bundle_path), mock.patch(
+                "tools.automation_scan.compile_bundle",
+                side_effect=RuntimeError("compile boom"),
+            ):
+                run_scan(root, [], state_path)
+
+            state = load_source_state(state_path)
+            state["failed_items"][0]["retry_count"] = "broken"
+            state_path.write_text(json.dumps(state), encoding="utf-8")
+
+            with mock.patch("tools.automation_scan.import_source", return_value=bundle_path), mock.patch(
+                "tools.automation_scan.compile_bundle",
+                return_value=None,
+            ) as compile_mock:
+                result = run_scan(root, [], state_path)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(compile_mock.call_count, 1)
+            self.assertEqual(result["compiled_count"], 1)
+            self.assertEqual(final_state["last_scan"]["failed_count"], 0)
+            self.assertEqual(final_state["last_scan"]["exhausted_failed_count"], 0)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
 
     def test_run_scan_infers_non_ai_domain_for_local_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

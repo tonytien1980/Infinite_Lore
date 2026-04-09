@@ -12,6 +12,9 @@ from workbench.services import infer_domains
 from workbench.source_store import load_source_state, update_scan_state
 
 
+MAX_FAILED_RETRY_COUNT = 2
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -74,6 +77,19 @@ def _normalize_failed_item(item: Any) -> Dict[str, Any] | None:
     normalized["primary_domain"] = str(normalized.get("primary_domain") or "ai-application")
     normalized["related_domains"] = list(normalized.get("related_domains") or [])
     return normalized
+
+
+def _retry_count(item: Dict[str, Any]) -> int:
+    value = item.get("retry_count", 0)
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return count if count >= 0 else 0
+
+
+def _is_retry_exhausted(item: Dict[str, Any]) -> bool:
+    return _retry_count(item) >= MAX_FAILED_RETRY_COUNT
 
 
 def _completed_record(candidate: Dict[str, Any], vault_root: Path, bundle_path: Path) -> Dict[str, Any]:
@@ -151,9 +167,17 @@ def _processed_matches(candidate: Dict[str, Any], processed_entry: Dict[str, Any
 def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_path: Path) -> Dict[str, Any]:
     state = load_source_state(state_path)
     processed_sources = state.get("processed_sources", {})
+    exhausted_failed_items = [_normalize_failed_item(item) for item in state.get("exhausted_failed_items", [])]
+    exhausted_failed_items = [item for item in exhausted_failed_items if item is not None]
     failed_items = [_normalize_failed_item(item) for item in state.get("failed_items", [])]
     failed_items = [item for item in failed_items if item is not None]
-    failed_by_key = {item["source_key"]: item for item in failed_items if item.get("source_key")}
+    retryable_failed_items = [item for item in failed_items if not _is_retry_exhausted(item)]
+    newly_exhausted_failed_items = [item for item in failed_items if _is_retry_exhausted(item)]
+    blocked_source_keys = {
+        item["source_key"]
+        for item in retryable_failed_items + newly_exhausted_failed_items + exhausted_failed_items
+        if item.get("source_key")
+    }
 
     discovered_candidates = discover_local_candidates(vault_root)
     fresh_candidates: List[Dict[str, Any]] = []
@@ -163,16 +187,17 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
         if _processed_matches(candidate, processed_entry):
             skipped_count += 1
             continue
-        if candidate["source_key"] in failed_by_key:
+        if candidate["source_key"] in blocked_source_keys:
             continue
         fresh_candidates.append(candidate)
 
-    runtime_candidates = [_retry_candidate(item) for item in failed_items] + fresh_candidates
+    runtime_candidates = [_retry_candidate(item) for item in retryable_failed_items] + fresh_candidates
     candidates = dedup_candidates(runtime_candidates)
 
     imported_count = 0
     compiled_count = 0
     new_failed: List[Dict[str, Any]] = []
+    new_exhausted_failed_items = list(exhausted_failed_items) + newly_exhausted_failed_items
     new_processed_sources = dict(processed_sources) if isinstance(processed_sources, dict) else {}
 
     for candidate in candidates:
@@ -194,7 +219,12 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
                     bundle_path=bundle_path,
                 )
                 failure["retry_count"] = retry_count + 1
-                new_failed.append(failure)
+                if _retry_count(failure) >= MAX_FAILED_RETRY_COUNT:
+                    failure["retry_status"] = "exhausted"
+                    new_exhausted_failed_items.append(failure)
+                else:
+                    failure["retry_status"] = "retrying"
+                    new_failed.append(failure)
                 continue
 
             compiled_count += 1
@@ -218,7 +248,12 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
                 error=exc,
             )
             failure["retry_count"] = retry_count + 1
-            new_failed.append(failure)
+            if _retry_count(failure) >= MAX_FAILED_RETRY_COUNT:
+                failure["retry_status"] = "exhausted"
+                new_exhausted_failed_items.append(failure)
+            else:
+                failure["retry_status"] = "retrying"
+                new_failed.append(failure)
             continue
 
         try:
@@ -233,7 +268,12 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
                 bundle_path=bundle,
             )
             failure["retry_count"] = retry_count + 1
-            new_failed.append(failure)
+            if _retry_count(failure) >= MAX_FAILED_RETRY_COUNT:
+                failure["retry_status"] = "exhausted"
+                new_exhausted_failed_items.append(failure)
+            else:
+                failure["retry_status"] = "retrying"
+                new_failed.append(failure)
             continue
 
         compiled_count += 1
@@ -247,11 +287,14 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
         "imported_count": imported_count,
         "compiled_count": compiled_count,
         "failed_count": len(new_failed),
+        "exhausted_failed_count": len(new_exhausted_failed_items),
+        "retry_limit": MAX_FAILED_RETRY_COUNT,
     }
     update_scan_state(
         state_path,
         summary=summary,
         failed_items=new_failed,
+        exhausted_failed_items=new_exhausted_failed_items,
         processed_sources=new_processed_sources,
     )
     return summary
