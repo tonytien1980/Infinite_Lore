@@ -22,8 +22,9 @@ class LinkCollector(HTMLParser):
 def normalize_url(url: str) -> str:
     parsed = urllib.parse.urlparse(url.strip())
     path = parsed.path or "/"
+    port = parsed.port
     host = (parsed.hostname or "").lower()
-    if parsed.port:
+    if port and not ((parsed.scheme.lower() == "http" and port == 80) or (parsed.scheme.lower() == "https" and port == 443)):
         host = f"{host}:{parsed.port}"
     if parsed.username:
         userinfo = parsed.username
@@ -75,12 +76,20 @@ def _looks_like_non_article_url(url: str) -> bool:
         "feed",
         "privacy",
         "rss",
+        "archive",
+        "archives",
         "tag",
         "terms",
         "tags",
     }
     if segments[0] in blocked or segments[0] == "search" or segments[0] == "page":
         return True
+    if "archive" in segments or "archives" in segments:
+        return True
+    if "page" in segments:
+        page_index = segments.index("page")
+        if page_index + 1 < len(segments) and segments[page_index + 1].isdigit():
+            return True
     query_keys = {key.lower() for key in urllib.parse.parse_qs(parsed.query).keys()}
     if "page" in query_keys:
         return True
@@ -159,9 +168,10 @@ def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
         digest = item.get("content_hash", "") or ""
         fallback = item.get("url", "") or item.get("source_url", "") or ""
         if canonical:
-            if canonical in seen_canonical_urls:
+            normalized_canonical = normalize_url(canonical)
+            if normalized_canonical in seen_canonical_urls:
                 continue
-            seen_canonical_urls.add(canonical)
+            seen_canonical_urls.add(normalized_canonical)
             if digest:
                 seen_canonical_hashes.add(digest)
             kept.append(item)
@@ -170,13 +180,14 @@ def dedup_candidates(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
     for item in fallback_items:
         digest = item.get("content_hash", "") or ""
         fallback = item.get("url", "") or item.get("source_url", "") or ""
-        if digest:
+        if fallback:
+            normalized_fallback = normalize_url(fallback)
+            if normalized_fallback in seen_canonical_urls or normalized_fallback in seen_fallback_urls:
+                continue
+            seen_fallback_urls.add(normalized_fallback)
+        elif digest:
             if digest in seen_canonical_hashes or digest in seen_fallback_hashes:
                 continue
             seen_fallback_hashes.add(digest)
-        elif fallback:
-            if fallback in seen_canonical_urls or fallback in seen_fallback_urls:
-                continue
-            seen_fallback_urls.add(fallback)
         kept.append(item)
     return kept

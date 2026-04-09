@@ -78,6 +78,13 @@ class AutomationScanTests(unittest.TestCase):
             ["https://example.com/posts/alpha", "https://example.com/posts/beta?story=1"],
         )
 
+    def test_discovers_article_links_filters_blog_pagination(self) -> None:
+        items = discover_article_list_items(
+            '<html><body><a href="/blog/page/2/">Next</a><a href="/blog/archive/">Archive</a></body></html>',
+            "https://example.com/blog",
+        )
+        self.assertEqual(items, [])
+
     def test_discovers_article_links_treats_www_and_apex_as_same_domain(self) -> None:
         items = discover_article_list_items(
             '<html><body><a href="https://example.com/posts/alpha">Alpha</a></body></html>',
@@ -95,6 +102,12 @@ class AutomationScanTests(unittest.TestCase):
         self.assertEqual(
             choose_canonical_url("HTTPS://WWW.EXAMPLE.COM"),
             "https://www.example.com/",
+        )
+
+    def test_choose_canonical_url_drops_default_port(self) -> None:
+        self.assertEqual(
+            choose_canonical_url("https://example.com:443/posts/alpha?story=1"),
+            "https://example.com/posts/alpha?story=1",
         )
 
     def test_dedup_prefers_canonical_url_then_hash(self) -> None:
@@ -144,6 +157,15 @@ class AutomationScanTests(unittest.TestCase):
         )
         self.assertEqual(len(unique), 1)
 
+    def test_dedup_collapses_mixed_canonical_and_fallback_url_duplicate(self) -> None:
+        unique = dedup_candidates(
+            [
+                {"canonical_url": "https://example.com/a", "content_hash": "h1"},
+                {"content_hash": "h2", "url": "https://example.com/a"},
+            ]
+        )
+        self.assertEqual(len(unique), 1)
+
     def test_dedup_falls_back_to_discovered_url_when_canonical_and_hash_are_empty(self) -> None:
         unique = dedup_candidates(
             [
@@ -176,3 +198,13 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(replace_mock.call_count, 2)
             self.assertEqual(len(set(temp_names)), 2)
             self.assertTrue(all(name.endswith(".tmp") for name in temp_names))
+
+    def test_load_json_returns_independent_default_copy_when_missing(self) -> None:
+        from tools.automation_cache import load_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "missing.json"
+            default = {"sources": []}
+            loaded = load_json(target, default)
+            loaded["sources"].append("x")
+            self.assertEqual(default, {"sources": []})
