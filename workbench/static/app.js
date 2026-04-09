@@ -443,6 +443,14 @@ function addInboxSource() {
   renderInboxSources();
 }
 
+async function persistInboxSources() {
+  return fetchJson("/api/inbox/sources", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sources: state.inbox.sources }),
+  });
+}
+
 async function saveInboxSources() {
   if (state.inbox.sourcesBusy) {
     return;
@@ -450,11 +458,7 @@ async function saveInboxSources() {
   state.inbox.sourcesBusy = true;
   setInboxBusy(true, "Saving sources...");
   try {
-    await fetchJson("/api/inbox/sources", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sources: state.inbox.sources }),
-    });
+    await persistInboxSources();
     await loadAll();
     state.inbox.status = "Sources saved.";
     inboxScanStatus.textContent = state.inbox.status;
@@ -471,8 +475,9 @@ async function runInboxScan() {
   if (state.inbox.scanBusy) {
     return;
   }
-  setInboxBusy(true, "Scanning configured sources and raw intake...");
+  setInboxBusy(true, "Saving sources and scanning configured sources and raw intake...");
   try {
+    await persistInboxSources();
     const summary = await fetchJson("/api/inbox/scan", { method: "POST" });
     state.inbox.summary = {
       ...(state.inbox.summary || {}),

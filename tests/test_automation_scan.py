@@ -82,6 +82,22 @@ FILTERED_LIST_HTML = """
 """
 
 
+class _FakeResponse:
+    def __init__(self, payload: bytes, content_type: str = "text/plain") -> None:
+        self._payload = payload
+        self.headers = mock.Mock()
+        self.headers.get_content_type.return_value = content_type
+
+    def read(self) -> bytes:
+        return self._payload
+
+    def __enter__(self) -> "_FakeResponse":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+
 def _dated_bundle_path(root: Path, name: str) -> Path:
     return root / "20_Raw/inbox" / f"{date.today().isoformat()}-{name}"
 
@@ -160,6 +176,73 @@ class AutomationScanTests(unittest.TestCase):
             "https://www.example.com/blog",
         )
         self.assertEqual([item["url"] for item in items], ["https://example.com/posts/alpha"])
+
+    def test_run_scan_processes_configured_rss_source_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            state_path.write_text(
+                json.dumps({"sources": [], "last_scan": None, "failed_items": [], "processed_sources": {}}),
+                encoding="utf-8",
+            )
+            feed_source = {
+                "id": "feed-techcrunch",
+                "name": "TechCrunch",
+                "source_type": "rss-feed",
+                "url": "https://example.com/feed",
+                "enabled": True,
+            }
+            bundle_path = root / "20_Raw/inbox/configured-article-alpha"
+            bundle_path.mkdir(parents=True)
+
+            def fake_urlopen(url, *args, **kwargs):
+                if url == feed_source["url"]:
+                    return _FakeResponse(RSS_XML, "application/rss+xml")
+                raise AssertionError(f"unexpected urlopen call: {url}")
+
+            with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), mock.patch(
+                "tools.automation_scan.import_source", return_value=bundle_path
+            ) as import_source, mock.patch("tools.automation_scan.compile_bundle", return_value=None) as compile_bundle:
+                summary = run_scan(root, [feed_source], state_path)
+
+            self.assertEqual(summary["imported_count"], 2)
+            self.assertEqual(summary["compiled_count"], 2)
+            self.assertEqual(import_source.call_count, 2)
+            self.assertEqual([call.args[1] for call in import_source.call_args_list], ["https://example.com/a", "https://example.com/b"])
+            self.assertEqual(compile_bundle.call_count, 2)
+
+            final_state = load_source_state(state_path)
+            self.assertIn("configured-article:https://example.com/a", final_state["processed_sources"])
+            self.assertIn("configured-article:https://example.com/b", final_state["processed_sources"])
+
+    def test_run_scan_records_configured_source_fetch_failure_with_stable_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            state_path.write_text(
+                json.dumps({"sources": [], "last_scan": None, "failed_items": [], "processed_sources": {}}),
+                encoding="utf-8",
+            )
+            feed_source = {
+                "id": "feed-techcrunch",
+                "name": "TechCrunch",
+                "source_type": "rss-feed",
+                "url": "https://example.com/feed",
+                "enabled": True,
+            }
+
+            with mock.patch("urllib.request.urlopen", side_effect=OSError("network down")):
+                summary = run_scan(root, [feed_source], state_path)
+
+            self.assertEqual(summary["failed_count"], 1)
+            self.assertEqual(summary["exhausted_failed_count"], 0)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(len(final_state["failed_items"]), 1)
+            failed_item = final_state["failed_items"][0]
+            self.assertEqual(failed_item["source_key"], "configured-source:feed-techcrunch")
+            self.assertEqual(failed_item["retry_count"], 1)
+            self.assertEqual(failed_item["retry_status"], "retrying")
 
     def test_choose_canonical_url_preserves_query_but_strips_fragment(self) -> None:
         self.assertEqual(

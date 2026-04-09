@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import hashlib
 import tempfile
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 from tools.import_bundle import import_source
-from tools.source_connectors import dedup_candidates
+from tools.source_connectors import choose_canonical_url, dedup_candidates, discover_article_list_items, discover_rss_items
 from tools.wiki_compile import compile_bundle, read_note, write_note
 from workbench.services import infer_domains
 from workbench.source_store import load_source_state, summarize_source_state, update_scan_state
@@ -32,6 +33,118 @@ def _local_source_key(vault_root: Path, path: Path) -> str:
     except ValueError:
         relative = path
     return f"local-file:{relative.as_posix()}"
+
+
+def _configured_source_key(source: Dict[str, Any]) -> str:
+    source_id = str(source.get("id") or "").strip()
+    if not source_id:
+        source_url = str(source.get("url") or "").strip()
+        source_id = _content_hash(source_url.encode("utf-8"))[:12] if source_url else "unknown"
+    return f"configured-source:{source_id}"
+
+
+def _configured_article_key(article_url: str) -> str:
+    return f"configured-article:{choose_canonical_url(article_url)}"
+
+
+def _fetch_url_bytes(url: str) -> bytes:
+    with urllib.request.urlopen(url) as response:
+        return response.read()
+
+
+def _configured_source_failure(
+    source: Dict[str, Any],
+    *,
+    error_stage: str,
+    error: Exception,
+    content_hash: str = "",
+) -> Dict[str, Any]:
+    source_url = str(source.get("url") or "")
+    fallback_primary, fallback_related = infer_domains(str(source.get("name") or source_url), source_url)
+    return {
+        "source_key": _configured_source_key(source),
+        "source": source_url,
+        "source_url": source_url,
+        "url": source_url,
+        "content_hash": content_hash,
+        "primary_domain": fallback_primary,
+        "related_domains": fallback_related,
+        "stage": "discovery-failed",
+        "error_stage": error_stage,
+        "error": f"{error.__class__.__name__}: {error}",
+        "retry_count": 1,
+        "last_attempt_at": now_iso(),
+        "bundle_path": "",
+    }
+
+
+def discover_configured_candidates(
+    configured_sources: List[Dict[str, Any]]
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], set[str]]:
+    candidates: List[Dict[str, Any]] = []
+    failed_items: List[Dict[str, Any]] = []
+    successful_source_keys: set[str] = set()
+
+    for source in configured_sources:
+        if not isinstance(source, dict):
+            continue
+        if source.get("enabled") is False:
+            continue
+
+        source_type = str(source.get("source_type") or "")
+        source_url = str(source.get("url") or "").strip()
+        if not source_url or source_type not in {"rss-feed", "article-list-page"}:
+            continue
+
+        try:
+            source_bytes = _fetch_url_bytes(source_url)
+        except Exception as exc:
+            failed_items.append(_configured_source_failure(source, error_stage="fetch", error=exc))
+            continue
+
+        try:
+            if source_type == "rss-feed":
+                discovered_items = discover_rss_items(source_bytes, source_url)
+            else:
+                discovered_items = discover_article_list_items(source_bytes.decode("utf-8", errors="replace"), source_url)
+        except Exception as exc:
+            failed_items.append(
+                _configured_source_failure(
+                    source,
+                    error_stage="discover",
+                    error=exc,
+                    content_hash=_content_hash(source_bytes),
+                )
+            )
+            continue
+
+        successful_source_keys.add(_configured_source_key(source))
+        for item in discovered_items:
+            article_url = str(item.get("url") or "").strip()
+            if not article_url:
+                continue
+            canonical_url = choose_canonical_url(article_url)
+            source_key = _configured_article_key(article_url)
+            primary_domain, related_domains = infer_domains(str(item.get("title") or article_url), article_url)
+            candidates.append(
+                {
+                    "title": str(item.get("title") or article_url),
+                    "source_key": source_key,
+                    "source": article_url,
+                    "source_kind": "configured-source",
+                    "source_type": source_type,
+                    "url": article_url,
+                    "source_url": source_url,
+                    "canonical_url": canonical_url,
+                    "content_hash": _content_hash(canonical_url.encode("utf-8")),
+                    "primary_domain": primary_domain,
+                    "related_domains": related_domains,
+                    "stage": "discovered",
+                    "retry_count": 0,
+                }
+            )
+
+    return candidates, failed_items, successful_source_keys
 
 
 def discover_local_candidates(vault_root: Path) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
@@ -167,6 +280,9 @@ def _failure_record(
 def _processed_matches(candidate: Dict[str, Any], processed_entry: Dict[str, Any] | None) -> bool:
     if not isinstance(processed_entry, dict):
         return False
+    source_key = str(candidate.get("source_key") or "")
+    if source_key.startswith("configured-article:"):
+        return processed_entry.get("stage") == "compiled" and processed_entry.get("source_key") == source_key
     return (
         processed_entry.get("stage") == "compiled"
         and processed_entry.get("content_hash") == candidate.get("content_hash")
@@ -338,11 +454,14 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     exhausted_by_key = _index_by_source_key(exhausted_failed_items)
     resolved_source_keys: set[str] = set()
 
+    configured_candidates, configured_failed_items, configured_successful_source_keys = discover_configured_candidates(configured_sources)
     discovered_candidates, discovery_failed_items = discover_local_candidates(vault_root)
     fresh_candidates: List[Dict[str, Any]] = []
     skipped_count = 0
     blocked_exhausted_count = 0
-    for candidate in discovered_candidates:
+    updated_retry_keys: set[str] = set(configured_successful_source_keys)
+
+    for candidate in configured_candidates + discovered_candidates:
         source_key = candidate["source_key"]
         content_hash = candidate["content_hash"]
         processed_entry = processed_by_key.get(source_key)
@@ -388,35 +507,33 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             continue
         fresh_candidates.append(candidate)
 
-    discovered_source_keys = {candidate["source_key"] for candidate in discovered_candidates}
+    discovered_source_keys = {candidate["source_key"] for candidate in configured_candidates + discovered_candidates}
     for retry_entry in retryable_failed_items:
         source_key = str(retry_entry.get("source_key") or "")
         if not source_key or source_key in discovered_source_keys:
             continue
-        if str(retry_entry.get("stage") or "") != "imported":
-            continue
+        if str(retry_entry.get("stage") or "") == "imported":
+            bundle_path = str(retry_entry.get("bundle_path") or "")
+            if not bundle_path:
+                continue
 
-        bundle_path = str(retry_entry.get("bundle_path") or "")
-        if not bundle_path:
-            continue
+            source_path = _resolve_source_path(vault_root, str(retry_entry.get("source") or ""))
+            if source_path.exists():
+                continue
 
-        source_path = _resolve_source_path(vault_root, str(retry_entry.get("source") or ""))
-        if source_path.exists():
-            continue
+            retry_bundle_path = vault_root / bundle_path
+            if not retry_bundle_path.exists():
+                continue
 
-        retry_bundle_path = vault_root / bundle_path
-        if not retry_bundle_path.exists():
-            continue
-
-        merged_candidate = dict(retry_entry)
-        merged_candidate["stage"] = "imported"
-        merged_candidate["bundle_path"] = bundle_path
-        merged_candidate["retry_count"] = _retry_count(retry_entry)
-        if not merged_candidate.get("primary_domain"):
-            merged_candidate["primary_domain"] = str(retry_entry.get("primary_domain") or "")
-        if not merged_candidate.get("related_domains"):
-            merged_candidate["related_domains"] = list(retry_entry.get("related_domains") or [])
-        fresh_candidates.append(merged_candidate)
+            merged_candidate = dict(retry_entry)
+            merged_candidate["stage"] = "imported"
+            merged_candidate["bundle_path"] = bundle_path
+            merged_candidate["retry_count"] = _retry_count(retry_entry)
+            if not merged_candidate.get("primary_domain"):
+                merged_candidate["primary_domain"] = str(retry_entry.get("primary_domain") or "")
+            if not merged_candidate.get("related_domains"):
+                merged_candidate["related_domains"] = list(retry_entry.get("related_domains") or [])
+            fresh_candidates.append(merged_candidate)
 
     if state_summary.get("recovered_from_corruption"):
         fresh_source_keys = {candidate["source_key"] for candidate in fresh_candidates}
@@ -459,9 +576,8 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     new_failed: List[Dict[str, Any]] = []
     added_exhausted_items: List[Dict[str, Any]] = []
     new_processed_sources = dict(processed_sources) if isinstance(processed_sources, dict) else {}
-    updated_retry_keys: set[str] = set()
 
-    for discovery_failure in discovery_failed_items:
+    for discovery_failure in configured_failed_items + discovery_failed_items:
         source_key = str(discovery_failure.get("source_key") or "")
         if not source_key:
             continue
@@ -581,7 +697,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
 
     summary = {
         "ran_at": now_iso(),
-        "discovered_count": len(discovered_candidates) + len(discovery_failed_items),
+        "discovered_count": len(configured_candidates) + len(configured_failed_items) + len(discovered_candidates) + len(discovery_failed_items),
         "skipped_count": skipped_count,
         "blocked_exhausted_count": blocked_exhausted_count,
         "deduplicated_count": len(candidates),

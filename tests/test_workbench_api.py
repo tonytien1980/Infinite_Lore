@@ -2,10 +2,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
 from workbench.server import create_app
+from workbench.source_store import load_source_state
 
 
 class WorkbenchApiTests(unittest.TestCase):
@@ -960,6 +962,37 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(summary_payload["sources"][0]["id"], "feed-techcrunch")
             self.assertEqual(summary_payload["last_scan"]["ran_at"], scan_payload["ran_at"])
             self.assertEqual(summary_payload["last_scan"]["retry_limit"], scan_payload["retry_limit"])
+
+    def test_scan_now_uses_latest_saved_sources_after_sources_update(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "workbench-config.json"
+            client = self.make_client(root, config_path)
+
+            with mock.patch("workbench.server.run_inbox_scan", return_value={"ran_at": "2026-04-10T00:00:00Z"}) as run_scan:
+                save_response = client.post(
+                    "/api/inbox/sources",
+                    json={
+                        "sources": [
+                            {
+                                "id": "feed-techcrunch",
+                                "name": "TechCrunch",
+                                "source_type": "rss-feed",
+                                "url": "https://techcrunch.com/feed/",
+                                "enabled": True,
+                            }
+                        ]
+                    },
+                )
+                scan_response = client.post("/api/inbox/scan")
+
+            self.assertEqual(save_response.status_code, 200)
+            self.assertEqual(scan_response.status_code, 200)
+            run_scan.assert_called_once()
+
+            source_state = load_source_state(config_path.with_name("automation-state.json"))
+            self.assertEqual(len(source_state["sources"]), 1)
+            self.assertEqual(source_state["sources"][0]["id"], "feed-techcrunch")
 
 
 if __name__ == "__main__":
