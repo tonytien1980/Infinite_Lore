@@ -1,4 +1,5 @@
 import json
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -300,6 +301,83 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(final_state["last_scan"]["exhausted_failed_count"], 1)
             self.assertEqual(final_state["last_scan"]["retry_limit"], 2)
 
+    def test_run_scan_retry_success_updates_processed_state_for_next_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "20_Raw/inbox").mkdir(parents=True)
+            note_path = root / "20_Raw/inbox/retry-success.txt"
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+            bundle_path = root / "20_Raw/inbox/2026-04-10-retry-success"
+
+            with mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_mock, mock.patch(
+                "tools.automation_scan.compile_bundle",
+                side_effect=[RuntimeError("compile boom"), None],
+            ) as compile_mock:
+                first = run_scan(root, [], state_path)
+                second = run_scan(root, [], state_path)
+                third = run_scan(root, [], state_path)
+
+            expected_hash = hashlib.sha256(note_path.read_bytes()).hexdigest()
+            final_state = load_source_state(state_path)
+            source_key = "local-file:20_Raw/inbox/retry-success.txt"
+
+            self.assertEqual(import_mock.call_count, 1)
+            self.assertEqual(compile_mock.call_count, 2)
+            self.assertEqual(first["imported_count"], 1)
+            self.assertEqual(first["compiled_count"], 0)
+            self.assertEqual(second["imported_count"], 0)
+            self.assertEqual(second["compiled_count"], 1)
+            self.assertEqual(third["imported_count"], 0)
+            self.assertEqual(third["compiled_count"], 0)
+            self.assertEqual(final_state["processed_sources"][source_key]["content_hash"], expected_hash)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
+
+    def test_run_scan_exhausted_item_becomes_eligible_again_after_source_content_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "20_Raw/inbox").mkdir(parents=True)
+            note_path = root / "20_Raw/inbox/change-me.txt"
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+            bundle_path = root / "20_Raw/inbox/2026-04-10-change-me"
+
+            with mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_mock, mock.patch(
+                "tools.automation_scan.compile_bundle",
+                side_effect=[RuntimeError("compile boom"), RuntimeError("compile boom again"), None],
+            ) as compile_mock:
+                first = run_scan(root, [], state_path)
+                second = run_scan(root, [], state_path)
+                note_path.write_text(
+                    "# Updated Positioning\n\nAI application strategy with automation and knowledge workflows.\n",
+                    encoding="utf-8",
+                )
+                third = run_scan(root, [], state_path)
+
+            final_state = load_source_state(state_path)
+            source_key = "local-file:20_Raw/inbox/change-me.txt"
+            expected_hash = hashlib.sha256(note_path.read_bytes()).hexdigest()
+
+            self.assertEqual(import_mock.call_count, 2)
+            self.assertEqual(compile_mock.call_count, 3)
+            self.assertEqual(first["imported_count"], 1)
+            self.assertEqual(first["compiled_count"], 0)
+            self.assertEqual(second["imported_count"], 0)
+            self.assertEqual(second["compiled_count"], 0)
+            self.assertEqual(second["exhausted_failed_count"], 1)
+            self.assertEqual(third["imported_count"], 1)
+            self.assertEqual(third["compiled_count"], 1)
+            self.assertEqual(final_state["processed_sources"][source_key]["content_hash"], expected_hash)
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
+
     def test_run_scan_recovers_from_malformed_persisted_retry_count(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -334,6 +412,52 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(final_state["last_scan"]["exhausted_failed_count"], 0)
             self.assertEqual(final_state["failed_items"], [])
             self.assertEqual(final_state["exhausted_failed_items"], [])
+
+    def test_run_scan_uses_readable_local_retry_content_to_infer_domain(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "20_Raw/inbox").mkdir(parents=True)
+            retry_path = root / "20_Raw/inbox/retry-domain.txt"
+            retry_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+            state_payload = {
+                "sources": [],
+                "last_scan": None,
+                "failed_items": [
+                    {
+                        "source_key": "local-file:20_Raw/inbox/retry-domain.txt",
+                        "source": str(retry_path),
+                        "source_url": str(retry_path),
+                        "url": str(retry_path),
+                        "content_hash": "",
+                        "primary_domain": "",
+                        "related_domains": [],
+                        "stage": "import-failed",
+                        "error_stage": "import",
+                        "retry_count": "broken",
+                        "bundle_path": "",
+                    }
+                ],
+                "exhausted_failed_items": [],
+                "processed_sources": {},
+            }
+            state_path.write_text(json.dumps(state_payload), encoding="utf-8")
+            bundle_path = root / "20_Raw/inbox/2026-04-10-retry-domain"
+
+            with mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_mock, mock.patch(
+                "tools.automation_scan.compile_bundle",
+                return_value=None,
+            ):
+                result = run_scan(root, [], state_path)
+
+            self.assertEqual(result["imported_count"], 1)
+            self.assertEqual(result["compiled_count"], 1)
+            self.assertEqual(import_mock.call_args.args[2], "business-strategy")
+            final_state = load_source_state(state_path)
+            self.assertEqual(final_state["processed_sources"]["local-file:20_Raw/inbox/retry-domain.txt"]["primary_domain"], "business-strategy")
 
     def test_run_scan_infers_non_ai_domain_for_local_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
