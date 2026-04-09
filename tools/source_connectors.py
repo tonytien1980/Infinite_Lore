@@ -22,8 +22,13 @@ class LinkCollector(HTMLParser):
 def normalize_url(url: str) -> str:
     parsed = urllib.parse.urlparse(url.strip())
     path = parsed.path or "/"
-    port = parsed.port
+    try:
+        port = parsed.port
+    except ValueError:
+        raise
     host = (parsed.hostname or "").lower()
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
     if port and not ((parsed.scheme.lower() == "http" and port == 80) or (parsed.scheme.lower() == "https" and port == 443)):
         host = f"{host}:{parsed.port}"
     if parsed.username:
@@ -99,6 +104,7 @@ def _looks_like_non_article_url(url: str) -> bool:
 def discover_rss_items(feed_bytes: bytes, source_url: str) -> List[Dict[str, str]]:
     root = ET.fromstring(feed_bytes)
     items: List[Dict[str, str]] = []
+    safe_schemes = {"http", "https"}
     for item in _iter_local(root, "item"):
         link = ""
         title = ""
@@ -109,8 +115,14 @@ def discover_rss_items(feed_bytes: bytes, source_url: str) -> List[Dict[str, str
             elif local == "title" and child.text:
                 title = child.text.strip()
         if link:
-            absolute = urllib.parse.urljoin(source_url, link)
-            items.append({"title": title or absolute, "url": normalize_url(absolute), "source_url": source_url})
+            try:
+                parsed_link = urllib.parse.urlparse(link.strip())
+                if parsed_link.scheme and parsed_link.scheme.lower() not in safe_schemes:
+                    continue
+                absolute = urllib.parse.urljoin(source_url, link)
+                items.append({"title": title or absolute, "url": normalize_url(absolute), "source_url": source_url})
+            except (ValueError, TypeError):
+                continue
             continue
     for entry in _iter_local(root, "entry"):
         link = ""
@@ -122,12 +134,18 @@ def discover_rss_items(feed_bytes: bytes, source_url: str) -> List[Dict[str, str
             elif local == "link":
                 href = child.attrib.get("href", "").strip()
                 rel = child.attrib.get("rel", "").strip().lower()
-                parsed_href = urllib.parse.urlparse(href)
-                if href and (not parsed_href.scheme or parsed_href.scheme.lower() in {"http", "https"}) and (not link or rel in {"alternate", ""}):
+                try:
+                    parsed_href = urllib.parse.urlparse(href)
+                except ValueError:
+                    continue
+                if href and (not parsed_href.scheme or parsed_href.scheme.lower() in safe_schemes) and (not link or rel in {"alternate", ""}):
                     link = href
         if link:
-            absolute = urllib.parse.urljoin(source_url, link)
-            items.append({"title": title or absolute, "url": normalize_url(absolute), "source_url": source_url})
+            try:
+                absolute = urllib.parse.urljoin(source_url, link)
+                items.append({"title": title or absolute, "url": normalize_url(absolute), "source_url": source_url})
+            except (ValueError, TypeError):
+                continue
     return items
 
 

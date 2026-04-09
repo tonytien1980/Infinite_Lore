@@ -18,6 +18,20 @@ RSS_XML = b"""<?xml version="1.0"?>
 </channel></rss>
 """
 
+RSS_FILE_XML = b"""<?xml version="1.0"?>
+<rss><channel>
+<item><title>Unsafe</title><link>file:///etc/passwd</link></item>
+<item><title>Safe</title><link>https://example.com/safe</link></item>
+</channel></rss>
+"""
+
+RSS_MALFORMED_XML = b"""<?xml version="1.0"?>
+<rss><channel>
+<item><title>Bad</title><link>https://example.com:bad/post</link></item>
+<item><title>Good</title><link>https://example.com/good</link></item>
+</channel></rss>
+"""
+
 RSS_RELATIVE_XML = b"""<?xml version="1.0"?>
 <rss><channel>
 <item><title>Alpha</title><link>post-a?story=1#frag</link></item>
@@ -65,6 +79,14 @@ class AutomationScanTests(unittest.TestCase):
     def test_discovers_rss_items(self) -> None:
         items = discover_rss_items(RSS_XML, "https://example.com/feed")
         self.assertEqual([item["url"] for item in items], ["https://example.com/a", "https://example.com/b"])
+
+    def test_discovers_rss_items_ignores_unsafe_schemes(self) -> None:
+        items = discover_rss_items(RSS_FILE_XML, "https://example.com/feed")
+        self.assertEqual([item["url"] for item in items], ["https://example.com/safe"])
+
+    def test_discovers_rss_items_skips_malformed_links_and_continues(self) -> None:
+        items = discover_rss_items(RSS_MALFORMED_XML, "https://example.com/feed")
+        self.assertEqual([item["url"] for item in items], ["https://example.com/good"])
 
     def test_discovers_relative_rss_links_against_source_url(self) -> None:
         items = discover_rss_items(RSS_RELATIVE_XML, "https://example.com/feed")
@@ -118,6 +140,12 @@ class AutomationScanTests(unittest.TestCase):
         self.assertEqual(
             choose_canonical_url("https://example.com:443/posts/alpha?story=1"),
             "https://example.com/posts/alpha?story=1",
+        )
+
+    def test_choose_canonical_url_preserves_ipv6_brackets(self) -> None:
+        self.assertEqual(
+            choose_canonical_url("https://[2001:db8::1]/posts/alpha"),
+            "https://[2001:db8::1]/posts/alpha",
         )
 
     def test_dedup_prefers_canonical_url_then_hash(self) -> None:
@@ -228,9 +256,18 @@ class AutomationScanTests(unittest.TestCase):
             loaded["sources"].append("x")
             self.assertEqual(default, {"sources": []})
 
-    def test_discovers_article_links_skips_malformed_anchor(self) -> None:
+    def test_discovers_article_links_skips_malformed_anchor_and_continues(self) -> None:
         items = discover_article_list_items(
             '<html><body><a href="https://example.com:bad/post">Bad</a><a href="https://example.com/posts/good">Good</a></body></html>',
             "https://example.com/blog",
         )
         self.assertEqual([item["url"] for item in items], ["https://example.com/posts/good"])
+
+    def test_load_json_recovers_from_unicode_error(self) -> None:
+        from tools.automation_cache import load_json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "broken.json"
+            target.write_text("not utf8", encoding="utf-8")
+            with mock.patch.object(Path, "read_text", side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "boom")):
+                self.assertEqual(load_json(target, {"sources": []}), {"sources": []})
