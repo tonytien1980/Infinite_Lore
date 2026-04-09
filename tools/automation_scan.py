@@ -200,7 +200,17 @@ def _persist_bundle_retry_count(bundle_path: Path, retry_count: int) -> None:
 
     metadata["compile_retry_count"] = retry_count
     metadata["updated_at"] = now_iso()
-    write_note(metadata_path, metadata, body)
+    try:
+        write_note(metadata_path, metadata, body)
+    except Exception:
+        return
+
+
+def _resolve_source_path(vault_root: Path, source: str) -> Path:
+    source_path = Path(source)
+    if not source_path.is_absolute():
+        source_path = vault_root / source_path
+    return source_path
 
 
 def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[str, Any]]:
@@ -321,6 +331,34 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             fresh_candidates.append(merged_candidate)
             continue
         fresh_candidates.append(candidate)
+
+    discovered_source_keys = {candidate["source_key"] for candidate in discovered_candidates}
+    for retry_entry in retryable_failed_items:
+        source_key = str(retry_entry.get("source_key") or "")
+        if not source_key or source_key in discovered_source_keys:
+            continue
+
+        bundle_path = str(retry_entry.get("bundle_path") or "")
+        if not bundle_path:
+            continue
+
+        source_path = _resolve_source_path(vault_root, str(retry_entry.get("source") or ""))
+        if source_path.exists():
+            continue
+
+        retry_bundle_path = vault_root / bundle_path
+        if not retry_bundle_path.exists():
+            continue
+
+        merged_candidate = dict(retry_entry)
+        merged_candidate["stage"] = "imported"
+        merged_candidate["bundle_path"] = bundle_path
+        merged_candidate["retry_count"] = _retry_count(retry_entry)
+        if not merged_candidate.get("primary_domain"):
+            merged_candidate["primary_domain"] = str(retry_entry.get("primary_domain") or "")
+        if not merged_candidate.get("related_domains"):
+            merged_candidate["related_domains"] = list(retry_entry.get("related_domains") or [])
+        fresh_candidates.append(merged_candidate)
 
     candidates = dedup_candidates(fresh_candidates)
 

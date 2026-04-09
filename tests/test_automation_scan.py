@@ -445,6 +445,66 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(final_state["last_scan"]["exhausted_failed_count"], 1)
             self.assertEqual(final_state["last_scan"]["retry_limit"], 2)
 
+    def test_run_scan_retries_compile_failure_after_local_source_is_removed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            note_path = inbox / "retry-after-removal.txt"
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+            source_key = "local-file:20_Raw/inbox/retry-after-removal.txt"
+
+            with mock.patch(
+                "tools.automation_scan.compile_bundle",
+                side_effect=[RuntimeError("compile boom"), None],
+            ) as compile_mock:
+                first = run_scan(root, [], state_path)
+                note_path.unlink()
+                second = run_scan(root, [], state_path)
+
+            final_state = load_source_state(state_path)
+
+            self.assertEqual(first["imported_count"], 1)
+            self.assertEqual(first["compiled_count"], 0)
+            self.assertEqual(second["imported_count"], 0)
+            self.assertEqual(second["compiled_count"], 1)
+            self.assertEqual(second["failed_count"], 0)
+            self.assertEqual(compile_mock.call_count, 2)
+            self.assertEqual(final_state["processed_sources"][source_key]["stage"], "compiled")
+            self.assertEqual(final_state["failed_items"], [])
+            self.assertEqual(final_state["exhausted_failed_items"], [])
+
+    def test_run_scan_records_compile_failure_even_when_retry_metadata_write_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            (inbox / "compile-fail.txt").write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+
+            with mock.patch("tools.automation_scan.compile_bundle", side_effect=RuntimeError("compile boom")), mock.patch(
+                "tools.automation_scan.write_note",
+                side_effect=RuntimeError("disk full"),
+            ):
+                result = run_scan(root, [], state_path)
+
+            state = load_source_state(state_path)
+
+            self.assertEqual(result["imported_count"], 1)
+            self.assertEqual(result["compiled_count"], 0)
+            self.assertEqual(result["failed_count"], 1)
+            self.assertEqual(len(state["failed_items"]), 1)
+            self.assertEqual(state["last_scan"]["failed_count"], 1)
+            self.assertEqual(state["failed_items"][0]["stage"], "imported")
+            self.assertEqual(state["failed_items"][0]["error_stage"], "compile")
+
     def test_run_scan_recovers_imported_bundle_after_corruption_and_resumes_compile(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
