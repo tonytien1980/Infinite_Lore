@@ -491,7 +491,13 @@ async function runInboxScan() {
       last_scan: summary,
     };
     renderInbox();
-    await loadAll();
+    try {
+      await loadAll();
+    } catch (refreshError) {
+      state.inbox.status = `Scan finished, but refresh failed: ${refreshError.message}`;
+      inboxScanStatus.textContent = state.inbox.status;
+      return;
+    }
     state.inbox.status = "Scan finished.";
     inboxScanStatus.textContent = state.inbox.status;
   } catch (error) {

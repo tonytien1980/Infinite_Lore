@@ -17,6 +17,7 @@ from workbench.source_store import load_source_state, summarize_source_state, up
 
 MAX_FAILED_RETRY_COUNT = 2
 CONFIGURED_ARTICLE_RETRY_COOLDOWN = timedelta(hours=1)
+CONFIGURED_SOURCE_FETCH_TIMEOUT_SECONDS = 10
 BUNDLE_RETRY_STATE_FILENAME = ".automation-retry.json"
 
 
@@ -108,7 +109,7 @@ def _is_stale_configured_state_item(
 
 
 def _fetch_url_bytes(url: str) -> bytes:
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(url, timeout=CONFIGURED_SOURCE_FETCH_TIMEOUT_SECONDS) as response:
         return response.read()
 
 
@@ -809,7 +810,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
 
     summary = {
         "ran_at": now_iso(),
-        "discovered_count": len(configured_candidates) + len(configured_failed_items) + len(discovered_candidates) + len(discovery_failed_items),
+        "discovered_count": len(configured_candidates) + len(discovered_candidates),
         "skipped_count": skipped_count,
         "blocked_exhausted_count": blocked_exhausted_count,
         "deduplicated_count": len(candidates),

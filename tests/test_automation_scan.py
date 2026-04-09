@@ -255,6 +255,31 @@ class AutomationScanTests(unittest.TestCase):
             final_state = load_source_state(state_path)
             self.assertIn("configured-article:https://example.com/posts/alpha", final_state["processed_sources"])
 
+    def test_run_scan_uses_timeout_for_configured_source_fetches(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state_path = root / "automation-state.json"
+            state_path.write_text(
+                json.dumps({"sources": [], "last_scan": None, "failed_items": [], "processed_sources": {}}),
+                encoding="utf-8",
+            )
+            feed_source = {
+                "id": "feed-techcrunch",
+                "name": "TechCrunch",
+                "source_type": "rss-feed",
+                "url": "https://example.com/feed",
+                "enabled": True,
+            }
+
+            with mock.patch(
+                "urllib.request.urlopen",
+                return_value=_FakeResponse(b"<?xml version=\"1.0\"?><rss><channel></channel></rss>", "application/rss+xml"),
+            ) as urlopen:
+                summary = run_scan(root, [feed_source], state_path)
+
+            self.assertEqual(summary["discovered_count"], 0)
+            self.assertEqual(urlopen.call_args.kwargs.get("timeout"), 10)
+
     def test_run_scan_blocks_exhausted_configured_article_on_immediate_follow_up_scan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -795,7 +820,7 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(failed_item["error_stage"], "discover")
             self.assertIn("PermissionError", failed_item["error"])
             self.assertEqual(state["last_scan"]["failed_count"], 1)
-            self.assertEqual(state["last_scan"]["discovered_count"], 2)
+            self.assertEqual(state["last_scan"]["discovered_count"], 1)
 
     def test_run_scan_retries_and_exhausts_unreadable_local_file_without_duplicates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

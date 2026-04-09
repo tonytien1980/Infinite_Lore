@@ -1069,6 +1069,16 @@ class WorkbenchApiTests(unittest.TestCase):
         self.assertLess(save_guard_index, save_guard_return_index)
         self.assertLess(save_guard_return_index, scan_index)
 
+    def test_scan_now_frontend_flow_reports_refresh_failure_separately(self) -> None:
+        app_js_path = Path(__file__).resolve().parents[1] / "workbench" / "static" / "app.js"
+        script = app_js_path.read_text(encoding="utf-8")
+
+        run_scan_start = script.index("async function runInboxScan()")
+        load_all_index = script.index("await loadAll();", run_scan_start)
+        refresh_failure_index = script.index("Scan finished, but refresh failed", run_scan_start)
+
+        self.assertLess(load_all_index, refresh_failure_index)
+
 
 if __name__ == "__main__":
     unittest.main()
