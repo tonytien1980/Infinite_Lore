@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -498,6 +499,45 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertIn("url must be a non-empty http(s) URL", empty_response.json()["detail"])
             self.assertIn("url must be a non-empty http(s) URL", unusable_response.json()["detail"])
 
+    def test_inbox_sources_rejects_whitespace_control_url_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            space_host_response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-space",
+                            "name": "Space Host",
+                            "source_type": "rss-feed",
+                            "url": "https://exa mple.com/feed",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+            newline_response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-newline",
+                            "name": "Newline Host",
+                            "source_type": "rss-feed",
+                            "url": "https://example.com/\nfeed",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+
+            self.assertEqual(space_host_response.status_code, 400)
+            self.assertEqual(newline_response.status_code, 400)
+            self.assertIn("url must be a non-empty http(s) URL", space_host_response.json()["detail"])
+            self.assertIn("url must be a non-empty http(s) URL", newline_response.json()["detail"])
+
     def test_inbox_sources_sanitizes_sources_to_required_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -533,6 +573,37 @@ class WorkbenchApiTests(unittest.TestCase):
                     }
                 ],
             )
+
+    def test_inbox_sources_preserves_unknown_top_level_state_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "workbench-config.json"
+            state_path = config_path.with_name("automation-state.json")
+            state_path.write_text(
+                '{"sources": [], "last_scan": null, "failed_items": [], "scan_cache": {"cursor": "abc123"}}',
+                encoding="utf-8",
+            )
+            client = self.make_client(root, config_path)
+
+            response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-techcrunch",
+                            "name": "TechCrunch",
+                            "source_type": "rss-feed",
+                            "url": "https://techcrunch.com/feed/",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+
+            self.assertEqual(response.status_code, 200)
+            saved_state = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertIn("scan_cache", saved_state)
+            self.assertEqual(saved_state["scan_cache"], {"cursor": "abc123"})
 
     def test_inbox_summary_handles_malformed_source_state_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

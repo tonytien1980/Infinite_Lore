@@ -15,6 +15,7 @@ DEFAULT_SOURCE_STATE: Dict[str, Any] = {
 
 SOURCE_REQUIRED_FIELDS = ("id", "name", "source_type", "url", "enabled")
 ALLOWED_SOURCE_TYPES = {"rss-feed", "article-list-page"}
+KNOWN_SOURCE_STATE_KEYS = {"sources", "last_scan", "failed_items"}
 
 
 def _clone_default_state() -> Dict[str, Any]:
@@ -78,6 +79,10 @@ def _normalize_http_url(value: Any, strict: bool = False) -> str | None:
 
     candidate = value.strip()
     if not candidate:
+        if strict:
+            raise ValueError("url must be a non-empty http(s) URL")
+        return None
+    if any(ch.isspace() or ord(ch) < 32 for ch in candidate):
         if strict:
             raise ValueError("url must be a non-empty http(s) URL")
         return None
@@ -160,6 +165,9 @@ def _normalize_source_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         state["sources"] = _normalize_source_entries(payload.get("sources"))
         state["last_scan"] = _normalize_last_scan(payload.get("last_scan"))
         state["failed_items"] = _normalize_failed_item_entries(payload.get("failed_items"))
+        for key, value in payload.items():
+            if key not in KNOWN_SOURCE_STATE_KEYS:
+                state[key] = value
     return state
 
 
