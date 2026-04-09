@@ -297,7 +297,33 @@ class WorkbenchApiTests(unittest.TestCase):
             )
 
             self.assertEqual(response.status_code, 400)
-            self.assertIn("inside the vault", response.json()["detail"])
+            self.assertIn("30_Wiki", response.json()["detail"])
+
+    def test_correction_draft_rejects_non_wiki_targets_inside_the_vault(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "00_System").mkdir(parents=True)
+            (root / "00_System/Workflow Guide.md").write_text("# Not a wiki note\n", encoding="utf-8")
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/ask/correction/draft",
+                json={
+                    "question": "What is a library system?",
+                    "ask_mode": "ask",
+                    "raw_input": "change this",
+                    "grounding": [
+                        {
+                            "path": "00_System/Workflow Guide.md",
+                            "title": "Workflow Guide",
+                            "primary_domain": "ai-application",
+                        }
+                    ],
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("30_Wiki", response.json()["detail"])
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ const state = {
     draft: null,
     requestSeq: 0,
     feedbackSeq: 0,
+    contextSeq: 0,
     askBusy: false,
     feedbackBusy: false,
   },
@@ -372,7 +373,7 @@ function renderDraftEditor() {
 
 async function runAsk(question, mode) {
   const requestId = ++state.ask.requestSeq;
-  state.ask.feedbackSeq += 1;
+  state.ask.contextSeq += 1;
   setAskBusy(true);
   state.ask.question = question;
   state.ask.mode = mode;
@@ -434,7 +435,7 @@ async function submitFeedbackDraft(kind) {
     return;
   }
   const feedbackRequestId = ++state.ask.feedbackSeq;
-  const askContext = { question: state.ask.question, mode: state.ask.mode };
+  const askContext = { question: state.ask.question, mode: state.ask.mode, contextSeq: state.ask.contextSeq };
   const input = feedbackInput.value.trim();
   if (!state.ask.question || !state.ask.grounding.length) {
     feedbackEditorStatus.textContent = "Ask the library first so the feedback can link to a note.";
@@ -473,6 +474,7 @@ async function submitFeedbackDraft(kind) {
     });
     if (
       feedbackRequestId !== state.ask.feedbackSeq ||
+      state.ask.contextSeq !== askContext.contextSeq ||
       state.ask.question !== askContext.question ||
       state.ask.mode !== askContext.mode
     ) {
@@ -502,7 +504,7 @@ async function confirmFeedbackDraft() {
     return;
   }
   const feedbackRequestId = ++state.ask.feedbackSeq;
-  const draftContext = { question: draft.question, mode: draft.mode, id: draft.id };
+  const draftContext = { question: draft.question, mode: draft.mode, id: draft.id, contextSeq: state.ask.contextSeq };
 
   const content = feedbackEditorTextarea.value.trim();
   if (!content) {
@@ -547,7 +549,11 @@ async function confirmFeedbackDraft() {
     }
     feedbackInput.value = "";
     clearDraftEditor(draft.kind === "correction" ? "Correction applied. Refreshing the Ask answer…" : "Reflection saved. Refreshing linked reflections…");
-    if (state.ask.question === draftContext.question && state.ask.mode === draftContext.mode) {
+    if (
+      state.ask.contextSeq === draftContext.contextSeq &&
+      state.ask.question === draftContext.question &&
+      state.ask.mode === draftContext.mode
+    ) {
       await runAsk(draftContext.question, draftContext.mode);
     }
   } catch (error) {

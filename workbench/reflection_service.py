@@ -67,6 +67,12 @@ def read_note(vault_root: Path, relative_path: str) -> Dict[str, object]:
     return {"path": relative_path, "metadata": _decode_frontmatter_metadata(metadata), "body": body}
 
 
+def read_wiki_note(vault_root: Path, relative_path: str) -> Dict[str, object]:
+    note_path = resolve_wiki_note_path(vault_root, relative_path)
+    metadata, body = parse_frontmatter(note_path.read_text(encoding="utf-8"))
+    return {"path": relative_path, "metadata": _decode_frontmatter_metadata(metadata), "body": body}
+
+
 def write_note(vault_root: Path, relative_path: str, metadata: Dict[str, object], body: str) -> None:
     note_path = resolve_vault_path(vault_root, relative_path)
     note_path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,6 +91,17 @@ def resolve_vault_path(vault_root: Path, relative_path: str) -> Path:
     except ValueError as exc:
         raise ValueError("path must stay inside the vault") from exc
     return candidate
+
+
+def normalize_domain(domain: object) -> str:
+    value = slugify(str(domain or "")).strip("-")
+    return value or "unclassified"
+
+
+def resolve_wiki_note_path(vault_root: Path, relative_path: str) -> Path:
+    if not str(relative_path).startswith("30_Wiki/"):
+        raise ValueError("target note must stay inside 30_Wiki")
+    return resolve_vault_path(vault_root, relative_path)
 
 
 def _selection_terms(text: str) -> List[str]:
@@ -145,7 +162,7 @@ def pick_primary_grounding_note(
     for index, candidate in enumerate(grounding):
         path = str(candidate["path"])
         try:
-            loaded = read_note(vault_root, path)
+            loaded = read_wiki_note(vault_root, path)
             metadata = dict(loaded["metadata"])
             body = str(loaded["body"])
         except FileNotFoundError:
@@ -212,7 +229,8 @@ def draft_reflection(
 
 
 def save_reflection(vault_root: Path, draft: Dict[str, object]) -> Dict[str, str]:
-    domain = str(draft.get("primary_domain") or "unclassified")
+    linked_note = read_wiki_note(vault_root, str(draft["linked_note_ref"]))
+    domain = normalize_domain(linked_note["metadata"].get("primary_domain"))
     filename = f"{slugify(str(draft['linked_note_title']))}--reflection--{archive_stamp()}.md"
     relative_path = f"50_Brainstorming/reflections/{domain}/{filename}"
     allowed_keys = {
@@ -301,7 +319,7 @@ def draft_correction(
     grounding: List[Dict[str, object]],
 ) -> Dict[str, object]:
     target_note = pick_primary_grounding_note(vault_root, ask_question, grounding, raw_input)
-    note = read_note(vault_root, target_note["path"])
+    note = read_wiki_note(vault_root, target_note["path"])
     created_at = now_timestamp()
     proposed_body = _build_proposed_body(str(note["body"]), raw_input)
     proposed_content = full_note_text(note["metadata"], proposed_body)
@@ -348,7 +366,7 @@ def draft_correction(
 def _proposal_path(domain: str, proposal: Dict[str, object], status: str) -> str:
     title = str(proposal.get("target_note_title") or proposal.get("title") or "correction")
     filename = f"{slugify(title)}--correction--{archive_stamp()}.md"
-    return f"50_Brainstorming/corrections/{status}/{domain}/{filename}"
+    return f"50_Brainstorming/corrections/{status}/{normalize_domain(domain)}/{filename}"
 
 
 def _proposal_metadata(proposal: Dict[str, object]) -> Dict[str, object]:
@@ -424,8 +442,8 @@ def apply_correction(vault_root: Path, proposal: Dict[str, object]) -> Dict[str,
     resolved = _load_pending_proposal(vault_root, proposal)
     resolved["proposed_content"] = str(proposal.get("proposed_content") or resolved["proposed_content"])
 
-    target_path = resolve_vault_path(vault_root, str(resolved["target_note_ref"]))
-    domain = str(resolved.get("primary_domain") or "unclassified")
+    target_path = resolve_wiki_note_path(vault_root, str(resolved["target_note_ref"]))
+    domain = normalize_domain(resolved.get("primary_domain"))
     archive_name = f"{slugify(str(resolved['target_note_title']))}--before-correction--{archive_stamp()}.md"
     archive_relative = f"80_Archive/wiki-versions/{domain}/{archive_name}"
     archive_path = resolve_vault_path(vault_root, archive_relative)
@@ -451,7 +469,7 @@ def apply_correction(vault_root: Path, proposal: Dict[str, object]) -> Dict[str,
 
 
 def save_correction_draft(vault_root: Path, proposal: Dict[str, object]) -> Dict[str, str]:
-    domain = str(proposal.get("primary_domain") or "unclassified")
+    domain = normalize_domain(proposal.get("primary_domain"))
     relative_path = _proposal_path(domain, proposal, "pending")
     proposal["proposal_path"] = relative_path
     write_note(vault_root, relative_path, _proposal_metadata(proposal), _proposal_body(proposal, "pending"))
