@@ -319,3 +319,4 @@ It should be selective adoption of Graphify-inspired engine capabilities:
 Reference:
 
 - `docs/2026-04-09-graphify-selective-adoption-note.md`
+- `docs/2026-04-09-automation-watcher-spec.md`
