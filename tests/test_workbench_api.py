@@ -413,6 +413,52 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertIn("source_type must be one of", response.json()["detail"])
 
+    def test_inbox_sources_rejects_whitespace_only_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "   ",
+                            "name": "TechCrunch",
+                            "source_type": "rss-feed",
+                            "url": "https://techcrunch.com/feed/",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("id must be a non-empty string", response.json()["detail"])
+
+    def test_inbox_sources_rejects_whitespace_only_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-techcrunch",
+                            "name": " ",
+                            "source_type": "rss-feed",
+                            "url": "https://techcrunch.com/feed/",
+                            "enabled": True,
+                        }
+                    ]
+                },
+            )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("name must be a non-empty string", response.json()["detail"])
+
     def test_inbox_sources_rejects_empty_or_unusable_urls(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -503,6 +549,8 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(payload["last_scan"], None)
             self.assertEqual(payload["failed_count"], 0)
             self.assertEqual(payload["failed_items"], [])
+            self.assertTrue(payload["recovered_from_corruption"])
+            self.assertEqual(payload["state_warning"], "recovered_from_corruption")
 
     def test_inbox_summary_normalizes_null_failed_items_to_empty_list(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -522,6 +570,8 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(payload["last_scan"], None)
             self.assertEqual(payload["failed_count"], 0)
             self.assertEqual(payload["failed_items"], [])
+            self.assertTrue(payload["recovered_from_corruption"])
+            self.assertEqual(payload["state_warning"], "recovered_from_corruption")
 
     def test_inbox_summary_returns_source_and_scan_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

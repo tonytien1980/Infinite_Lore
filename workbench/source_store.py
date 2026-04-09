@@ -29,6 +29,21 @@ def _normalize_failed_items(value: Any) -> List[Any]:
     return value if isinstance(value, list) else []
 
 
+def _normalize_text_field(value: Any, strict: bool = False, field_name: str = "field") -> str | None:
+    if not isinstance(value, str):
+        if strict:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        return None
+
+    candidate = value.strip()
+    if not candidate:
+        if strict:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        return None
+
+    return candidate
+
+
 def _normalize_http_url(value: Any, strict: bool = False) -> str | None:
     if not isinstance(value, str):
         if strict:
@@ -64,11 +79,18 @@ def _normalize_source_entry(entry: Any, strict: bool = False) -> Dict[str, Any] 
         return None
 
     normalized = {field: entry[field] for field in SOURCE_REQUIRED_FIELDS}
-    if not all(isinstance(normalized[field], str) for field in ("id", "name", "source_type", "url")):
+    normalized_id = _normalize_text_field(normalized["id"], strict=strict, field_name="id")
+    normalized_name = _normalize_text_field(normalized["name"], strict=strict, field_name="name")
+    if not isinstance(normalized["source_type"], str):
         if strict:
-            raise ValueError("source id, name, source_type, and url must be strings")
+            raise ValueError("source source_type must be a non-empty string")
         return None
-    if normalized["source_type"] not in ALLOWED_SOURCE_TYPES:
+    normalized_source_type = normalized["source_type"].strip()
+    if not normalized_source_type:
+        if strict:
+            raise ValueError("source source_type must be a non-empty string")
+        return None
+    if normalized_source_type not in ALLOWED_SOURCE_TYPES:
         if strict:
             allowed = ", ".join(sorted(ALLOWED_SOURCE_TYPES))
             raise ValueError(f"source_type must be one of: {allowed}")
@@ -76,6 +98,9 @@ def _normalize_source_entry(entry: Any, strict: bool = False) -> Dict[str, Any] 
     normalized_url = _normalize_http_url(normalized["url"], strict=strict)
     if normalized_url is None:
         return None
+    normalized["id"] = normalized_id
+    normalized["name"] = normalized_name
+    normalized["source_type"] = normalized_source_type
     normalized["url"] = normalized_url
     if not isinstance(normalized["enabled"], bool):
         if strict:
@@ -127,6 +152,19 @@ def load_source_state(path: Path) -> Dict[str, Any]:
     return _normalize_source_state(payload)
 
 
+def _source_state_has_recovery_signal(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return True
+    if not isinstance(payload.get("sources", []), list):
+        return True
+    if not isinstance(payload.get("failed_items", []), list):
+        return True
+    sources = payload.get("sources", [])
+    if any(_normalize_source_entry(entry) is None for entry in sources):
+        return True
+    return False
+
+
 def save_source_state(path: Path, payload: Dict[str, Any]) -> Dict[str, Any]:
     state = _normalize_source_state(payload)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -151,10 +189,25 @@ def replace_sources(path: Path, sources: List[Dict[str, Any]]) -> Dict[str, Any]
 
 
 def summarize_source_state(path: Path) -> Dict[str, Any]:
+    recovered_from_corruption = False
+    warning = None
+    if path.exists():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            recovered_from_corruption = True
+            warning = "recovered_from_corruption"
+        else:
+            if _source_state_has_recovery_signal(payload):
+                recovered_from_corruption = True
+                warning = "recovered_from_corruption"
+
     state = _normalize_source_state(load_source_state(path))
     return {
         "sources": _normalize_source_entries(state.get("sources")),
         "last_scan": state.get("last_scan"),
         "failed_count": len(_normalize_failed_items(state.get("failed_items"))),
         "failed_items": _normalize_failed_items(state.get("failed_items")),
+        "recovered_from_corruption": recovered_from_corruption,
+        "state_warning": warning,
     }
