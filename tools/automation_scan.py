@@ -258,7 +258,7 @@ def _recover_processed_sources_from_bundles(vault_root: Path) -> Dict[str, Dict[
             "related_domains": list(metadata.get("related_domains") or []),
             "bundle_path": bundle_path.relative_to(vault_root).as_posix(),
             "stage": "compiled" if has_compiled_proof else "imported",
-            "retry_count": 0 if has_compiled_proof else compile_retry_count,
+            "retry_count": 0 if has_compiled_proof else max(1, compile_retry_count),
             "completed_at": compiled_at if has_compiled_proof else str(metadata.get("imported_at") or ""),
         }
 
@@ -304,10 +304,11 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             and processed_entry.get("content_hash") == content_hash
             and processed_entry.get("bundle_path")
         ):
+            retry_entry = retryable_by_key.get(source_key)
             merged_candidate = dict(candidate)
             merged_candidate["stage"] = "imported"
             merged_candidate["bundle_path"] = str(processed_entry.get("bundle_path") or "")
-            merged_candidate["retry_count"] = _retry_count(processed_entry)
+            merged_candidate["retry_count"] = max(_retry_count(processed_entry), _retry_count(retry_entry) if retry_entry else 0)
             if not merged_candidate.get("primary_domain"):
                 merged_candidate["primary_domain"] = str(processed_entry.get("primary_domain") or "")
             if not merged_candidate.get("related_domains"):
@@ -336,6 +337,8 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
     for retry_entry in retryable_failed_items:
         source_key = str(retry_entry.get("source_key") or "")
         if not source_key or source_key in discovered_source_keys:
+            continue
+        if str(retry_entry.get("stage") or "") != "imported":
             continue
 
         bundle_path = str(retry_entry.get("bundle_path") or "")
@@ -382,7 +385,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
 
             merged_candidate = dict(processed_entry)
             merged_candidate["stage"] = "imported"
-            merged_candidate["retry_count"] = _retry_count(processed_entry)
+            merged_candidate["retry_count"] = max(1, _retry_count(processed_entry))
             if not merged_candidate.get("primary_domain"):
                 merged_candidate["primary_domain"] = str(processed_entry.get("primary_domain") or "")
             if not merged_candidate.get("related_domains"):
