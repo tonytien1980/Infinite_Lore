@@ -297,7 +297,7 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
             merged_candidate = dict(candidate)
             merged_candidate["stage"] = "imported"
             merged_candidate["bundle_path"] = str(processed_entry.get("bundle_path") or "")
-            merged_candidate["retry_count"] = int(processed_entry.get("retry_count", 0))
+            merged_candidate["retry_count"] = _retry_count(processed_entry)
             if not merged_candidate.get("primary_domain"):
                 merged_candidate["primary_domain"] = str(processed_entry.get("primary_domain") or "")
             if not merged_candidate.get("related_domains"):

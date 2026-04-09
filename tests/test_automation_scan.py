@@ -2,6 +2,7 @@ import json
 import hashlib
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -78,6 +79,10 @@ FILTERED_LIST_HTML = """
   <a href="/about">About</a>
 </body></html>
 """
+
+
+def _dated_bundle_path(root: Path, name: str) -> Path:
+    return root / "20_Raw/inbox" / f"{date.today().isoformat()}-{name}"
 
 
 class AutomationScanTests(unittest.TestCase):
@@ -411,7 +416,7 @@ class AutomationScanTests(unittest.TestCase):
                 encoding="utf-8",
             )
             state_path = root / "automation-state.json"
-            bundle_path = root / "20_Raw/inbox/2026-04-10-retry-me"
+            bundle_path = _dated_bundle_path(root, "retry-me")
 
             with mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_mock, mock.patch(
                 "tools.automation_scan.compile_bundle",
@@ -487,7 +492,7 @@ class AutomationScanTests(unittest.TestCase):
                 encoding="utf-8",
             )
             state_path = root / "automation-state.json"
-            bundle_path = root / "20_Raw/inbox/2026-04-10-budget-after-corruption"
+            bundle_path = _dated_bundle_path(root, "budget-after-corruption")
 
             with mock.patch("tools.automation_scan.compile_bundle", side_effect=RuntimeError("compile boom")):
                 first = run_scan(root, [], state_path)
@@ -529,7 +534,7 @@ class AutomationScanTests(unittest.TestCase):
                 encoding="utf-8",
             )
             state_path = root / "automation-state.json"
-            bundle_path = root / "20_Raw/inbox/2026-04-10-retry-success"
+            bundle_path = _dated_bundle_path(root, "retry-success")
 
             with mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_mock, mock.patch(
                 "tools.automation_scan.compile_bundle",
@@ -565,7 +570,7 @@ class AutomationScanTests(unittest.TestCase):
                 encoding="utf-8",
             )
             state_path = root / "automation-state.json"
-            bundle_path = root / "20_Raw/inbox/2026-04-10-change-me"
+            bundle_path = _dated_bundle_path(root, "change-me")
 
             with mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_mock, mock.patch(
                 "tools.automation_scan.compile_bundle",
@@ -645,7 +650,7 @@ class AutomationScanTests(unittest.TestCase):
                 encoding="utf-8",
             )
             state_path = root / "automation-state.json"
-            bundle_path = root / "20_Raw/inbox/2026-04-10-retry-me"
+            bundle_path = _dated_bundle_path(root, "retry-me")
 
             with mock.patch("tools.automation_scan.import_source", return_value=bundle_path), mock.patch(
                 "tools.automation_scan.compile_bundle",
@@ -670,6 +675,41 @@ class AutomationScanTests(unittest.TestCase):
             self.assertEqual(final_state["last_scan"]["exhausted_failed_count"], 0)
             self.assertEqual(final_state["failed_items"], [])
             self.assertEqual(final_state["exhausted_failed_items"], [])
+
+    def test_run_scan_recovers_from_malformed_processed_source_retry_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inbox = root / "20_Raw/inbox"
+            inbox.mkdir(parents=True)
+            note_path = inbox / "resume-me.txt"
+            note_path.write_text(
+                "# Market Positioning\n\nBusiness strategy and positioning for the market moat.\n",
+                encoding="utf-8",
+            )
+            state_path = root / "automation-state.json"
+            bundle_path = _dated_bundle_path(root, "resume-me")
+
+            with mock.patch("tools.automation_scan.import_source", return_value=bundle_path), mock.patch(
+                "tools.automation_scan.compile_bundle",
+                return_value=None,
+            ):
+                run_scan(root, [], state_path)
+
+            state = load_source_state(state_path)
+            state["processed_sources"]["local-file:20_Raw/inbox/resume-me.txt"]["retry_count"] = "broken"
+            state_path.write_text(json.dumps(state), encoding="utf-8")
+
+            with mock.patch("tools.automation_scan.import_source", side_effect=AssertionError("should not re-import")), mock.patch(
+                "tools.automation_scan.compile_bundle",
+                side_effect=AssertionError("should not recompile"),
+            ):
+                result = run_scan(root, [], state_path)
+
+            final_state = load_source_state(state_path)
+            self.assertEqual(result["imported_count"], 0)
+            self.assertEqual(result["compiled_count"], 0)
+            self.assertGreaterEqual(result["skipped_count"], 1)
+            self.assertEqual(final_state["processed_sources"]["local-file:20_Raw/inbox/resume-me.txt"]["retry_count"], 0)
 
     def test_run_scan_uses_readable_local_retry_content_to_infer_domain(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -703,7 +743,7 @@ class AutomationScanTests(unittest.TestCase):
                 "processed_sources": {},
             }
             state_path.write_text(json.dumps(state_payload), encoding="utf-8")
-            bundle_path = root / "20_Raw/inbox/2026-04-10-retry-domain"
+            bundle_path = _dated_bundle_path(root, "retry-domain")
 
             with mock.patch("tools.automation_scan.import_source", return_value=bundle_path) as import_mock, mock.patch(
                 "tools.automation_scan.compile_bundle",

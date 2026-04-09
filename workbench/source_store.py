@@ -64,6 +64,12 @@ def _normalize_retry_count(value: Any) -> int:
     return retry_count if retry_count >= 0 else 0
 
 
+def _normalize_processed_source_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+    normalized_entry = dict(entry)
+    normalized_entry["retry_count"] = _normalize_retry_count(normalized_entry.get("retry_count"))
+    return normalized_entry
+
+
 def _normalize_processed_sources(value: Any, strict: bool = False) -> Dict[str, Dict[str, Any]]:
     if not isinstance(value, dict):
         if strict:
@@ -73,7 +79,7 @@ def _normalize_processed_sources(value: Any, strict: bool = False) -> Dict[str, 
     normalized: Dict[str, Dict[str, Any]] = {}
     for key, entry in value.items():
         if isinstance(entry, dict):
-            normalized[str(key)] = dict(entry)
+            normalized[str(key)] = _normalize_processed_source_entry(entry)
             continue
         if strict:
             raise ValueError("processed_sources must contain objects only")
