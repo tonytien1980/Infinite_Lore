@@ -143,9 +143,10 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
     @app.post("/api/inbox/sources")
     def inbox_save_sources(payload: dict) -> dict:
         sources = payload.get("sources", [])
-        if not isinstance(sources, list):
-            raise HTTPException(status_code=400, detail="sources must be a list")
-        state = replace_sources(source_state_path, sources)
+        try:
+            state = replace_sources(source_state_path, sources)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"sources": state.get("sources", [])}
 
     @app.get("/api/inbox/summary")

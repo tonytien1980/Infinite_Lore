@@ -370,6 +370,52 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertIn("sources", response.json()["detail"])
 
+    def test_inbox_sources_rejects_malformed_list_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post("/api/inbox/sources", json={"sources": ["bad-entry"]})
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("each source must be an object", response.json()["detail"])
+
+    def test_inbox_sources_sanitizes_sources_to_required_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-techcrunch",
+                            "name": "TechCrunch",
+                            "source_type": "rss-feed",
+                            "url": "https://techcrunch.com/feed/",
+                            "enabled": True,
+                            "notes": "extra-field",
+                        }
+                    ]
+                },
+            )
+            payload = client.get("/api/inbox/sources").json()
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                payload["sources"],
+                [
+                    {
+                        "id": "feed-techcrunch",
+                        "name": "TechCrunch",
+                        "source_type": "rss-feed",
+                        "url": "https://techcrunch.com/feed/",
+                        "enabled": True,
+                    }
+                ],
+            )
+
     def test_inbox_summary_handles_malformed_source_state_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
