@@ -890,6 +890,77 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertIn("last_scan", payload)
             self.assertIn("failed_count", payload)
 
+    def test_scan_now_endpoint_returns_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "workbench-config.json"
+            config_path.with_name("automation-state.json").write_text(
+                json.dumps(
+                    {
+                        "sources": [
+                            {
+                                "id": "feed-techcrunch",
+                                "name": "TechCrunch",
+                                "source_type": "rss-feed",
+                                "url": "https://techcrunch.com/feed/",
+                                "enabled": True,
+                            }
+                        ],
+                        "last_scan": None,
+                        "failed_items": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            client = self.make_client(root, config_path)
+
+            response = client.post("/api/inbox/scan")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertIn("ran_at", payload)
+            self.assertIn("discovered_count", payload)
+            self.assertIn("imported_count", payload)
+            self.assertIn("compiled_count", payload)
+            self.assertIn("failed_count", payload)
+            self.assertIn("retry_limit", payload)
+
+    def test_scan_now_refreshes_summary_with_latest_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "workbench-config.json"
+            config_path.with_name("automation-state.json").write_text(
+                json.dumps(
+                    {
+                        "sources": [
+                            {
+                                "id": "feed-techcrunch",
+                                "name": "TechCrunch",
+                                "source_type": "rss-feed",
+                                "url": "https://techcrunch.com/feed/",
+                                "enabled": True,
+                            }
+                        ],
+                        "last_scan": None,
+                        "failed_items": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            client = self.make_client(root, config_path)
+
+            scan_response = client.post("/api/inbox/scan")
+            summary_response = client.get("/api/inbox/summary")
+
+            self.assertEqual(scan_response.status_code, 200)
+            self.assertEqual(summary_response.status_code, 200)
+            scan_payload = scan_response.json()
+            summary_payload = summary_response.json()
+            self.assertEqual(len(summary_payload["sources"]), 1)
+            self.assertEqual(summary_payload["sources"][0]["id"], "feed-techcrunch")
+            self.assertEqual(summary_payload["last_scan"]["ran_at"], scan_payload["ran_at"])
+            self.assertEqual(summary_payload["last_scan"]["retry_limit"], scan_payload["retry_limit"])
+
 
 if __name__ == "__main__":
     unittest.main()

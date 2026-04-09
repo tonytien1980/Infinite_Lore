@@ -131,6 +131,34 @@
             </section>
           </div>
 
+          <div class="grid two-col">
+            <section class="panel">
+              <div class="panel-head split">
+                <div>
+                  <p class="eyebrow">Configured Sources</p>
+                  <h3>RSS and list-page intake</h3>
+                </div>
+                <div class="button-row">
+                  <button id="addSourceButton" class="ghost-button" type="button">Add source</button>
+                  <button id="saveSourcesButton" class="secondary-button" type="button">Save sources</button>
+                </div>
+              </div>
+              <div id="inboxSourceStatus" class="empty-state">Loading…</div>
+              <div id="sourceList" class="source-list empty-state">Loading…</div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head split">
+                <div>
+                  <p class="eyebrow">Latest Scan</p>
+                  <h3>Scan summary</h3>
+                </div>
+                <div id="inboxScanStatus" class="empty-state">Ready.</div>
+              </div>
+              <div id="scanSummary" class="scan-summary empty-state">No scan has run yet.</div>
+            </section>
+          </div>
+
           <section class="panel">
             <div class="panel-head split">
               <div>

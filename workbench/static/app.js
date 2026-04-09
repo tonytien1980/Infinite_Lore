@@ -5,6 +5,13 @@ const state = {
   knowledge: { synthesis: [], small_notes: [] },
   health: null,
   settings: null,
+  inbox: {
+    summary: null,
+    sources: [],
+    scanBusy: false,
+    sourcesBusy: false,
+    status: "Ready.",
+  },
   ask: {
     question: "",
     mode: "auto",
@@ -48,6 +55,14 @@ const feedbackDiscardButton = document.getElementById("feedbackDiscardButton");
 const draftCorrectionButton = document.getElementById("draftCorrectionButton");
 const draftReflectionButton = document.getElementById("draftReflectionButton");
 const askSubmitButton = document.getElementById("askSubmitButton");
+const inboxSourceStatus = document.getElementById("inboxSourceStatus");
+const inboxScanStatus = document.getElementById("inboxScanStatus");
+const sourceList = document.getElementById("sourceList");
+const addSourceButton = document.getElementById("addSourceButton");
+const saveSourcesButton = document.getElementById("saveSourcesButton");
+const scanSummary = document.getElementById("scanSummary");
+const scanNowButton = document.getElementById("scanNowButton");
+const refreshBundlesButton = document.getElementById("refreshBundlesButton");
 
 function setPage(page) {
   state.page = page;
@@ -78,6 +93,194 @@ function renderListStack(container, items, emptyMessage, mapItem) {
   if (!container.children.length) {
     container.textContent = emptyMessage;
   }
+}
+
+function normalizeInboxSource(source, index) {
+  const fallbackId = `source-${index + 1}`;
+  return {
+    id: typeof source?.id === "string" && source.id.trim() ? source.id.trim() : fallbackId,
+    name: typeof source?.name === "string" ? source.name : "",
+    source_type: source?.source_type === "article-list-page" ? "article-list-page" : "rss-feed",
+    url: typeof source?.url === "string" ? source.url : "",
+    enabled: source?.enabled !== false,
+  };
+}
+
+function cloneInboxSources(sources) {
+  return (Array.isArray(sources) ? sources : []).map((source, index) => normalizeInboxSource(source, index));
+}
+
+function createMetricCard(label, value, detail) {
+  const card = document.createElement("article");
+  card.className = "scan-metric";
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = label;
+  const strong = document.createElement("strong");
+  strong.textContent = String(value);
+  const body = document.createElement("p");
+  body.textContent = detail || "";
+  card.append(eyebrow, strong, body);
+  return card;
+}
+
+function renderInboxSources() {
+  const sources = state.inbox.sources;
+  inboxSourceStatus.textContent = `${sources.length} configured source${sources.length === 1 ? "" : "s"}`;
+  sourceList.innerHTML = "";
+
+  if (!sources.length) {
+    sourceList.className = "source-list empty-state";
+    sourceList.textContent = "No sources configured yet. Add an RSS feed or article list page.";
+    return;
+  }
+
+  sourceList.className = "source-list";
+  sources.forEach((source, index) => {
+    const row = document.createElement("article");
+    row.className = "source-card";
+
+    const header = document.createElement("div");
+    header.className = "source-card-head";
+    const title = document.createElement("strong");
+    title.textContent = source.name || source.id || `Source ${index + 1}`;
+    const meta = document.createElement("p");
+    meta.className = "eyebrow";
+    meta.textContent = source.enabled ? "Enabled" : "Disabled";
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "ghost-button";
+    removeButton.textContent = "Remove";
+    removeButton.addEventListener("click", () => {
+      state.inbox.sources.splice(index, 1);
+      renderInboxSources();
+    });
+    header.append(title, meta, removeButton);
+
+    const fields = document.createElement("div");
+    fields.className = "source-fields";
+
+    const idLabel = document.createElement("label");
+    idLabel.innerHTML = "<span>Source ID</span>";
+    const idInput = document.createElement("input");
+    idInput.type = "text";
+    idInput.value = source.id || "";
+    idInput.addEventListener("input", () => {
+      state.inbox.sources[index].id = idInput.value;
+    });
+    idLabel.appendChild(idInput);
+
+    const nameLabel = document.createElement("label");
+    nameLabel.innerHTML = "<span>Name</span>";
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.value = source.name || "";
+    nameInput.addEventListener("input", () => {
+      state.inbox.sources[index].name = nameInput.value;
+    });
+    nameLabel.appendChild(nameInput);
+
+    const typeLabel = document.createElement("label");
+    typeLabel.innerHTML = "<span>Type</span>";
+    const typeSelect = document.createElement("select");
+    [
+      ["rss-feed", "RSS / feed"],
+      ["article-list-page", "Article list page"],
+    ].forEach(([value, text]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      typeSelect.appendChild(option);
+    });
+    typeSelect.value = source.source_type || "rss-feed";
+    typeSelect.addEventListener("change", () => {
+      state.inbox.sources[index].source_type = typeSelect.value;
+    });
+    typeLabel.appendChild(typeSelect);
+
+    const urlLabel = document.createElement("label");
+    urlLabel.innerHTML = "<span>URL</span>";
+    const urlInput = document.createElement("input");
+    urlInput.type = "url";
+    urlInput.value = source.url || "";
+    urlInput.addEventListener("input", () => {
+      state.inbox.sources[index].url = urlInput.value;
+    });
+    urlLabel.appendChild(urlInput);
+
+    const enabledLabel = document.createElement("label");
+    enabledLabel.className = "inline-checkbox";
+    const enabledInput = document.createElement("input");
+    enabledInput.type = "checkbox";
+    enabledInput.checked = source.enabled !== false;
+    enabledInput.addEventListener("change", () => {
+      state.inbox.sources[index].enabled = enabledInput.checked;
+      meta.textContent = enabledInput.checked ? "Enabled" : "Disabled";
+    });
+    const enabledText = document.createElement("span");
+    enabledText.textContent = "Enabled";
+    enabledLabel.append(enabledInput, enabledText);
+
+    fields.append(idLabel, nameLabel, typeLabel, urlLabel, enabledLabel);
+    row.append(header, fields);
+    sourceList.appendChild(row);
+  });
+}
+
+function renderInboxScanSummary() {
+  const summary = state.inbox.summary;
+  scanSummary.innerHTML = "";
+
+  if (!summary || !summary.last_scan) {
+    scanSummary.className = "scan-summary empty-state";
+    scanSummary.textContent = summary?.state_warning
+      ? "No scan has run yet, but the saved state was recovered from corruption."
+      : "No scan has run yet.";
+    return;
+  }
+
+  scanSummary.className = "scan-summary";
+  const note = document.createElement("p");
+  note.className = "scan-summary-note";
+  note.textContent = summary.recovered_from_corruption
+    ? "Scan state was recovered from a damaged file before this run."
+    : "Latest scan details are shown below.";
+  scanSummary.appendChild(note);
+
+  const grid = document.createElement("div");
+  grid.className = "scan-summary-grid";
+  const lastScan = summary.last_scan || {};
+  [
+    ["Ran at", lastScan.ran_at || "Unknown", "UTC timestamp"],
+    ["Discovered", lastScan.discovered_count ?? 0, "Candidates found"],
+    ["Deduplicated", lastScan.deduplicated_count ?? 0, "Kept after de-dupe"],
+    ["Imported", lastScan.imported_count ?? 0, "Bundles imported"],
+    ["Compiled", lastScan.compiled_count ?? 0, "Bundles compiled"],
+    ["Failed", lastScan.failed_count ?? 0, "Still retrying"],
+    ["Exhausted", lastScan.exhausted_failed_count ?? 0, "Retry budget used"],
+    ["Retry limit", lastScan.retry_limit ?? 0, "Maximum retries"],
+  ].forEach(([label, value, detail]) => {
+    grid.appendChild(createMetricCard(label, value, detail));
+  });
+  scanSummary.appendChild(grid);
+
+  const foot = document.createElement("p");
+  foot.className = "scan-summary-foot";
+  const parts = [
+    `${summary.sources?.length ?? 0} configured sources`,
+    `${summary.failed_count ?? 0} failed items`,
+    `${summary.processed_count ?? 0} processed sources`,
+  ];
+  if (summary.state_warning) {
+    parts.push(`state: ${summary.state_warning}`);
+  }
+  foot.textContent = parts.join(" • ");
+  scanSummary.appendChild(foot);
+}
+
+function renderInbox() {
+  renderInboxSources();
+  renderInboxScanSummary();
 }
 
 function renderDashboard() {
@@ -201,6 +404,8 @@ async function loadAll() {
   state.knowledge = await fetchJson("/api/knowledge");
   state.health = await fetchJson("/api/system/health");
   const systemInfo = await fetchJson("/api/system/info");
+  state.inbox.summary = await fetchJson("/api/inbox/summary");
+  state.inbox.sources = cloneInboxSources(state.inbox.summary.sources || []);
   state.settings = await fetchJson("/api/settings");
   vaultPath.textContent = systemInfo.vault_root;
   systemVaultPath.textContent = systemInfo.vault_root;
@@ -208,7 +413,81 @@ async function loadAll() {
   renderBundles();
   renderKnowledge();
   renderHealth();
+  renderInbox();
   populateSettings();
+}
+
+function setInboxBusy(isBusy, message) {
+  state.inbox.scanBusy = isBusy;
+  state.inbox.status = message || (isBusy ? "Working…" : "Ready.");
+  scanNowButton.disabled = isBusy;
+  refreshBundlesButton.disabled = isBusy;
+  addSourceButton.disabled = isBusy;
+  saveSourcesButton.disabled = isBusy;
+  inboxScanStatus.textContent = state.inbox.status;
+}
+
+function addInboxSource() {
+  state.inbox.sources.push(
+    normalizeInboxSource(
+      {
+        id: `source-${state.inbox.sources.length + 1}`,
+        name: "",
+        source_type: "rss-feed",
+        url: "",
+        enabled: true,
+      },
+      state.inbox.sources.length
+    )
+  );
+  renderInboxSources();
+}
+
+async function saveInboxSources() {
+  if (state.inbox.sourcesBusy) {
+    return;
+  }
+  state.inbox.sourcesBusy = true;
+  setInboxBusy(true, "Saving sources...");
+  try {
+    await fetchJson("/api/inbox/sources", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sources: state.inbox.sources }),
+    });
+    await loadAll();
+    state.inbox.status = "Sources saved.";
+    inboxScanStatus.textContent = state.inbox.status;
+  } catch (error) {
+    state.inbox.status = `Source save failed: ${error.message}`;
+    inboxScanStatus.textContent = state.inbox.status;
+  } finally {
+    state.inbox.sourcesBusy = false;
+    setInboxBusy(false, state.inbox.status);
+  }
+}
+
+async function runInboxScan() {
+  if (state.inbox.scanBusy) {
+    return;
+  }
+  setInboxBusy(true, "Scanning configured sources and raw intake...");
+  try {
+    const summary = await fetchJson("/api/inbox/scan", { method: "POST" });
+    state.inbox.summary = {
+      ...(state.inbox.summary || {}),
+      last_scan: summary,
+    };
+    renderInbox();
+    await loadAll();
+    state.inbox.status = "Scan finished.";
+    inboxScanStatus.textContent = state.inbox.status;
+  } catch (error) {
+    state.inbox.status = `Scan failed: ${error.message}`;
+    inboxScanStatus.textContent = state.inbox.status;
+  } finally {
+    setInboxBusy(false, state.inbox.status);
+  }
 }
 
 navLinks.forEach((button) => {
@@ -611,8 +890,14 @@ document.getElementById("urlImportForm").addEventListener("submit", async (event
   setPage("inbox");
 });
 
-document.getElementById("refreshBundlesButton").addEventListener("click", loadAll);
-document.getElementById("scanNowButton").addEventListener("click", loadAll);
+refreshBundlesButton.addEventListener("click", loadAll);
+scanNowButton.addEventListener("click", async () => {
+  await runInboxScan();
+});
+addSourceButton.addEventListener("click", addInboxSource);
+saveSourcesButton.addEventListener("click", async () => {
+  await saveInboxSources();
+});
 
 document.getElementById("settingsForm").addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -25,6 +25,7 @@ from workbench.services import (
     import_url,
     list_bundles,
     list_knowledge,
+    run_inbox_scan,
 )
 from workbench.source_store import load_source_state, replace_sources
 
@@ -135,6 +136,10 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
     @app.post("/api/inbox/import-url")
     def inbox_import_url(payload: dict) -> dict:
         return import_url(vault_root, payload["url"], payload.get("primary_domain"))
+
+    @app.post("/api/inbox/scan")
+    def inbox_scan() -> dict:
+        return run_inbox_scan(vault_root, source_state_path)
 
     @app.get("/api/inbox/sources")
     def inbox_sources() -> dict:

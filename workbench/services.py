@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 from tools.health_check import check_vault
 from tools.import_bundle import import_source
 from tools.wiki_compile import compile_bundle, parse_frontmatter
-from workbench.source_store import summarize_source_state
+from workbench.source_store import load_source_state, summarize_source_state
 
 
 def _bundle_paths(vault_root: Path) -> List[Path]:
@@ -170,3 +170,13 @@ def get_system_info(vault_root: Path) -> Dict[str, str]:
 
 def get_inbox_summary(source_state_path: Path) -> Dict[str, object]:
     return summarize_source_state(source_state_path)
+
+
+def run_inbox_scan(vault_root: Path, source_state_path: Path) -> Dict[str, object]:
+    from tools.automation_scan import run_scan
+
+    state = load_source_state(source_state_path)
+    configured_sources = state.get("sources", [])
+    if not isinstance(configured_sources, list):
+        configured_sources = []
+    return run_scan(vault_root, configured_sources, source_state_path)
