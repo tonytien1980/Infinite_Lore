@@ -325,6 +325,54 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertIn("30_Wiki", response.json()["detail"])
 
+    def test_sources_round_trip_persists_rss_and_list_page_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            save_response = client.post(
+                "/api/inbox/sources",
+                json={
+                    "sources": [
+                        {
+                            "id": "feed-techcrunch",
+                            "name": "TechCrunch",
+                            "source_type": "rss-feed",
+                            "url": "https://techcrunch.com/feed/",
+                            "enabled": True,
+                        },
+                        {
+                            "id": "list-sej",
+                            "name": "Search Engine Journal",
+                            "source_type": "article-list-page",
+                            "url": "https://www.searchenginejournal.com/category/seo/",
+                            "enabled": True,
+                        },
+                    ]
+                },
+            )
+            load_response = client.get("/api/inbox/sources")
+
+            self.assertEqual(save_response.status_code, 200)
+            self.assertEqual(load_response.status_code, 200)
+            payload = load_response.json()
+            self.assertEqual(len(payload["sources"]), 2)
+            self.assertEqual(payload["sources"][0]["source_type"], "rss-feed")
+            self.assertEqual(payload["sources"][1]["source_type"], "article-list-page")
+
+    def test_inbox_summary_returns_source_and_scan_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/api/inbox/summary")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertIn("sources", payload)
+            self.assertIn("last_scan", payload)
+            self.assertIn("failed_count", payload)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,12 +16,22 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
 from workbench.config_store import load_config, save_config
 from workbench.ask_service import answer_question
 from workbench.reflection_service import apply_correction, draft_correction, draft_reflection, save_reflection
-from workbench.services import get_dashboard, get_health, get_system_info, import_file, import_url, list_bundles, list_knowledge
+from workbench.services import (
+    get_dashboard,
+    get_health,
+    get_system_info,
+    import_file,
+    import_url,
+    list_bundles,
+    list_knowledge,
+)
+from workbench.source_store import load_source_state, replace_sources, summarize_source_state
 
 
 def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = None) -> FastAPI:
     vault_root = (vault_root or Path.cwd()).resolve()
     config_path = config_path or Path.home() / ".config" / "infinite_lore" / "workbench.json"
+    source_state_path = config_path.with_name("automation-state.json")
     static_dir = Path(__file__).resolve().parent / "static"
 
     app = FastAPI(title="Infinite Lore Workbench")
@@ -124,6 +134,19 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
     @app.post("/api/inbox/import-url")
     def inbox_import_url(payload: dict) -> dict:
         return import_url(vault_root, payload["url"], payload.get("primary_domain"))
+
+    @app.get("/api/inbox/sources")
+    def inbox_sources() -> dict:
+        return {"sources": load_source_state(source_state_path).get("sources", [])}
+
+    @app.post("/api/inbox/sources")
+    def inbox_save_sources(payload: dict) -> dict:
+        state = replace_sources(source_state_path, payload.get("sources", []))
+        return {"sources": state.get("sources", [])}
+
+    @app.get("/api/inbox/summary")
+    def inbox_summary() -> dict:
+        return summarize_source_state(source_state_path)
 
     return app
 

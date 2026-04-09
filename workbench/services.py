@@ -7,6 +7,7 @@ from typing import Dict, List, Tuple
 from tools.health_check import check_vault
 from tools.import_bundle import import_source
 from tools.wiki_compile import compile_bundle, parse_frontmatter
+from workbench.source_store import summarize_source_state
 
 
 def _bundle_paths(vault_root: Path) -> List[Path]:
@@ -165,3 +166,7 @@ def get_health(vault_root: Path) -> Dict[str, object]:
 
 def get_system_info(vault_root: Path) -> Dict[str, str]:
     return {"vault_root": str(vault_root.resolve())}
+
+
+def get_inbox_summary(source_state_path: Path) -> Dict[str, object]:
+    return summarize_source_state(source_state_path)
