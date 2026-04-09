@@ -68,6 +68,23 @@
 - Modify: `workbench/services.py`
 - Modify: `tests/test_workbench_api.py`
 
+**Accepted hardening for this task:**
+
+- keep source-state IO fail-safe when the persisted state file is malformed
+- validate each configured source entry instead of only validating the outer payload shape
+- require source fields needed by later scan work:
+  - `id`
+  - `name`
+  - `source_type`
+  - `url`
+  - `enabled`
+- enforce `source_type` as one of:
+  - `rss-feed`
+  - `article-list-page`
+- reject empty or unusable `id`, `name`, and `url` values
+- write source state atomically
+- expose a minimal summary-level recovery signal when persisted source state was recovered from corruption
+
 - [ ] **Step 1: Write the failing API tests for source management**
 
 Add these tests to `tests/test_workbench_api.py`:
@@ -221,6 +238,20 @@ from workbench.source_store import summarize_source_state
 def get_inbox_summary(source_state_path: Path) -> Dict[str, object]:
     return summarize_source_state(source_state_path)
 ```
+
+- [ ] **Step 4b: Apply the accepted hardening discovered during review**
+
+Extend `workbench/source_store.py`, `workbench/server.py`, and `tests/test_workbench_api.py` so Task 1 also covers:
+
+- malformed `automation-state.json` does not crash summary loading
+- missing `sources` key is rejected with `400`
+- malformed source entries such as `{\"sources\": [\"bad-entry\"]}` are rejected
+- whitespace-only `id` or `name` is rejected
+- invalid `source_type` is rejected
+- empty or non-http(s) `url` is rejected
+- saved source entries are sanitized down to the required contract fields
+- summary output includes a minimal recovery signal when corrupted persisted state was recovered safely
+- source state writes use atomic temp-file replacement rather than direct overwrite
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
