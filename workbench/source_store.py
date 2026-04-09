@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from typing import Any, Dict, List
 
 
@@ -88,12 +88,31 @@ def _normalize_http_url(value: Any, strict: bool = False) -> str | None:
         return None
 
     parsed = urlparse(candidate)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         if strict:
             raise ValueError("url must be a non-empty http(s) URL")
         return None
 
-    return candidate
+    canonical_scheme = parsed.scheme.lower()
+    canonical_host = parsed.hostname.lower()
+    default_port = 80 if canonical_scheme == "http" else 443
+    try:
+        parsed_port = parsed.port
+    except ValueError:
+        if strict:
+            raise ValueError("url must be a non-empty http(s) URL")
+        return None
+    if parsed_port and parsed_port != default_port:
+        netloc = f"{canonical_host}:{parsed_port}"
+    else:
+        netloc = canonical_host
+    if parsed.username or parsed.password:
+        auth = parsed.username or ""
+        if parsed.password:
+            auth = f"{auth}:{parsed.password}"
+        netloc = f"{auth}@{netloc}"
+
+    return urlunparse((canonical_scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
 
 
 def _normalize_source_entry(entry: Any, strict: bool = False) -> Dict[str, Any] | None:
@@ -157,15 +176,18 @@ def _normalize_source_entries(value: Any, strict: bool = False) -> List[Dict[str
                 raise ValueError(f"sources[{index}]: {exc}") from exc
             continue
         if normalized_entry is not None:
-            if strict:
-                source_id = normalized_entry["id"]
-                source_url = normalized_entry["url"]
-                if source_id in seen_ids:
+            source_id = normalized_entry["id"]
+            source_url = normalized_entry["url"]
+            if source_id in seen_ids:
+                if strict:
                     raise ValueError(f"sources[{index}]: duplicate source id: {source_id}")
-                if source_url in seen_urls:
+                continue
+            if source_url in seen_urls:
+                if strict:
                     raise ValueError(f"sources[{index}]: duplicate source url: {source_url}")
-                seen_ids.add(source_id)
-                seen_urls.add(source_url)
+                continue
+            seen_ids.add(source_id)
+            seen_urls.add(source_url)
             normalized.append(normalized_entry)
     return normalized
 
@@ -208,7 +230,8 @@ def _source_state_has_recovery_signal(payload: Any) -> bool:
     if not isinstance(failed_items, list):
         return True
     sources = payload.get("sources", [])
-    if any(_normalize_source_entry(entry) is None for entry in sources):
+    normalized_sources = _normalize_source_entries(sources)
+    if len(normalized_sources) != len(sources):
         return True
     if any(not isinstance(item, dict) for item in failed_items):
         return True
