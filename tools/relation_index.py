@@ -4,13 +4,21 @@ import json
 from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Dict, Iterable, List, Tuple
 
 from tools.wiki_compile import parse_frontmatter
 
 
 RELATION_INDEX_PATH = Path("00_System/relation-index.json")
-EXCLUDED_NOTE_TYPES = {"reflection-entry", "correction-proposal"}
+EXCLUDED_NOTE_TYPES = {
+    "reflection-entry",
+    "correction-proposal",
+    "journal-entry",
+    "project-log",
+    "artifact",
+    "artifacts",
+}
 
 
 def now_iso() -> str:
@@ -21,7 +29,9 @@ def normalize_ref(value: object) -> str:
     text = str(value or "").strip().replace("\\", "/")
     if text.startswith("./"):
         text = text[2:]
-    return text
+    if not text:
+        return ""
+    return PurePosixPath(text).as_posix()
 
 
 def as_string_list(value: object) -> List[str]:
@@ -178,5 +188,9 @@ def save_relation_index(root: Path) -> Dict[str, object]:
     artifact = build_relation_index(root)
     target = root / RELATION_INDEX_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        existing = json.loads(target.read_text(encoding="utf-8"))
+        if existing.get("notes") == artifact.get("notes") and existing.get("edges") == artifact.get("edges"):
+            return existing
     target.write_text(json.dumps(artifact, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     return artifact
