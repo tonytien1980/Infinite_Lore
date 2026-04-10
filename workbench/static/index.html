@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Infinite Lore Workbench</title>
+    <title>Infinite Lore 知識工作台</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/app.css" />
@@ -19,7 +19,7 @@
           <div class="brand-mark">IL</div>
           <div>
             <p class="eyebrow">Infinite Lore</p>
-            <h1>Workbench</h1>
+            <h1>知識工作台</h1>
           </div>
         </div>
         <nav class="nav">
@@ -31,29 +31,29 @@
           <button class="nav-link" data-page="settings">設定</button>
         </nav>
         <div class="sidebar-foot">
-          <p class="eyebrow">Shared Vault</p>
-          <p id="vaultPath">Loading...</p>
+          <p class="eyebrow">共享知識庫</p>
+          <p id="vaultPath">載入中…</p>
         </div>
       </aside>
 
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Operational Surface</p>
+            <p class="eyebrow">共享知識庫</p>
             <h2 id="pageTitle">首頁</h2>
           </div>
-          <div class="status-pill" id="healthPill">Checking health…</div>
+          <div class="status-pill" id="healthPill">檢查系統狀態中…</div>
         </header>
 
         <section class="page active" data-page="home">
           <section class="panel workspace-top">
             <div class="workspace-heading">
               <div>
-                <p class="eyebrow">首頁工作台</p>
-                <h3>精簡提問列</h3>
+                <p class="eyebrow">Ask 工作台</p>
+                <h3>提問入口</h3>
               </div>
               <p class="workspace-copy">
-                先提問，再沿著答案、證據與後續工作往下讀，不把首頁做成三欄控制台。
+                先定義問題，讓系統先回報核心答案，再往下檢閱證據與後續工作。
               </p>
             </div>
             <form id="askForm" class="workspace-top-form ask-form compact-prompt">
@@ -61,16 +61,16 @@
                 <span>問題</span>
                 <textarea
                   id="askInput"
-                  placeholder="從目前知識庫提問，例如：Infinite Lore 最近整理了哪些 AI workflow 重點？"
+                  placeholder="例如：Infinite Lore 最近整理了哪些 AI workflow 重點？"
                 ></textarea>
               </label>
               <div class="workspace-top-controls">
                 <label>
-                  <span>回答模式</span>
+                  <span>回應模式</span>
                   <select id="askMode">
-                    <option value="auto">Auto</option>
-                    <option value="ask">Ask</option>
-                    <option value="query">Query</option>
+                    <option value="auto">自動</option>
+                    <option value="ask">問答</option>
+                    <option value="query">查詢</option>
                   </select>
                 </label>
                 <button id="askSubmitButton" type="submit" class="primary-button">開始提問</button>
@@ -82,7 +82,7 @@
             <div class="panel-head">
               <div>
                 <p class="eyebrow">主回答區</p>
-                <h3>圖書館答案</h3>
+                <h3>主答案</h3>
               </div>
             </div>
             <div id="askAnswer" class="empty-state">提出問題後，系統會在這裡顯示可閱讀的主答案。</div>
@@ -101,17 +101,17 @@
             </div>
             <div class="grid three-col workspace-evidence-grid">
               <section>
-                <p class="eyebrow">Grounding</p>
-                <div id="askGrounding" class="list-stack empty-state">Grounding 將顯示在這裡。</div>
+                <p class="eyebrow">基礎證據</p>
+                <div id="askGrounding" class="list-stack empty-state">基礎證據將顯示在這裡。</div>
               </section>
               <section>
-                <p class="eyebrow">Trace</p>
-                <div id="askTrace" class="list-stack empty-state">來源 trace 將顯示在這裡。</div>
+                <p class="eyebrow">回溯軌跡</p>
+                <div id="askTrace" class="list-stack empty-state">來源回溯將顯示在這裡。</div>
               </section>
               <section>
-                <p class="eyebrow">Relation Trace</p>
+                <p class="eyebrow">關聯追蹤</p>
                 <div id="askRelationTrace" class="list-stack empty-state">
-                  關聯 trace 會在知識沿連結展開時顯示於此。
+                  關聯追蹤會在知識沿連結展開時顯示於此。
                 </div>
               </section>
             </div>
@@ -121,20 +121,20 @@
             <div class="panel-head">
               <div>
                 <p class="eyebrow">後續工作區</p>
-                <h3>我的工作區</h3>
+                <h3>今日作業</h3>
               </div>
             </div>
             <div class="workspace-followup-grid">
               <section class="workspace-followup-card">
                 <div class="panel-head split">
-                  <div>
-                    <p class="eyebrow">最近反思</p>
-                    <h3>Reflections</h3>
+                <div>
+                  <p class="eyebrow">最近反思</p>
+                  <h3>反思草稿</h3>
                   </div>
                   <button id="reflectionViewAllButton" class="ghost-button" type="button">查看全部</button>
                 </div>
                 <div id="reflectionList" class="list-stack empty-state">
-                  先提問，之後才會在這裡顯示最近連結的 reflections。
+                  先完成提問，才會在這裡顯示最近的反思連結。
                 </div>
               </section>
 
@@ -142,19 +142,19 @@
                 <div class="panel-head">
                   <div>
                     <p class="eyebrow">修正知識</p>
-                    <h3>Correction / Reflection</h3>
+                    <h3>修正與反思</h3>
                   </div>
                 </div>
                 <form class="stack-form">
                   <label>
                     <span>共用回饋輸入</span>
-                    <textarea id="feedbackInput" placeholder="寫下修正要求，或寫下你的反思解讀。"></textarea>
+                    <textarea id="feedbackInput" placeholder="例如：補上關鍵判斷依據，或修正某個結論語氣。"></textarea>
                   </label>
                   <div class="button-row followup-actions">
-                    <button id="draftCorrectionButton" type="button" class="primary-button">修正知識</button>
-                    <button id="draftReflectionButton" type="button" class="secondary-button">新增反思</button>
+                    <button id="draftCorrectionButton" type="button" class="primary-button">起草修正</button>
+                    <button id="draftReflectionButton" type="button" class="secondary-button">起草反思</button>
                   </div>
-                  <p id="feedbackHint" class="empty-state">使用同一個輸入框，再選擇要起草修正或反思。</p>
+                <p id="feedbackHint" class="empty-state">共用同一輸入框，先完成提問後再起草修正或反思。</p>
                 </form>
               </section>
             </div>
@@ -168,7 +168,7 @@
                 <div id="feedbackEditorStatus" class="empty-state">目前沒有草稿。</div>
               </div>
               <div id="feedbackEditorEmpty" class="empty-state">
-                先在上方起草 correction 或 reflection，再到這裡審閱後確認。
+                先在上方起草修正或反思，再到這裡審閱後確認。
               </div>
               <div id="feedbackEditorBody" class="stack-form" hidden>
                 <div id="feedbackEditorMeta" class="list-stack"></div>
@@ -186,28 +186,28 @@
         </section>
 
         <section class="page" data-page="summary">
-          <p class="eyebrow">Operations Snapshot</p>
+          <p class="eyebrow">每日運作快照</p>
 
           <div class="grid two-col">
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Recent Imports</p>
-                  <h3>Raw intake activity</h3>
+                  <p class="eyebrow">最近匯入</p>
+                  <h3>原始資料作業</h3>
                 </div>
               </div>
-              <div id="recentImports" class="list-stack empty-state">Loading…</div>
+              <div id="recentImports" class="list-stack empty-state">載入中…</div>
             </section>
 
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Recent Knowledge</p>
-                  <h3>Freshly compiled notes</h3>
+                  <p class="eyebrow">知識更新</p>
+                  <h3>最新已編譯筆記</h3>
                 </div>
               </div>
-              <div id="recentKnowledge" class="list-stack empty-state">Loading…</div>
-            </section>
+              <div id="recentKnowledge" class="list-stack empty-state">載入中…</div>
+        </section>
           </div>
 
           <div class="grid three-col" id="snapshotCards"></div>
@@ -218,40 +218,40 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Raw Intake</p>
-                  <h3>Import file</h3>
+                  <p class="eyebrow">資料匯入</p>
+                  <h3>匯入本機檔案</h3>
                 </div>
               </div>
               <form id="fileImportForm" class="stack-form">
                 <label>
-                  <span>File</span>
+                  <span>檔案</span>
                   <input type="file" name="file" required />
                 </label>
                 <label>
-                  <span>Primary domain override</span>
-                  <input type="text" name="primary_domain" placeholder="Optional. Leave blank for auto classification." />
+                  <span>主要領域</span>
+                  <input type="text" name="primary_domain" placeholder="留空會依據系統自動分類。" />
                 </label>
-                <button type="submit" class="primary-button">Import and compile</button>
+                <button type="submit" class="primary-button">上傳並編譯</button>
               </form>
             </section>
 
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Web Article</p>
-                  <h3>Import URL</h3>
+                  <p class="eyebrow">網站抓取</p>
+                  <h3>匯入網址</h3>
                 </div>
               </div>
               <form id="urlImportForm" class="stack-form">
                 <label>
-                  <span>Article URL</span>
+                  <span>文章網址</span>
                   <input type="url" name="url" placeholder="https://example.com/article" required />
                 </label>
                 <label>
-                  <span>Primary domain override</span>
-                  <input type="text" name="primary_domain" placeholder="Optional. Leave blank for auto classification." />
+                  <span>主要領域</span>
+                  <input type="text" name="primary_domain" placeholder="留空會依據系統自動分類。" />
                 </label>
-                <button type="submit" class="secondary-button">Capture and compile</button>
+                <button type="submit" class="secondary-button">抓取並編譯</button>
               </form>
             </section>
           </div>
@@ -260,42 +260,42 @@
             <section class="panel">
               <div class="panel-head split">
                 <div>
-                  <p class="eyebrow">Configured Sources</p>
-                  <h3>RSS and list-page intake</h3>
+                  <p class="eyebrow">來源設定</p>
+                  <h3>RSS 與清單頁入口</h3>
                 </div>
                 <div class="button-row">
-                  <button id="addSourceButton" class="ghost-button" type="button">Add source</button>
-                  <button id="saveSourcesButton" class="secondary-button" type="button">Save sources</button>
+                  <button id="addSourceButton" class="ghost-button" type="button">新增來源</button>
+                  <button id="saveSourcesButton" class="secondary-button" type="button">儲存來源</button>
                 </div>
               </div>
-              <div id="inboxSourceStatus" class="empty-state">Loading…</div>
-              <div id="sourceList" class="source-list empty-state">Loading…</div>
+              <div id="inboxSourceStatus" class="empty-state">載入中…</div>
+              <div id="sourceList" class="source-list empty-state">載入中…</div>
             </section>
 
             <section class="panel">
               <div class="panel-head split">
                 <div>
-                  <p class="eyebrow">Latest Scan</p>
-                  <h3>Scan summary</h3>
+                  <p class="eyebrow">近期掃描</p>
+                  <h3>掃描摘要</h3>
                 </div>
-                <div id="inboxScanStatus" class="empty-state">Ready.</div>
+                <div id="inboxScanStatus" class="empty-state">就緒。</div>
               </div>
-              <div id="scanSummary" class="scan-summary empty-state">No scan has run yet.</div>
+              <div id="scanSummary" class="scan-summary empty-state">尚未執行掃描。</div>
             </section>
           </div>
 
           <section class="panel">
             <div class="panel-head split">
               <div>
-                <p class="eyebrow">Inbox Monitor</p>
-                <h3>Bundle queue</h3>
+                <p class="eyebrow">來源監控</p>
+                <h3>待辦佇列</h3>
               </div>
               <div class="button-row">
-                <button id="scanNowButton" class="ghost-button" type="button">Scan now</button>
-                <button id="refreshBundlesButton" class="ghost-button" type="button">Refresh list</button>
+                <button id="scanNowButton" class="ghost-button" type="button">立即掃描</button>
+                <button id="refreshBundlesButton" class="ghost-button" type="button">更新清單</button>
               </div>
             </div>
-            <div id="bundleList" class="list-stack empty-state">Loading…</div>
+            <div id="bundleList" class="list-stack empty-state">載入中…</div>
           </section>
         </section>
 
@@ -304,20 +304,20 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Synthesis</p>
-                  <h3>Compiled source entries</h3>
+                  <p class="eyebrow">編譯結果</p>
+                  <h3>已合成條目</h3>
                 </div>
               </div>
-              <div id="synthesisList" class="list-stack empty-state">Loading…</div>
+              <div id="synthesisList" class="list-stack empty-state">載入中…</div>
             </section>
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Small Notes</p>
-                  <h3>Concepts, frameworks, questions</h3>
+                  <p class="eyebrow">小節筆記</p>
+                  <h3>概念、框架、問題</h3>
                 </div>
               </div>
-              <div id="smallNotesList" class="list-stack empty-state">Loading…</div>
+              <div id="smallNotesList" class="list-stack empty-state">載入中…</div>
             </section>
           </div>
         </section>
@@ -327,23 +327,23 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Health</p>
-                  <h3>Vault status</h3>
+                  <p class="eyebrow">系統狀態</p>
+                  <h3>知識庫健康</h3>
                 </div>
               </div>
-              <div id="healthDetails" class="list-stack empty-state">Loading…</div>
+              <div id="healthDetails" class="list-stack empty-state">載入中…</div>
             </section>
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Environment</p>
-                  <h3>Local runtime</h3>
+                  <p class="eyebrow">環境資訊</p>
+                  <h3>本機執行環境</h3>
                 </div>
               </div>
               <dl class="env-list">
-                <div><dt>Vault root</dt><dd id="systemVaultPath">Loading…</dd></div>
-                <div><dt>Runtime</dt><dd>Local web app + Python backend</dd></div>
-                <div><dt>Source of truth</dt><dd>Shared vault filesystem</dd></div>
+                <div><dt>Vault 根目錄</dt><dd id="systemVaultPath">載入中…</dd></div>
+                <div><dt>執行環境</dt><dd>本機 Web 應用 + Python 後端</dd></div>
+                <div><dt>資料來源</dt><dd>共享知識庫檔案系統</dd></div>
               </dl>
             </section>
           </div>
@@ -354,51 +354,51 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Provider Control</p>
-                  <h3>Model routing and API access</h3>
+                  <p class="eyebrow">模型控制</p>
+                  <h3>模型路由與 API 存取</h3>
                 </div>
               </div>
               <form id="settingsForm" class="stack-form">
                 <label>
-                  <span>Provider</span>
+                  <span>供應商</span>
                   <input type="text" id="providerName" value="openai" />
                 </label>
                 <label>
-                  <span>Provider ID</span>
+                  <span>供應商 ID</span>
                   <input type="text" id="providerId" value="openai-main" />
                 </label>
                 <label>
-                  <span>API Key</span>
-                  <input type="password" id="providerApiKey" placeholder="Stored in local config, not in vault" />
+                  <span>API 金鑰</span>
+                  <input type="password" id="providerApiKey" placeholder="存放於本機設定，不進入知識庫" />
                 </label>
                 <label>
-                  <span>Balanced model</span>
-                  <input type="text" id="balancedModel" placeholder="model id" />
+                  <span>Balanced 模型</span>
+                  <input type="text" id="balancedModel" placeholder="模型識別碼" />
                 </label>
                 <label>
-                  <span>Best / Deep model</span>
-                  <input type="text" id="bestModel" placeholder="model id" />
+                  <span>Best / Deep 模型</span>
+                  <input type="text" id="bestModel" placeholder="模型識別碼" />
                 </label>
-                <button type="submit" class="primary-button">Save local settings</button>
+                <button type="submit" class="primary-button">儲存本機設定</button>
               </form>
             </section>
 
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Feature Routes</p>
-                  <h3>Cost-aware behavior</h3>
+                  <p class="eyebrow">功能路由</p>
+                  <h3>成本策略調校</h3>
                 </div>
               </div>
               <div class="route-grid">
-                <label><span>Scan</span><select id="routeScan"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced">Balanced</option><option value="best_deep">Best / Deep</option></select></label>
-                <label><span>Import</span><select id="routeImport"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced">Balanced</option><option value="best_deep">Best / Deep</option></select></label>
-                <label><span>Compile</span><select id="routeCompile"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced" selected>Balanced</option><option value="best_deep">Best / Deep</option></select></label>
-                <label><span>Query</span><select id="routeQuery"><option value="no_model" selected>No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced">Balanced</option><option value="best_deep">Best / Deep</option></select></label>
-                <label><span>Ask</span><select id="routeAsk"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced">Balanced</option><option value="best_deep" selected>Best / Deep</option></select></label>
-                <label><span>Reflection</span><select id="routeReflection"><option value="no_model">No model</option><option value="cheap_fast">Cheap / Fast</option><option value="balanced" selected>Balanced</option><option value="best_deep">Best / Deep</option></select></label>
+                <label><span>掃描</span><select id="routeScan"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
+                <label><span>匯入</span><select id="routeImport"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
+                <label><span>編譯</span><select id="routeCompile"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced" selected>平衡</option><option value="best_deep">高品質</option></select></label>
+                <label><span>查詢</span><select id="routeQuery"><option value="no_model" selected>不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
+                <label><span>提問</span><select id="routeAsk"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep" selected>高品質</option></select></label>
+                <label><span>反思</span><select id="routeReflection"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced" selected>平衡</option><option value="best_deep">高品質</option></select></label>
               </div>
-              <div id="settingsStatus" class="empty-state">Local config is kept outside the vault and outside git. OpenAI execution is wired now; the provider schema remains extensible.</div>
+              <div id="settingsStatus" class="empty-state">本機設定會保存在 Vault 之外，不受版本控制；可後續擴充 API 供應商設定。</div>
             </section>
           </div>
         </section>

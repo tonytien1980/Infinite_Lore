@@ -1352,7 +1352,7 @@ class WorkbenchApiTests(unittest.TestCase):
 
         run_scan_start = script.index("async function runInboxScan()")
         persist_index = script.index("await persistInboxSources();", run_scan_start)
-        save_guard_index = script.index("Could not save sources before scanning", run_scan_start)
+        save_guard_index = script.index("掃描前來源儲存失敗", run_scan_start)
         save_guard_return_index = script.index("return;", save_guard_index)
         scan_index = script.index('const summary = await fetchJson("/api/inbox/scan"', run_scan_start)
 
@@ -1366,7 +1366,7 @@ class WorkbenchApiTests(unittest.TestCase):
 
         run_scan_start = script.index("async function runInboxScan()")
         load_all_index = script.index("await loadAll();", run_scan_start)
-        refresh_failure_index = script.index("Scan finished, but refresh failed", run_scan_start)
+        refresh_failure_index = script.index("掃描完成，但資料重整失敗", run_scan_start)
 
         self.assertLess(load_all_index, refresh_failure_index)
 

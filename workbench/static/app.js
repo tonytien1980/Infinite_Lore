@@ -10,7 +10,7 @@ const state = {
     sources: [],
     scanBusy: false,
     sourcesBusy: false,
-    status: "Ready.",
+    status: "就緒。",
   },
   ask: {
     question: "",
@@ -139,12 +139,12 @@ function createMetricCard(label, value, detail) {
 
 function renderInboxSources() {
   const sources = state.inbox.sources;
-  inboxSourceStatus.textContent = `${sources.length} configured source${sources.length === 1 ? "" : "s"}`;
+  inboxSourceStatus.textContent = `${sources.length} 個已設定來源`;
   sourceList.innerHTML = "";
 
   if (!sources.length) {
     sourceList.className = "source-list empty-state";
-    sourceList.textContent = "No sources configured yet. Add an RSS feed or article list page.";
+    sourceList.textContent = "尚未設定來源，請先新增 RSS 或清單頁來源。";
     return;
   }
 
@@ -156,14 +156,14 @@ function renderInboxSources() {
     const header = document.createElement("div");
     header.className = "source-card-head";
     const title = document.createElement("strong");
-    title.textContent = source.name || source.id || `Source ${index + 1}`;
+    title.textContent = source.name || source.id || `來源 ${index + 1}`;
     const meta = document.createElement("p");
     meta.className = "eyebrow";
-    meta.textContent = source.enabled ? "Enabled" : "Disabled";
+    meta.textContent = source.enabled ? "啟用" : "停用";
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "ghost-button";
-    removeButton.textContent = "Remove";
+    removeButton.textContent = "移除";
     removeButton.addEventListener("click", () => {
       state.inbox.sources.splice(index, 1);
       renderInboxSources();
@@ -174,7 +174,7 @@ function renderInboxSources() {
     fields.className = "source-fields";
 
     const idLabel = document.createElement("label");
-    idLabel.innerHTML = "<span>Source ID</span>";
+    idLabel.innerHTML = "<span>來源代碼</span>";
     const idInput = document.createElement("input");
     idInput.type = "text";
     idInput.value = source.id || "";
@@ -184,7 +184,7 @@ function renderInboxSources() {
     idLabel.appendChild(idInput);
 
     const nameLabel = document.createElement("label");
-    nameLabel.innerHTML = "<span>Name</span>";
+    nameLabel.innerHTML = "<span>名稱</span>";
     const nameInput = document.createElement("input");
     nameInput.type = "text";
     nameInput.value = source.name || "";
@@ -194,11 +194,11 @@ function renderInboxSources() {
     nameLabel.appendChild(nameInput);
 
     const typeLabel = document.createElement("label");
-    typeLabel.innerHTML = "<span>Type</span>";
+    typeLabel.innerHTML = "<span>來源類型</span>";
     const typeSelect = document.createElement("select");
     [
-      ["rss-feed", "RSS / feed"],
-      ["article-list-page", "Article list page"],
+      ["rss-feed", "RSS / 來源"],
+      ["article-list-page", "網頁清單頁"],
     ].forEach(([value, text]) => {
       const option = document.createElement("option");
       option.value = value;
@@ -212,7 +212,7 @@ function renderInboxSources() {
     typeLabel.appendChild(typeSelect);
 
     const urlLabel = document.createElement("label");
-    urlLabel.innerHTML = "<span>URL</span>";
+    urlLabel.innerHTML = "<span>來源網址</span>";
     const urlInput = document.createElement("input");
     urlInput.type = "url";
     urlInput.value = source.url || "";
@@ -228,10 +228,10 @@ function renderInboxSources() {
     enabledInput.checked = source.enabled !== false;
     enabledInput.addEventListener("change", () => {
       state.inbox.sources[index].enabled = enabledInput.checked;
-      meta.textContent = enabledInput.checked ? "Enabled" : "Disabled";
+      meta.textContent = enabledInput.checked ? "啟用" : "停用";
     });
     const enabledText = document.createElement("span");
-    enabledText.textContent = "Enabled";
+    enabledText.textContent = "啟用";
     enabledLabel.append(enabledInput, enabledText);
 
     fields.append(idLabel, nameLabel, typeLabel, urlLabel, enabledLabel);
@@ -247,8 +247,8 @@ function renderInboxScanSummary() {
   if (!summary || !summary.last_scan) {
     scanSummary.className = "scan-summary empty-state";
     scanSummary.textContent = summary?.state_warning
-      ? "No scan has run yet, but the saved state was recovered from corruption."
-      : "No scan has run yet.";
+      ? "尚未執行掃描，且已從壞掉的儲存回復。"
+      : "尚未執行掃描。";
     return;
   }
 
@@ -256,22 +256,22 @@ function renderInboxScanSummary() {
   const note = document.createElement("p");
   note.className = "scan-summary-note";
   note.textContent = summary.recovered_from_corruption
-    ? "Scan state was recovered from a damaged file before this run."
-    : "Latest scan details are shown below.";
+    ? "本次掃描前已從損壞檔案回復來源狀態。"
+    : "本次掃描摘要如下。";
   scanSummary.appendChild(note);
 
   const grid = document.createElement("div");
   grid.className = "scan-summary-grid";
   const lastScan = summary.last_scan || {};
   [
-    ["Ran at", lastScan.ran_at || "Unknown", "UTC timestamp"],
-    ["Discovered", lastScan.discovered_count ?? 0, "Candidates found"],
-    ["Deduplicated", lastScan.deduplicated_count ?? 0, "Kept after de-dupe"],
-    ["Imported", lastScan.imported_count ?? 0, "Bundles imported"],
-    ["Compiled", lastScan.compiled_count ?? 0, "Bundles compiled"],
-    ["Failed", lastScan.failed_count ?? 0, "Still retrying"],
-    ["Exhausted", lastScan.exhausted_failed_count ?? 0, "Retry budget used"],
-    ["Retry limit", lastScan.retry_limit ?? 0, "Maximum retries"],
+    ["執行時間", lastScan.ran_at || "尚未記錄", "時間戳記（UTC）"],
+    ["發現數", lastScan.discovered_count ?? 0, "候選來源數"],
+    ["去重數", lastScan.deduplicated_count ?? 0, "排重後保留數"],
+    ["已匯入", lastScan.imported_count ?? 0, "已建立原始筆記"],
+    ["已編譯", lastScan.compiled_count ?? 0, "已編譯完成筆記"],
+    ["失敗", lastScan.failed_count ?? 0, "待重試項目"],
+    ["耗盡重試", lastScan.exhausted_failed_count ?? 0, "已用盡重試次數"],
+    ["重試上限", lastScan.retry_limit ?? 0, "最大重試次數"],
   ].forEach(([label, value, detail]) => {
     grid.appendChild(createMetricCard(label, value, detail));
   });
@@ -280,12 +280,12 @@ function renderInboxScanSummary() {
   const foot = document.createElement("p");
   foot.className = "scan-summary-foot";
   const parts = [
-    `${summary.sources?.length ?? 0} configured sources`,
-    `${summary.failed_count ?? 0} failed items`,
-    `${summary.processed_count ?? 0} processed sources`,
+    `${summary.sources?.length ?? 0} 個來源`,
+    `${summary.failed_count ?? 0} 項失敗`,
+    `${summary.processed_count ?? 0} 項已處理`,
   ];
   if (summary.state_warning) {
-    parts.push(`state: ${summary.state_warning}`);
+    parts.push(`狀態：${summary.state_warning}`);
   }
   foot.textContent = parts.join(" • ");
   scanSummary.appendChild(foot);
@@ -306,24 +306,24 @@ function renderDashboard() {
     imports.appendChild(
       createListItem(
         item.title,
-        item.primary_domain || "unclassified",
-        `${item.bundle_path} • ${item.conversion_status || "unknown"}`
+        item.primary_domain || "未分類",
+        `${item.bundle_path} • ${item.conversion_status || "未定義"}`
       )
     );
   });
-  if (!imports.children.length) imports.textContent = "No imports yet.";
+  if (!imports.children.length) imports.textContent = "目前沒有匯入紀錄。";
 
   knowledge.innerHTML = "";
   (state.dashboard?.recent_synthesis || []).forEach((item) => {
-    knowledge.appendChild(createListItem(item.title, item.primary_domain || "wiki", item.path));
+    knowledge.appendChild(createListItem(item.title, item.primary_domain || "知識庫", item.path));
   });
-  if (!knowledge.children.length) knowledge.textContent = "No compiled knowledge yet.";
+  if (!knowledge.children.length) knowledge.textContent = "目前沒有已編譯知識。";
 
   cards.innerHTML = "";
   const snapshotEntries = [
-    ["Bundles", state.dashboard?.bundle_count ?? 0, "Raw intake units"],
-    ["Knowledge", state.dashboard?.knowledge_count ?? 0, "Compiled notes"],
-    ["Warnings", state.dashboard?.warning_count ?? 0, "Needs attention"],
+    ["待處理包", state.dashboard?.bundle_count ?? 0, "原始匯入單元"],
+    ["知識筆記", state.dashboard?.knowledge_count ?? 0, "已完成編譯"],
+    ["警示", state.dashboard?.warning_count ?? 0, "待注意項目"],
   ];
   snapshotEntries.forEach(([label, value, detail]) => {
     const card = document.createElement("article");
@@ -337,12 +337,12 @@ function renderBundles() {
   const container = document.getElementById("bundleList");
   container.innerHTML = "";
   state.bundles.forEach((bundle) => {
-    const review = bundle.review_required === "true" ? "Needs review" : "Ready";
+    const review = bundle.review_required === "true" ? "待審核" : "可用";
     container.appendChild(
-      createListItem(bundle.title, bundle.primary_domain || "unclassified", `${bundle.bundle_path} • ${review}`)
+      createListItem(bundle.title, bundle.primary_domain || "未分類", `${bundle.bundle_path} • ${review}`)
     );
   });
-  if (!container.children.length) container.textContent = "No raw bundles found.";
+  if (!container.children.length) container.textContent = "目前沒有待處理的 bundle。";
 }
 
 function renderKnowledge() {
@@ -352,14 +352,14 @@ function renderKnowledge() {
   small.innerHTML = "";
 
   state.knowledge.synthesis.forEach((note) => {
-    synthesis.appendChild(createListItem(note.title, note.primary_domain || "wiki", note.path));
+    synthesis.appendChild(createListItem(note.title, note.primary_domain || "知識庫", note.path));
   });
-  if (!synthesis.children.length) synthesis.textContent = "No synthesis notes yet.";
+  if (!synthesis.children.length) synthesis.textContent = "目前沒有合成筆記。";
 
   state.knowledge.small_notes.forEach((note) => {
-    small.appendChild(createListItem(note.title, `${note.note_type} • ${note.primary_domain || "wiki"}`, note.path));
+    small.appendChild(createListItem(note.title, `${note.note_type} • ${note.primary_domain || "知識庫"}`, note.path));
   });
-  if (!small.children.length) small.textContent = "No smaller notes yet.";
+  if (!small.children.length) small.textContent = "目前沒有小節筆記。";
 }
 
 function renderHealth() {
@@ -367,11 +367,11 @@ function renderHealth() {
   target.innerHTML = "";
   const health = state.health;
   if (!health) {
-    target.textContent = "Loading health status…";
+    target.textContent = "載入健康狀態…";
     return;
   }
-  healthPill.textContent = health.status === "ok" ? "Healthy" : "Needs review";
-  target.textContent = health.status === "ok" ? "Vault health check passed." : health.errors.join("\n");
+  healthPill.textContent = health.status === "ok" ? "運作正常" : "需要回顧";
+  target.textContent = health.status === "ok" ? "知識庫健康檢查通過。" : health.errors.join("\n");
 }
 
 function populateSettings() {
@@ -432,7 +432,7 @@ async function loadAll() {
 
 function setInboxBusy(isBusy, message) {
   state.inbox.scanBusy = isBusy;
-  state.inbox.status = message || (isBusy ? "Working…" : "Ready.");
+  state.inbox.status = message || (isBusy ? "執行中…" : "就緒。");
   scanNowButton.disabled = isBusy;
   refreshBundlesButton.disabled = isBusy;
   addSourceButton.disabled = isBusy;
@@ -469,14 +469,14 @@ async function saveInboxSources() {
     return;
   }
   state.inbox.sourcesBusy = true;
-  setInboxBusy(true, "Saving sources...");
+  setInboxBusy(true, "正在儲存來源設定…");
   try {
     await persistInboxSources();
     await loadAll();
-    state.inbox.status = "Sources saved.";
+    state.inbox.status = "來源設定已儲存。";
     inboxScanStatus.textContent = state.inbox.status;
   } catch (error) {
-    state.inbox.status = `Source save failed: ${error.message}`;
+    state.inbox.status = `來源儲存失敗：${error.message}`;
     inboxScanStatus.textContent = state.inbox.status;
   } finally {
     state.inbox.sourcesBusy = false;
@@ -488,12 +488,12 @@ async function runInboxScan() {
   if (state.inbox.scanBusy) {
     return;
   }
-  setInboxBusy(true, "Saving sources and scanning configured sources and raw intake...");
+  setInboxBusy(true, "先儲存來源設定並開始掃描…");
   try {
     try {
       await persistInboxSources();
     } catch (error) {
-      state.inbox.status = `Could not save sources before scanning: ${error.message}`;
+      state.inbox.status = `掃描前來源儲存失敗：${error.message}`;
       inboxScanStatus.textContent = state.inbox.status;
       return;
     }
@@ -507,14 +507,14 @@ async function runInboxScan() {
     try {
       await loadAll();
     } catch (refreshError) {
-      state.inbox.status = `Scan finished, but refresh failed: ${refreshError.message}`;
+      state.inbox.status = `掃描完成，但資料重整失敗：${refreshError.message}`;
       inboxScanStatus.textContent = state.inbox.status;
       return;
     }
-    state.inbox.status = "Scan finished.";
+    state.inbox.status = "掃描完成。";
     inboxScanStatus.textContent = state.inbox.status;
   } catch (error) {
-    state.inbox.status = `Scan failed: ${error.message}`;
+    state.inbox.status = `掃描失敗：${error.message}`;
     inboxScanStatus.textContent = state.inbox.status;
   } finally {
     setInboxBusy(false, state.inbox.status);
@@ -545,21 +545,21 @@ function renderAskAnswer() {
   renderListStack(
     askGrounding,
     state.ask.grounding,
-    "Grounding 將顯示在這裡。",
-    (item) => createListItem(item.title || item.path || "Grounding note", item.note_type || item.primary_domain || "wiki", item.path || item.ref || "")
+    "基礎證據將顯示在這裡。",
+    (item) => createListItem(item.title || item.path || "基礎證據", item.note_type || item.primary_domain || "知識庫", item.path || item.ref || "")
   );
 
   renderListStack(
     askTrace,
     state.ask.trace,
-    "來源 trace 將顯示在這裡。",
-    (item) => createListItem(item.source_ref || item.path || "來源 ID", "source", item.from_note || item.title || "")
+    "來源回溯將顯示在這裡。",
+    (item) => createListItem(item.source_ref || item.path || "來源代碼", "來源", item.from_note || item.title || "")
   );
 
   renderListStack(
     askRelationTrace,
     state.ask.relationTrace,
-    "關聯 trace 會在知識沿連結展開時顯示於此。",
+    "關聯追蹤會在知識沿連結展開時顯示於此。",
     (item) =>
       createListItem(
         item.source_note || "來源筆記",
@@ -571,8 +571,8 @@ function renderAskAnswer() {
   renderListStack(
     askLimits,
     state.ask.limits,
-    "需要提示時，這裡會說明答案邊界與不確定性。",
-    (item) => createListItem(item, "limit", "Evidence boundary")
+    "需要提示時，這裡會顯示答案邊界與不確定性。",
+    (item) => createListItem(item, "限制", "證據邊界")
   );
 }
 
@@ -583,11 +583,11 @@ function renderReflections() {
   renderListStack(
     reflectionList,
     visibleReflections,
-    "先提問，之後才會在這裡顯示最近連結的 reflections。",
+    "先完成提問，才會在這裡顯示最近連結的反思紀錄。",
     (item) =>
       createListItem(
-        item.title || "Reflection",
-        item.linked_note_title || item.primary_domain || "linked note",
+        item.title || "反思紀錄",
+        item.linked_note_title || item.primary_domain || "關聯筆記",
         item.created_at || item.updated_at || item.path || ""
       )
   );
@@ -692,14 +692,14 @@ async function runAsk(question, mode) {
   setAskBusy(true);
   state.ask.question = question;
   state.ask.mode = mode;
-  state.ask.answer = "系統正在整理圖書館答案…";
+  state.ask.answer = "系統正在整理答案，請稍候…";
   state.ask.grounding = [];
   state.ask.trace = [];
   state.ask.relationTrace = [];
   state.ask.limits = [];
   state.ask.reflections = [];
   state.ask.reflectionsExpanded = false;
-  clearDraftEditor("正在等待圖書館答案，暫時不建立草稿。");
+  clearDraftEditor("正在等待回答，暫時不建立草稿。");
   renderAskAnswer();
   renderReflections();
 
@@ -714,7 +714,7 @@ async function runAsk(question, mode) {
       return;
     }
 
-  state.ask.answer = payload.answer || "未回傳答案。";
+    state.ask.answer = payload.answer || "尚未取得答案。";
     state.ask.grounding = Array.isArray(payload.grounding) ? payload.grounding : [];
     state.ask.trace = Array.isArray(payload.trace) ? payload.trace : [];
     state.ask.relationTrace = Array.isArray(payload.relation_trace) ? payload.relation_trace : [];
@@ -756,7 +756,7 @@ async function submitFeedbackDraft(kind) {
   const askContext = { question: state.ask.question, mode: state.ask.mode, contextSeq: state.ask.contextSeq };
   const input = feedbackInput.value.trim();
   if (!state.ask.question || !state.ask.grounding.length) {
-    feedbackEditorStatus.textContent = "請先完成提問，讓回饋可以連到對應知識筆記。";
+    feedbackEditorStatus.textContent = "請先完成提問，回饋才能對應到知識來源。";
     return;
   }
   if (!input) {
@@ -968,11 +968,11 @@ document.getElementById("settingsForm").addEventListener("submit", async (event)
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  document.getElementById("settingsStatus").textContent = "Local settings saved.";
+  document.getElementById("settingsStatus").textContent = "本機設定已儲存。";
 });
 
 loadAll().catch((error) => {
-  healthPill.textContent = "Load failed";
+  healthPill.textContent = "載入失敗";
   document.getElementById("healthDetails").textContent = error.message;
 });
 
