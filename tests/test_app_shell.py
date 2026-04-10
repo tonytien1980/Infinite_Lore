@@ -78,3 +78,41 @@ class AppShellRuntimeTests(unittest.TestCase):
 
             self.assertTrue(mock_server.should_exit)
             mock_thread.join.assert_called_once()
+
+
+class AppShellLaunchTests(unittest.TestCase):
+    def test_launch_app_starts_server_then_opens_window(self) -> None:
+        from app_shell.main import launch_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_vault(root)
+
+            with mock.patch("app_shell.main.EmbeddedWorkbenchServer") as server_cls, mock.patch(
+                "app_shell.main.open_main_window"
+            ) as open_window:
+                server = server_cls.return_value
+                server.base_url = "http://127.0.0.1:9999"
+
+                launch_app(vault_root=root, config_path=root / "workbench.json")
+
+                server.start.assert_called_once()
+                open_window.assert_called_once_with("http://127.0.0.1:9999")
+
+    def test_launch_app_surfaces_startup_failure(self) -> None:
+        from app_shell.main import launch_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_vault(root)
+
+            with mock.patch("app_shell.main.EmbeddedWorkbenchServer") as server_cls, mock.patch(
+                "app_shell.main.open_error_dialog"
+            ) as open_error:
+                server = server_cls.return_value
+                server.start.side_effect = RuntimeError("boot failed")
+
+                with self.assertRaises(RuntimeError):
+                    launch_app(vault_root=root, config_path=root / "workbench.json")
+
+                open_error.assert_called_once()
