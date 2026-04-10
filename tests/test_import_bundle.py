@@ -5,6 +5,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from PIL import Image
+
 from tools.import_bundle import import_source
 
 
@@ -45,17 +47,6 @@ startxref
 405
 %%EOF
 """
-
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n"
-    b"\x00\x00\x00\rIHDR"
-    b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
-    b"\x1f\x15\xc4\x89"
-    b"\x00\x00\x00\x0bIDAT"
-    b"\x08\xd7c\xf8\x0f\x00\x01\x01\x01\x00\x18\xdd\x8d\xb1"
-    b"\x00\x00\x00\x00IEND\xaeB`\x82"
-)
-
 
 def write_minimal_pptx(path: Path, slide_title: str = "Slide One") -> None:
     content_types = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -112,6 +103,11 @@ def write_minimal_pptx(path: Path, slide_title: str = "Slide One") -> None:
         archive.writestr("ppt/presentation.xml", presentation)
         archive.writestr("ppt/_rels/presentation.xml.rels", presentation_rels)
         archive.writestr("ppt/slides/slide1.xml", slide)
+
+
+def write_test_png(path: Path) -> None:
+    image = Image.new("RGBA", (2, 2), (255, 0, 0, 255))
+    image.save(path, format="PNG")
 
 
 class ImportBundleTests(unittest.TestCase):
@@ -212,7 +208,7 @@ class ImportBundleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "diagram.png"
-            source.write_bytes(PNG_BYTES)
+            write_test_png(source)
 
             bundle = import_source(root, str(source), "product-strategy")
 
@@ -222,7 +218,9 @@ class ImportBundleTests(unittest.TestCase):
             content = self.read(bundle / "content.md")
             metadata = self.read(bundle / "metadata.md")
             self.assertIn("# Image Import", content)
-            self.assertIn("No OCR text was extracted", content)
+            self.assertIn("## Structural Summary", content)
+            self.assertIn("extremely small", content)
+            self.assertIn("## Visible Text", content)
             self.assertIn("source_format: png", metadata)
             self.assertIn("conversion_status: converted", metadata)
             self.assertIn("extraction_confidence: low", metadata)

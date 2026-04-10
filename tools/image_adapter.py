@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple
 
-from PIL import Image, ImageFile, UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError
+
+MAX_VISIBLE_TEXT_CHARS = 500
 
 
 @dataclass
@@ -28,10 +32,52 @@ def _describe_transparency(image: Image.Image) -> str:
     return "No transparency metadata detected."
 
 
+def _color_summary(image: Image.Image) -> str:
+    colors = image.convert("RGBA").getcolors(maxcolors=256)
+    if colors is None:
+        return "The image uses a wide range of colors."
+    if len(colors) <= 1:
+        return "The image appears to be a single-color graphic."
+    if len(colors) <= 8:
+        return "The image uses a very limited color palette."
+    return "The image uses multiple visible colors."
+
+
+def _size_summary(width: int, height: int) -> str:
+    if width <= 8 and height <= 8:
+        return "The image is extremely small and likely a tiny asset, icon, or placeholder."
+    if width >= height * 1.5:
+        return "The image is landscape-oriented."
+    if height >= width * 1.5:
+        return "The image is portrait-oriented."
+    return "The image has a roughly balanced aspect ratio."
+
+
+def _extract_visible_text(path: Path) -> Tuple[str, str]:
+    tesseract = shutil.which("tesseract")
+    if not tesseract:
+        return "", "Visible text extraction is unavailable in this environment."
+
+    try:
+        result = subprocess.run(
+            [tesseract, str(path), "stdout", "--psm", "6"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "", "Visible text extraction failed for this image."
+
+    text = " ".join(result.stdout.split()).strip()
+    if not text:
+        return "", "No visible text was detected in this image."
+    if len(text) > MAX_VISIBLE_TEXT_CHARS:
+        text = text[:MAX_VISIBLE_TEXT_CHARS].rstrip() + "..."
+    return text, ""
+
+
 def extract_image_bundle(path: Path) -> ImageExtractionResult:
     try:
-        previous_truncated_setting = ImageFile.LOAD_TRUNCATED_IMAGES
-        ImageFile.LOAD_TRUNCATED_IMAGES = True
         with Image.open(path) as image:
             image.load()
             width, height = image.size
@@ -40,8 +86,19 @@ def extract_image_bundle(path: Path) -> ImageExtractionResult:
             transparency_note = _describe_transparency(image)
     except (UnidentifiedImageError, OSError) as exc:
         raise ValueError(f"Unsupported or unreadable image import: {path}") from exc
-    finally:
-        ImageFile.LOAD_TRUNCATED_IMAGES = previous_truncated_setting
+
+    visible_text, text_note = _extract_visible_text(path)
+    warnings = ["image import used bounded summary path", "review the original image if exact visual meaning matters"]
+    if text_note:
+        warnings.append(text_note.lower())
+
+    structural_summary = " ".join(
+        [
+            _size_summary(width, height),
+            _color_summary(image),
+            transparency_note,
+        ]
+    )
 
     markdown = "\n".join(
         [
@@ -55,10 +112,18 @@ def extract_image_bundle(path: Path) -> ImageExtractionResult:
             f"- Color mode: `{mode}`",
             f"- Transparency: {transparency_note}",
             "",
+            "## Structural Summary",
+            "",
+            structural_summary,
+            "",
+            "## Visible Text",
+            "",
+            visible_text or text_note,
+            "",
             "## Extraction Notes",
             "",
-            "This first-pass image import preserves the original file and records bounded image metadata.",
-            "No OCR text was extracted in this phase. Review the source image directly if text, labels, or layout details matter.",
+            "This first-pass image import preserves the original file and records bounded image understanding signals.",
+            "Review the source image directly if exact text, labels, or layout details matter.",
             "",
         ]
     )
@@ -66,10 +131,7 @@ def extract_image_bundle(path: Path) -> ImageExtractionResult:
     return ImageExtractionResult(
         title=_human_title(path),
         markdown=markdown,
-        warnings=[
-            "image import used metadata-only summary",
-            "ocr text extraction is not available in this phase",
-        ],
+        warnings=warnings,
         extraction_confidence="low",
         asset_files=[],
     )
