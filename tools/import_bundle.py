@@ -11,6 +11,8 @@ from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import List, Optional, Tuple
+from xml.etree import ElementTree as ET
+from zipfile import BadZipFile
 
 from pypdf import PdfReader
 
@@ -369,7 +371,7 @@ def convert_pdf(path: Path, source_ref: str) -> ConversionResult:
 def convert_pptx(path: Path, source_ref: str) -> ConversionResult:
     try:
         extraction = extract_pptx_bundle(path)
-    except Exception as exc:
+    except (BadZipFile, ET.ParseError, KeyError, ValueError) as exc:
         raise ValueError(f"Unsupported or unreadable presentation import: {path}") from exc
     asset_paths = [asset_path for asset_path, _ in extraction.asset_files]
     return ConversionResult(
@@ -392,7 +394,7 @@ def convert_pptx(path: Path, source_ref: str) -> ConversionResult:
 def convert_image(path: Path, source_ref: str) -> ConversionResult:
     try:
         extraction = extract_image_bundle(path)
-    except Exception as exc:
+    except ValueError as exc:
         raise ValueError(f"Unsupported or unreadable image import: {path}") from exc
     asset_paths = [asset_path for asset_path, _ in extraction.asset_files]
     return ConversionResult(
