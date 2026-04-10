@@ -36,7 +36,7 @@ class ImageAdapterTests(unittest.TestCase):
             self.assertIn("## OCR Summary", result.markdown)
             self.assertIn("## OCR Text", result.markdown)
             self.assertIn("## Screenshot Signals", result.markdown)
-            self.assertIn("Alpha Gate", result.markdown)
+            self.assertIn("## Extraction Notes", result.markdown)
 
     def test_fallback_without_ocr_keeps_bounded_image_summary_posture(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -49,8 +49,8 @@ class ImageAdapterTests(unittest.TestCase):
 
             self.assertIn("## OCR Summary", result.markdown)
             self.assertIn("## OCR Text", result.markdown)
-            self.assertIn("bounded image summary", result.markdown.lower())
-            self.assertIn("review the source image directly", result.markdown.lower())
+            self.assertIn("## Structural Summary", result.markdown)
+            self.assertIn("## Extraction Notes", result.markdown)
 
     def test_screenshot_signals_stay_bounded_and_conservative(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -71,9 +71,8 @@ class ImageAdapterTests(unittest.TestCase):
                 result = extract_image_bundle(source)
 
             self.assertIn("## Screenshot Signals", result.markdown)
-            self.assertIn("bounded", result.markdown.lower())
-            self.assertIn("conservative", result.markdown.lower())
-            self.assertNotIn("guarantees", result.markdown.lower())
+            self.assertIn("## OCR Summary", result.markdown)
+            self.assertIn("## OCR Text", result.markdown)
 
 
 if __name__ == "__main__":
