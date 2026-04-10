@@ -123,6 +123,30 @@ class ImportBundleTests(unittest.TestCase):
             self.assertIn("Docx Title", content)
             self.assertIn("conversion_status: converted", self.read(bundle / "metadata.md"))
 
+    def test_imports_pptx_into_raw_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "deck.pptx"
+            source.write_bytes(b"placeholder pptx bytes")
+
+            bundle = import_source(root, str(source), "product-strategy")
+
+            self.assertTrue((bundle / "source.pptx").exists())
+            self.assertTrue((bundle / "content.md").exists())
+            self.assertTrue((bundle / "metadata.md").exists())
+
+    def test_imports_png_into_raw_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "diagram.png"
+            source.write_bytes(b"placeholder png bytes")
+
+            bundle = import_source(root, str(source), "product-strategy")
+
+            self.assertTrue((bundle / "source.png").exists())
+            self.assertTrue((bundle / "content.md").exists())
+            self.assertTrue((bundle / "metadata.md").exists())
+
     def test_imports_pdf_via_pypdf(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
