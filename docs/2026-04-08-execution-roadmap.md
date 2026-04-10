@@ -226,6 +226,21 @@ Reference files:
 - `docs/2026-04-10-image-ocr-screenshot-understanding-spec.md`
 - `docs/2026-04-10-image-ocr-screenshot-understanding-implementation-plan.md`
 
+### 4.11 Workbench V2 Shell And Navigation
+
+Completed:
+
+- `首頁` is the Ask 工作台 and the primary working surface
+- `摘要` carries the former dashboard-like overview content
+- primary navigation uses Traditional Chinese labels
+- the homepage is organized vertically into top / middle / bottom regions
+- the current Workbench is styled as a desktop-first shell rather than a generic browser dashboard
+
+Reference files:
+
+- `docs/2026-04-10-workbench-v2-design-spec.md`
+- `docs/2026-04-11-workbench-v2-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -249,6 +264,11 @@ As of this roadmap update, the verified baseline is:
 - raw image import now uses Apple Vision OCR first on macOS and falls back safely when Vision OCR is unavailable or fails
 - image `content.md` now includes OCR-aware sections for source summary, structural summary, OCR summary, OCR text, screenshot signals, and extraction notes
 - image raw bundle metadata now records OCR engine, OCR attempt state, OCR status, OCR text presence, interpretation mode, and image kind guess
+- Workbench V2 shell navigation is in Traditional Chinese
+- `首頁` is the Ask 工作台
+- `摘要` carries the old dashboard-style overview
+- the homepage layout is top / middle / bottom
+- the shell is desktop-first
 - tests pass
 - health check passes
 
@@ -345,6 +365,18 @@ The importer now supports:
 - OCR-aware `content.md` sections for image bundles
 - explicit OCR-related metadata fields in raw bundle metadata
 
+### Phase 11: Workbench V2 Shell And Homepage
+
+This phase is now delivered and should be treated as the current product-surface baseline.
+
+The Workbench now supports:
+
+- `首頁` as the Ask 工作台 and primary work surface
+- `摘要` as the former dashboard-style overview page
+- Traditional Chinese primary navigation
+- a top / middle / bottom homepage layout
+- a desktop-first shell posture for the local app
+
 ## 9. Phase Boundaries
 
 ### Phase 4: Workbench UI
@@ -411,6 +443,16 @@ Definition of done:
 - image imports remain explicit about confidence and review requirements
 - compile and Ask continue to work on top of the same raw bundle pipeline
 
+### Phase 11: Workbench V2 Shell And Homepage
+
+Definition of done:
+
+- `首頁` becomes the main Ask workspace
+- `摘要` absorbs the old dashboard-like overview content
+- primary navigation is in Traditional Chinese
+- the homepage is organized into prompt, answer, evidence, and follow-up regions
+- the shell feels desktop-first rather than like a generic localhost utility
+
 ## 10. Things We Are Explicitly Avoiding
 
 Do not drift into these unless explicitly re-approved:
@@ -437,11 +479,11 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the delivered Phase 10 image baseline, then redesign Workbench V2 so the product surface catches up with the engine now underneath it.`
+`Use the delivered Workbench V2 shell and homepage baseline, then decide whether the next priority is desktop packaging, deeper connector expansion, or another adjacent product-hardening lane.`
 
 ## 13. Future Adoption Direction
 
-Phase 9 and Phase 10 are now delivered.
+Phase 9, Phase 10, and the first Workbench V2 redesign pass are now delivered.
 
 The next meaningful capability expansion should not be a graph UI.
 

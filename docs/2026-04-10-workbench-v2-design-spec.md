@@ -1,12 +1,12 @@
 # Workbench V2 Design Specification
 
-**Status:** Approved for implementation
+**Status:** Shipped behavior reference
 **Date:** 2026-04-10
 **Project:** Infinite Lore
 
 ## 1. Purpose
 
-This specification defines the next design phase for `Infinite Lore Workbench`.
+This specification captures the shipped Workbench V2 surface for `Infinite Lore Workbench`.
 
 The goal is not to add another backend lane first.
 
@@ -47,20 +47,20 @@ than to:
 
 So the next highest-value move is to redesign the Workbench around the real working flow.
 
-## 3. Approved Product Direction
+## 3. Shipped Product Direction
 
-The approved direction for Workbench V2 is:
+Workbench V2 is a `Ask-first, desktop-first, Traditional Chinese-first knowledge workbench`.
 
-`Ask-first, desktop-first, Traditional Chinese-first knowledge workbench`
+The shipped surface now works this way:
 
-This means:
+- the main working surface is `首頁`
+- `首頁` is the Ask 工作台, not a shallow dashboard
+- `摘要` holds the former dashboard-like overview content
+- the main interface defaults to Traditional Chinese navigation and labels
+- the current shell already assumes a desktop window posture, even before packaging as a macOS app
+- reading quality is treated as equally important as functional power
 
-- the main working surface becomes the true homepage
-- the product is designed with a later macOS application shell in mind
-- the entire main interface should default to Traditional Chinese
-- reading quality matters as much as functional power
-
-Workbench V2 should not feel like:
+Workbench V2 does not feel like:
 
 - a generic admin dashboard
 - a raw browser app with too many equal-weight pages
@@ -68,20 +68,20 @@ Workbench V2 should not feel like:
 
 ## 4. Design Principles
 
-Workbench V2 should feel like:
+Workbench V2 feels like:
 
 - professional consultant software
 - a research-oriented reading desk
 - a trustworthy local knowledge tool
 
-The design should emphasize:
+The design emphasizes:
 
 - calm structure
 - readable answer surfaces
 - clear evidence visibility
 - low-friction follow-up work
 
-The design should avoid:
+The design avoids:
 
 - clutter-first dashboards
 - over-dense control panels
@@ -90,7 +90,7 @@ The design should avoid:
 
 ## 5. Language Rule
 
-Workbench V2 should default to Traditional Chinese across the main interface.
+Workbench V2 defaults to Traditional Chinese across the main interface.
 
 This applies to:
 
@@ -101,25 +101,23 @@ This applies to:
 - status messages
 - form labels
 
-English may remain only where it is truly necessary in secondary technical contexts, but it should not dominate primary navigation or core action labels.
+English may remain only where it is truly necessary in secondary technical contexts, but it does not dominate primary navigation or core action labels.
 
 ## 6. Desktop-First Rule
 
-Workbench V2 should be designed as a `macOS desktop-first` product surface even before the desktop shell is packaged.
+Workbench V2 is currently styled as a `macOS desktop-first` product surface even before packaging as a desktop shell.
 
 This means:
 
-- the visual composition should assume an application window, not a generic browser page
-- sidebar and top chrome should feel like a workstation shell
-- page widths, panel spacing, and working rhythms should favor sustained desktop use
+- the visual composition assumes an application window, not a generic browser page
+- sidebar and top chrome feel like a workstation shell
+- page widths, panel spacing, and working rhythms favor sustained desktop use
 
-This phase does not yet require packaging the application shell.
-
-But the design must be compatible with that later shell from the start.
+This is already compatible with a later packaged shell.
 
 ## 7. New Information Architecture
 
-The approved navigation model is:
+The shipped navigation model is:
 
 1. `首頁`
 2. `摘要`
@@ -137,15 +135,13 @@ acted like two competing primary pages.
 
 ### 7.1 `首頁`
 
-`首頁` becomes the true primary work surface.
+`首頁` is the true primary work surface.
 
-This page is no longer a shallow dashboard.
-
-It is the main Ask workspace.
+It is the main Ask workspace and the homepage.
 
 ### 7.2 `摘要`
 
-The previous `Home` dashboard-like content moves into `摘要`.
+The previous `Home` dashboard-like content lives in `摘要`.
 
 Its purpose is:
 
@@ -191,9 +187,9 @@ The biggest Workbench V2 change is:
 
 `首頁 = Ask Workspace`
 
-This is the most important IA decision in the redesign.
+This is the key IA decision in the shipped redesign.
 
-Why:
+Why it matters:
 
 - it matches the real user workflow
 - it avoids having two pseudo-homepages
@@ -201,7 +197,7 @@ Why:
 
 ## 9. Homepage Layout Direction
 
-The approved homepage direction is:
+The shipped homepage direction is:
 
 `Top / Middle / Bottom working layout`
 
@@ -213,7 +209,7 @@ Not:
 
 ### 9.1 Top region
 
-The top region should contain a compact prompt bar.
+The top region contains a compact prompt bar.
 
 This region should include:
 
@@ -222,17 +218,17 @@ This region should include:
 - follow-up entry
 - recent question access
 
-After an answer is returned, this prompt area should remain visible but compact.
+After an answer is returned, this prompt area remains visible but compact.
 
-It should not dominate the screen.
+It does not dominate the screen.
 
 ### 9.2 Middle region
 
-The middle region should be the main answer surface.
+The middle region is the main answer surface.
 
 This should be the visual center of the page.
 
-It should be:
+It is:
 
 - wide
 - readable
@@ -247,7 +243,7 @@ This region should contain:
 
 ### 9.3 Lower evidence region
 
-Below the answer, the next region should hold evidence and traceability.
+Below the answer, the next region holds evidence and traceability.
 
 This region should combine:
 
@@ -264,7 +260,7 @@ The design goal is:
 
 ### 9.4 Lower work region
 
-Below the evidence region, the next region should hold the user’s action area.
+Below the evidence region, the next region holds the user’s action area.
 
 This region should contain:
 

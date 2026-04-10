@@ -80,6 +80,14 @@ python3 tools/run_workbench.py
 
 Then open the local URL shown in the terminal.
 
+The shipped Workbench V2 shell is organized as:
+
+- `首頁` as the Ask 工作台 and main working surface
+- `摘要` as the former dashboard-like overview page
+- Traditional Chinese as the primary navigation and control language
+- a top / middle / bottom homepage layout
+- a desktop-first shell posture that already assumes a windowed work surface, even before packaging as a desktop app
+
 ## Automation And Scan Now
 
 Use the Workbench `Inbox` for practical automation.
@@ -100,7 +108,7 @@ Use the Workbench `Inbox` for practical automation.
 
 ## Ask And Query
 
-Use the Workbench Ask page as the main knowledge entry surface.
+Use `首頁` as the main knowledge entry surface.
 
 - `Auto` is the default mode.
 - `Ask` produces a grounded answer from compiled wiki notes.
@@ -116,6 +124,12 @@ Use the Workbench Ask page as the main knowledge entry surface.
   - source trace
   - relation trace when extra notes were pulled in through note links
 - multimodal intake is now available at the importer layer, but the Ask layer is still relation-first rather than image-understanding-first.
+- The homepage layout is vertical:
+  - top: compact prompt bar
+  - middle: main answer surface
+  - bottom: evidence and follow-up work
+- `摘要` is the operational overview page that carries the old dashboard-style content.
+- Primary navigation is in Traditional Chinese.
 
 The Query / Ask layer serves the library, not the open internet.
 
