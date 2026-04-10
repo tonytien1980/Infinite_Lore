@@ -481,7 +481,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Review and approve the macOS app shell spec, then write the implementation plan for the first packaged desktop shell.`
+`Use the approved macOS app shell spec and implementation plan to build the first packaged desktop shell.`
 
 ## 13. Future Adoption Direction
 
@@ -511,3 +511,4 @@ Reference:
 - `docs/2026-04-10-workbench-v2-design-spec.md`
 - `docs/2026-04-11-workbench-v2-implementation-plan.md`
 - `docs/2026-04-11-macos-app-shell-design-spec.md`
+- `docs/2026-04-11-macos-app-shell-implementation-plan.md`

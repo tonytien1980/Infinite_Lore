@@ -1,6 +1,6 @@
 # macOS App Shell Design Specification
 
-**Status:** Draft v1 awaiting user review
+**Status:** Approved for implementation
 **Date:** 2026-04-11
 **Project:** Infinite Lore
 

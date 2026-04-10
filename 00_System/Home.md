@@ -21,6 +21,7 @@
 - [Workbench V2 Design Spec](../docs/2026-04-10-workbench-v2-design-spec.md)
 - [Workbench V2 Implementation Plan](../docs/2026-04-11-workbench-v2-implementation-plan.md)
 - [macOS App Shell Design Spec](../docs/2026-04-11-macos-app-shell-design-spec.md)
+- [macOS App Shell Implementation Plan](../docs/2026-04-11-macos-app-shell-implementation-plan.md)
 
 ## Domains
 
