@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 import textwrap
 import unittest
+import zipfile
 from pathlib import Path
 
 from tools.import_bundle import import_source
@@ -44,6 +45,73 @@ startxref
 405
 %%EOF
 """
+
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n"
+    b"\x00\x00\x00\rIHDR"
+    b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
+    b"\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\x0bIDAT"
+    b"\x08\xd7c\xf8\x0f\x00\x01\x01\x01\x00\x18\xdd\x8d\xb1"
+    b"\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def write_minimal_pptx(path: Path, slide_title: str = "Slide One") -> None:
+    content_types = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+  <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+</Types>
+"""
+    root_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+</Relationships>
+"""
+    presentation = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+ xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:sldIdLst>
+    <p:sldId id="256" r:id="rId1"/>
+  </p:sldIdLst>
+</p:presentation>
+"""
+    presentation_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+</Relationships>
+"""
+    slide = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+ xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:sp>
+        <p:txBody>
+          <a:bodyPr/>
+          <a:lstStyle/>
+          <a:p>
+            <a:r>
+              <a:t>{slide_title}</a:t>
+            </a:r>
+          </a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+</p:sld>
+"""
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("_rels/.rels", root_rels)
+        archive.writestr("ppt/presentation.xml", presentation)
+        archive.writestr("ppt/_rels/presentation.xml.rels", presentation_rels)
+        archive.writestr("ppt/slides/slide1.xml", slide)
 
 
 class ImportBundleTests(unittest.TestCase):
@@ -127,25 +195,33 @@ class ImportBundleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "deck.pptx"
-            source.write_bytes(b"placeholder pptx bytes")
+            write_minimal_pptx(source, slide_title="Slide One")
 
             bundle = import_source(root, str(source), "product-strategy")
 
             self.assertTrue((bundle / "source.pptx").exists())
             self.assertTrue((bundle / "content.md").exists())
             self.assertTrue((bundle / "metadata.md").exists())
+            content = self.read(bundle / "content.md")
+            metadata = self.read(bundle / "metadata.md")
+            self.assertIn("Slide One", content)
+            self.assertIn("source_format: pptx", metadata)
+            self.assertIn("conversion_status: converted", metadata)
 
     def test_imports_png_into_raw_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "diagram.png"
-            source.write_bytes(b"placeholder png bytes")
+            source.write_bytes(PNG_BYTES)
 
             bundle = import_source(root, str(source), "product-strategy")
 
             self.assertTrue((bundle / "source.png").exists())
             self.assertTrue((bundle / "content.md").exists())
             self.assertTrue((bundle / "metadata.md").exists())
+            metadata = self.read(bundle / "metadata.md")
+            self.assertIn("source_format: png", metadata)
+            self.assertIn("conversion_status: converted", metadata)
 
     def test_imports_pdf_via_pypdf(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
