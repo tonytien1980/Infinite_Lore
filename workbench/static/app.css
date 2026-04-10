@@ -156,6 +156,84 @@ select {
   display: flex;
 }
 
+.workspace-top,
+.workspace-answer,
+.workspace-evidence,
+.workspace-followup {
+  width: min(100%, 72rem);
+}
+
+.workspace-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.workspace-copy {
+  max-width: 28rem;
+  margin: 0;
+  color: var(--muted);
+}
+
+.compact-prompt textarea {
+  min-height: 4.5rem;
+}
+
+.workspace-top-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.workspace-top-question,
+.workspace-top-controls label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.workspace-top-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.workspace-answer #askAnswer {
+  min-height: 14rem;
+  line-height: 1.75;
+}
+
+.workspace-answer-limits {
+  margin-top: 1rem;
+}
+
+.workspace-evidence-grid {
+  margin-top: 0.5rem;
+}
+
+.workspace-followup {
+  gap: 1rem;
+}
+
+.workspace-followup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.workspace-followup-card,
+.workspace-followup-review {
+  padding: 1rem;
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--surface-alt) 65%, white 35%);
+  border: 1px solid color-mix(in srgb, var(--line) 82%, white 18%);
+}
+
+.followup-actions {
+  justify-content: flex-start;
+}
+
 .hero-card,
 .panel {
   background: color-mix(in srgb, var(--surface) 88%, white 12%);
@@ -413,7 +491,9 @@ textarea {
   .hero-card,
   .two-col,
   .three-col,
-  .ask-layout {
+  .ask-layout,
+  .workspace-followup-grid,
+  .workspace-top-controls {
     grid-template-columns: 1fr;
   }
 

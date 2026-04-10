@@ -530,53 +530,53 @@ document.getElementById("homeAskForm").addEventListener("submit", (event) => {
   runAsk(document.getElementById("askInput").value, "auto");
 });
 
-function clearDraftEditor(message = "No draft loaded yet.") {
+function clearDraftEditor(message = "目前沒有草稿。") {
   state.ask.draft = null;
-  feedbackEditorTitle.textContent = "Draft review";
+  feedbackEditorTitle.textContent = "草稿審閱";
   feedbackEditorStatus.textContent = message;
   feedbackEditorEmpty.hidden = false;
   feedbackEditorBody.hidden = true;
   feedbackEditorMeta.innerHTML = "";
   feedbackEditorTextarea.value = "";
   feedbackEditorTextarea.dataset.draftId = "";
-  feedbackConfirmButton.textContent = "Confirm";
+  feedbackConfirmButton.textContent = "確認";
   feedbackConfirmButton.disabled = true;
   feedbackDiscardButton.disabled = true;
 }
 
 function renderAskAnswer() {
-  askAnswer.textContent = state.ask.answer || "Ask the library and the grounded answer will appear here.";
+  askAnswer.textContent = state.ask.answer || "提出問題後，系統會在這裡顯示可閱讀的主答案。";
 
   renderListStack(
     askGrounding,
     state.ask.grounding,
-    "Grounding will appear here.",
+    "Grounding 將顯示在這裡。",
     (item) => createListItem(item.title || item.path || "Grounding note", item.note_type || item.primary_domain || "wiki", item.path || item.ref || "")
   );
 
   renderListStack(
     askTrace,
     state.ask.trace,
-    "Source trace will appear here.",
-    (item) => createListItem(item.source_ref || item.path || "Source", "source", item.from_note || item.title || "")
+    "來源 trace 將顯示在這裡。",
+    (item) => createListItem(item.source_ref || item.path || "來源 ID", "source", item.from_note || item.title || "")
   );
 
   renderListStack(
     askRelationTrace,
     state.ask.relationTrace,
-    "Relation trace will appear here when notes expand through links.",
+    "關聯 trace 會在知識沿連結展開時顯示於此。",
     (item) =>
       createListItem(
-        item.source_note || "Source note",
-        `${item.relation || "relation"} • ${item.confidence || "confidence"}`,
-        item.target_note || "Target note"
+        item.source_note || "來源筆記",
+        `${item.relation || "關聯"} • ${item.confidence || "信心"}`,
+        item.target_note || "目標筆記"
       )
   );
 
   renderListStack(
     askLimits,
     state.ask.limits,
-    "Limits and uncertainty will appear here when needed.",
+    "需要提示時，這裡會說明答案邊界與不確定性。",
     (item) => createListItem(item, "limit", "Evidence boundary")
   );
 }
@@ -588,7 +588,7 @@ function renderReflections() {
   renderListStack(
     reflectionList,
     visibleReflections,
-    "Ask the library first, then the most recent linked reflections will appear here.",
+    "先提問，之後才會在這裡顯示最近連結的 reflections。",
     (item) =>
       createListItem(
         item.title || "Reflection",
@@ -598,7 +598,7 @@ function renderReflections() {
   );
 
   reflectionViewAllButton.disabled = reflections.length <= 3;
-  reflectionViewAllButton.textContent = state.ask.reflectionsExpanded ? "Show recent 3" : "View all";
+  reflectionViewAllButton.textContent = state.ask.reflectionsExpanded ? "只看最近 3 筆" : "查看全部";
 }
 
 function setAskBusy(isBusy) {
@@ -634,7 +634,7 @@ function normalizeDraft(kind, payload, userInput) {
     title:
       draftPayload.title ||
       payload.title ||
-      (kind === "correction" ? "Correction Proposal" : "Reflection Draft"),
+      (kind === "correction" ? "修正草稿" : "反思草稿"),
     targetRef: draftPayload.target_note_ref || draftPayload.linked_note_ref || payload.target_note_ref || payload.linked_note_ref || "",
     targetTitle:
       draftPayload.target_note_title || draftPayload.linked_note_title || payload.target_note_title || payload.linked_note_title || "",
@@ -647,22 +647,22 @@ function normalizeDraft(kind, payload, userInput) {
     groundingNoteRefs: draftPayload.grounding_note_refs || payload.grounding_note_refs || [],
     sourceRefs: draftPayload.source_refs || payload.source_refs || [],
     confirmEndpoint: kind === "correction" ? "/api/ask/correction/apply" : "/api/ask/reflection/confirm",
-    confirmLabel: kind === "correction" ? "Apply correction" : "Confirm reflection",
+    confirmLabel: kind === "correction" ? "套用修正" : "確認反思",
     helperText:
       kind === "correction"
-        ? "Review the full proposed corrected note, edit it inline if needed, then apply it."
-        : "Review the reflection draft, edit it inline if needed, then confirm it.",
+        ? "先審閱完整修正草稿，必要時可直接編修，再決定是否套用。"
+        : "先審閱反思草稿，必要時可直接編修，再決定是否確認。",
   };
 }
 
 function renderDraftEditor() {
   const draft = state.ask.draft;
   if (!draft) {
-    clearDraftEditor(state.ask.grounding.length ? "No draft loaded yet." : "Ask the library first, then draft a correction or reflection here.");
+    clearDraftEditor(state.ask.grounding.length ? "目前沒有草稿。" : "先完成提問，再起草修正或反思。");
     return;
   }
 
-  feedbackEditorTitle.textContent = draft.kind === "correction" ? "Correction review" : "Reflection review";
+  feedbackEditorTitle.textContent = draft.kind === "correction" ? "修正審閱" : "反思審閱";
   feedbackEditorStatus.textContent = draft.helperText;
   feedbackEditorEmpty.hidden = true;
   feedbackEditorBody.hidden = false;
@@ -670,13 +670,13 @@ function renderDraftEditor() {
   feedbackEditorMeta.appendChild(
     createListItem(
       draft.targetTitle || draft.title,
-      draft.kind === "correction" ? "Target note" : "Linked note",
+      draft.kind === "correction" ? "對應筆記" : "關聯筆記",
       draft.targetRef || draft.rawInput || ""
     )
   );
   feedbackEditorMeta.appendChild(
     createListItem(
-      draft.question || state.ask.question || "Ask context",
+      draft.question || state.ask.question || "提問內容",
       draft.mode || state.ask.mode || "auto",
       draft.rawInput || ""
     )
@@ -696,14 +696,14 @@ async function runAsk(question, mode) {
   setAskBusy(true);
   state.ask.question = question;
   state.ask.mode = mode;
-  state.ask.answer = "Thinking through the library…";
+  state.ask.answer = "系統正在整理圖書館答案…";
   state.ask.grounding = [];
   state.ask.trace = [];
   state.ask.relationTrace = [];
   state.ask.limits = [];
   state.ask.reflections = [];
   state.ask.reflectionsExpanded = false;
-  clearDraftEditor("Drafting and waiting for the library answer…");
+  clearDraftEditor("正在等待圖書館答案，暫時不建立草稿。");
   renderAskAnswer();
   renderReflections();
 
@@ -718,7 +718,7 @@ async function runAsk(question, mode) {
       return;
     }
 
-    state.ask.answer = payload.answer || "No answer returned.";
+  state.ask.answer = payload.answer || "未回傳答案。";
     state.ask.grounding = Array.isArray(payload.grounding) ? payload.grounding : [];
     state.ask.trace = Array.isArray(payload.trace) ? payload.trace : [];
     state.ask.relationTrace = Array.isArray(payload.relation_trace) ? payload.relation_trace : [];
@@ -735,7 +735,7 @@ async function runAsk(question, mode) {
     if (requestId !== state.ask.requestSeq) {
       return;
     }
-    state.ask.answer = `Ask failed: ${error.message}`;
+    state.ask.answer = `提問失敗：${error.message}`;
     state.ask.grounding = [];
     state.ask.trace = [];
     state.ask.relationTrace = [];
@@ -744,7 +744,7 @@ async function runAsk(question, mode) {
     state.ask.reflectionsExpanded = false;
     renderAskAnswer();
     renderReflections();
-    feedbackEditorStatus.textContent = `Ask failed: ${error.message}`;
+    feedbackEditorStatus.textContent = `提問失敗：${error.message}`;
   } finally {
     if (requestId === state.ask.requestSeq) {
       setAskBusy(false);
@@ -760,16 +760,16 @@ async function submitFeedbackDraft(kind) {
   const askContext = { question: state.ask.question, mode: state.ask.mode, contextSeq: state.ask.contextSeq };
   const input = feedbackInput.value.trim();
   if (!state.ask.question || !state.ask.grounding.length) {
-    feedbackEditorStatus.textContent = "Ask the library first so the feedback can link to a note.";
+    feedbackEditorStatus.textContent = "請先完成提問，讓回饋可以連到對應知識筆記。";
     return;
   }
   if (!input) {
-    feedbackEditorStatus.textContent = "Write the correction request or interpretation in the shared input first.";
+    feedbackEditorStatus.textContent = "請先在共用輸入框寫下修正要求或反思內容。";
     return;
   }
 
   const primaryGrounding = state.ask.grounding[0] || {};
-  feedbackEditorStatus.textContent = kind === "correction" ? "Drafting correction…" : "Drafting reflection…";
+  feedbackEditorStatus.textContent = kind === "correction" ? "正在草擬修正建議…" : "正在草擬反思草稿…";
   setFeedbackBusy(true);
 
   try {
@@ -808,7 +808,7 @@ async function submitFeedbackDraft(kind) {
     if (feedbackRequestId !== state.ask.feedbackSeq) {
       return;
     }
-    feedbackEditorStatus.textContent = `${kind === "correction" ? "Correction" : "Reflection"} draft failed: ${error.message}`;
+    feedbackEditorStatus.textContent = `${kind === "correction" ? "修正" : "反思"}草稿產生失敗：${error.message}`;
     clearDraftEditor(feedbackEditorStatus.textContent);
   } finally {
     if (feedbackRequestId === state.ask.feedbackSeq) {
@@ -830,11 +830,11 @@ async function confirmFeedbackDraft() {
 
   const content = feedbackEditorTextarea.value.trim();
   if (!content) {
-    feedbackEditorStatus.textContent = "The draft body cannot be empty.";
+    feedbackEditorStatus.textContent = "草稿內容不可為空。";
     return;
   }
 
-  feedbackEditorStatus.textContent = draft.kind === "correction" ? "Applying correction…" : "Confirming reflection…";
+  feedbackEditorStatus.textContent = draft.kind === "correction" ? "正在套用修正…" : "正在確認反思…";
   setFeedbackBusy(true);
 
   try {
@@ -870,7 +870,9 @@ async function confirmFeedbackDraft() {
       return;
     }
     feedbackInput.value = "";
-    clearDraftEditor(draft.kind === "correction" ? "Correction applied. Refreshing the Ask answer…" : "Reflection saved. Refreshing linked reflections…");
+    clearDraftEditor(
+      draft.kind === "correction" ? "修正已套用，將重新整理回答…" : "反思已儲存，將刷新最近反思…"
+    );
     if (
       state.ask.contextSeq === draftContext.contextSeq &&
       state.ask.question === draftContext.question &&
@@ -882,7 +884,7 @@ async function confirmFeedbackDraft() {
     if (feedbackRequestId !== state.ask.feedbackSeq) {
       return;
     }
-    feedbackEditorStatus.textContent = `${draft.kind === "correction" ? "Correction" : "Reflection"} confirmation failed: ${error.message}`;
+    feedbackEditorStatus.textContent = `${draft.kind === "correction" ? "修正" : "反思"}確認失敗：${error.message}`;
   } finally {
     if (feedbackRequestId === state.ask.feedbackSeq) {
       setFeedbackBusy(false);
@@ -907,7 +909,7 @@ draftCorrectionButton.addEventListener("click", () => submitFeedbackDraft("corre
 draftReflectionButton.addEventListener("click", () => submitFeedbackDraft("reflection"));
 feedbackConfirmButton.addEventListener("click", confirmFeedbackDraft);
 feedbackDiscardButton.addEventListener("click", () => {
-  clearDraftEditor("Draft dismissed. You can refine the shared input and try again.");
+  clearDraftEditor("已放棄草稿。可再次調整共用輸入框後重試。");
 });
 
 document.getElementById("fileImportForm").addEventListener("submit", async (event) => {

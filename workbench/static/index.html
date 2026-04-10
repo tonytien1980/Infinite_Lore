@@ -46,135 +46,152 @@
         </header>
 
         <section class="page active" data-page="home">
-          <div class="hero-card">
-            <div>
-              <p class="eyebrow">Grounded Ask</p>
-              <h3>Ask the library, not the chaos.</h3>
-              <p>
-                Use the compiled wiki as your primary answer layer. The system will show what it knows,
-                where that knowledge came from, and where the gaps still are.
+          <section class="panel workspace-top">
+            <div class="workspace-heading">
+              <div>
+                <p class="eyebrow">首頁工作台</p>
+                <h3>精簡提問列</h3>
+              </div>
+              <p class="workspace-copy">
+                先提問，再沿著答案、證據與後續工作往下讀，不把首頁做成三欄控制台。
               </p>
             </div>
-            <form id="homeAskForm" class="ask-form">
-              <textarea id="homeAskInput" placeholder="Ask from your current wiki. Example: What has Infinite Lore compiled recently about AI workflows?"></textarea>
+            <form id="homeAskForm" class="ask-form compact-prompt">
+              <textarea
+                id="homeAskInput"
+                placeholder="從目前知識庫提問，例如：Infinite Lore 最近整理了哪些 AI workflow 重點？"
+              ></textarea>
               <div class="ask-actions">
-                <button type="submit" class="primary-button">Open Ask Workspace</button>
+                <button type="submit" class="secondary-button">帶入主工作區</button>
               </div>
             </form>
-          </div>
-
-          <div class="grid ask-layout">
-            <section class="panel" style="grid-column: 1 / -1;">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Strict Grounded Mode</p>
-                  <h3>Ask the library from compiled knowledge</h3>
-                </div>
-              </div>
-              <form id="askForm" class="stack-form">
+            <form id="askForm" class="workspace-top-form">
+              <label class="workspace-top-question">
+                <span>問題</span>
+                <textarea
+                  id="askInput"
+                  placeholder="以現有 wiki 為主回答；如果證據不足，系統會直接說明限制。"
+                ></textarea>
+              </label>
+              <div class="workspace-top-controls">
                 <label>
-                  <span>Question</span>
-                  <textarea id="askInput" placeholder="Ask using your current wiki. The library will answer from grounded notes or tell you when evidence is insufficient."></textarea>
-                </label>
-                <label>
-                  <span>Answer mode</span>
+                  <span>回答模式</span>
                   <select id="askMode">
                     <option value="auto">Auto</option>
                     <option value="ask">Ask</option>
                     <option value="query">Query</option>
                   </select>
                 </label>
-                <button id="askSubmitButton" type="submit" class="primary-button">Ask the library</button>
-              </form>
-            </section>
+                <button id="askSubmitButton" type="submit" class="primary-button">開始提問</button>
+              </div>
+            </form>
+          </section>
 
-            <section class="panel" style="grid-column: 1 / -1;">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Library Answer</p>
-                  <h3>Ask from compiled knowledge</h3>
+          <section class="panel workspace-answer">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">主回答區</p>
+                <h3>圖書館答案</h3>
+              </div>
+            </div>
+            <div id="askAnswer" class="empty-state">提出問題後，系統會在這裡顯示可閱讀的主答案。</div>
+            <div class="workspace-answer-limits">
+              <p class="eyebrow">限制與不確定性</p>
+              <div id="askLimits" class="list-stack empty-state">需要提示時，這裡會說明答案邊界與不確定性。</div>
+            </div>
+          </section>
+
+          <section class="panel workspace-evidence">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">證據區</p>
+                <h3>證據與脈絡</h3>
+              </div>
+            </div>
+            <div class="grid three-col workspace-evidence-grid">
+              <section>
+                <p class="eyebrow">Grounding</p>
+                <div id="askGrounding" class="list-stack empty-state">Grounding 將顯示在這裡。</div>
+              </section>
+              <section>
+                <p class="eyebrow">Trace</p>
+                <div id="askTrace" class="list-stack empty-state">來源 trace 將顯示在這裡。</div>
+              </section>
+              <section>
+                <p class="eyebrow">Relation Trace</p>
+                <div id="askRelationTrace" class="list-stack empty-state">
+                  關聯 trace 會在知識沿連結展開時顯示於此。
                 </div>
-              </div>
-              <div id="askAnswer" class="empty-state">
-                Ask the library and the grounded answer will appear here.
-              </div>
-              <div class="grid three-col" style="margin-top: 1rem;">
-                <section>
-                  <p class="eyebrow">Grounding</p>
-                  <div id="askGrounding" class="list-stack empty-state">Grounding will appear here.</div>
-                </section>
-                <section>
-                  <p class="eyebrow">Trace</p>
-                  <div id="askTrace" class="list-stack empty-state">Source trace will appear here.</div>
-                </section>
-                <section>
-                  <p class="eyebrow">Relation Trace</p>
-                  <div id="askRelationTrace" class="list-stack empty-state">Relation trace will appear here when notes expand through links.</div>
-                </section>
-              </div>
-              <div style="margin-top: 1rem;">
-                <p class="eyebrow">Limits</p>
-                <div id="askLimits" class="list-stack empty-state">Limits and uncertainty will appear here when needed.</div>
-              </div>
-            </section>
+              </section>
+            </div>
+          </section>
 
-            <section class="panel">
+          <section class="panel workspace-followup">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">後續工作區</p>
+                <h3>我的工作區</h3>
+              </div>
+            </div>
+            <div class="workspace-followup-grid">
+              <section class="workspace-followup-card">
+                <div class="panel-head split">
+                  <div>
+                    <p class="eyebrow">最近反思</p>
+                    <h3>Reflections</h3>
+                  </div>
+                  <button id="reflectionViewAllButton" class="ghost-button" type="button">查看全部</button>
+                </div>
+                <div id="reflectionList" class="list-stack empty-state">
+                  先提問，之後才會在這裡顯示最近連結的 reflections。
+                </div>
+              </section>
+
+              <section class="workspace-followup-card">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">修正知識</p>
+                    <h3>Correction / Reflection</h3>
+                  </div>
+                </div>
+                <form class="stack-form">
+                  <label>
+                    <span>共用回饋輸入</span>
+                    <textarea id="feedbackInput" placeholder="寫下修正要求，或寫下你的反思解讀。"></textarea>
+                  </label>
+                  <div class="button-row followup-actions">
+                    <button id="draftCorrectionButton" type="button" class="primary-button">修正知識</button>
+                    <button id="draftReflectionButton" type="button" class="secondary-button">新增反思</button>
+                  </div>
+                  <p id="feedbackHint" class="empty-state">使用同一個輸入框，再選擇要起草修正或反思。</p>
+                </form>
+              </section>
+            </div>
+
+            <section class="workspace-followup-review">
               <div class="panel-head split">
                 <div>
-                  <p class="eyebrow">Your Reflections</p>
-                  <h3>Linked interpretations</h3>
+                  <p class="eyebrow">草稿審閱</p>
+                <h3 id="feedbackEditorTitle">草稿審閱</h3>
                 </div>
-                <button id="reflectionViewAllButton" class="ghost-button" type="button">View all</button>
-              </div>
-              <div id="reflectionList" class="list-stack empty-state">
-                Ask the library first, then the most recent linked reflections will appear here.
-              </div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Respond Now</p>
-                  <h3>Use one input for either path</h3>
-                </div>
-              </div>
-              <form class="stack-form">
-                <label>
-                  <span>Shared feedback input</span>
-                  <textarea id="feedbackInput" placeholder="Write the correction request or your interpretation here."></textarea>
-                </label>
-                <div class="button-row" style="justify-content: flex-start;">
-                  <button id="draftCorrectionButton" type="button" class="primary-button">Correct this knowledge</button>
-                  <button id="draftReflectionButton" type="button" class="secondary-button">Add my interpretation</button>
-                </div>
-                <p id="feedbackHint" class="empty-state">Use one input, then choose the action that matches the response you want.</p>
-              </form>
-            </section>
-
-            <section class="panel" style="grid-column: 1 / -1;">
-              <div class="panel-head split">
-                <div>
-                  <p class="eyebrow">Inline Review</p>
-                  <h3 id="feedbackEditorTitle">Draft review</h3>
-                </div>
-                <div id="feedbackEditorStatus" class="empty-state">No draft loaded yet.</div>
+                <div id="feedbackEditorStatus" class="empty-state">目前沒有草稿。</div>
               </div>
               <div id="feedbackEditorEmpty" class="empty-state">
-                Use Respond Now to draft a reflection or proposed correction, then review it here before confirming.
+                先在上方起草 correction 或 reflection，再到這裡審閱後確認。
               </div>
               <div id="feedbackEditorBody" class="stack-form" hidden>
                 <div id="feedbackEditorMeta" class="list-stack"></div>
                 <label>
-                  <span>Draft content</span>
+                  <span>草稿內容</span>
                   <textarea id="feedbackEditorTextarea"></textarea>
                 </label>
                 <div class="button-row">
-                  <button id="feedbackConfirmButton" type="button" class="primary-button">Confirm</button>
-                  <button id="feedbackDiscardButton" type="button" class="ghost-button">Discard</button>
+                  <button id="feedbackConfirmButton" type="button" class="primary-button">確認</button>
+                  <button id="feedbackDiscardButton" type="button" class="ghost-button">放棄</button>
                 </div>
               </div>
             </section>
-          </div>
+          </section>
         </section>
 
         <section class="page" data-page="summary">
