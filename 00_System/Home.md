@@ -13,6 +13,9 @@
 - [Graphify Phase 8 Code Reuse Audit](../docs/2026-04-10-graphify-phase-8-code-reuse-audit.md)
 - [Relation-Aware Retrieval Spec](../docs/2026-04-10-relation-aware-retrieval-spec.md)
 - [Relation-Aware Retrieval Implementation Plan](../docs/2026-04-10-relation-aware-retrieval-implementation-plan.md)
+- [Multimodal Ingestion Spec](../docs/2026-04-10-multimodal-ingestion-spec.md)
+- [Multimodal Ingestion Implementation Plan](../docs/2026-04-10-multimodal-ingestion-implementation-plan.md)
+- [Graphify Multimodal Code Reuse Audit](../docs/2026-04-10-graphify-multimodal-code-reuse-audit.md)
 
 ## Domains
 

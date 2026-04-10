@@ -375,7 +375,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the delivered Phase 8 baseline, then scope the next adjacent multimodal lane without reopening graph-first product drift.`
+`Review and approve the Phase 9 multimodal ingestion spec and implementation plan, then decide whether to execute that lane immediately.`
 
 ## 13. Future Adoption Direction
 
@@ -397,3 +397,6 @@ Reference:
 - `docs/2026-04-09-automation-watcher-spec.md`
 - `docs/2026-04-10-relation-aware-retrieval-spec.md`
 - `docs/2026-04-10-relation-aware-retrieval-implementation-plan.md`
+- `docs/2026-04-10-multimodal-ingestion-spec.md`
+- `docs/2026-04-10-multimodal-ingestion-implementation-plan.md`
+- `docs/2026-04-10-graphify-multimodal-code-reuse-audit.md`
