@@ -309,7 +309,7 @@ If the local Vision helper is unavailable or fails, the importer does not break 
 Instead it:
 
 - preserve the original image
-- keep the current bounded structural summary path
+- keep the current bounded structural summary path while preserving OCR-aware sections with warning-state content
 - record that Vision OCR was unavailable or failed
 - keep `low` confidence
 - preserve `review_required: true`

@@ -52,7 +52,7 @@ Current multimodal behavior is intentionally bounded:
 
 - `pptx` imports normalize slide text into `content.md`
 - image imports use Apple Vision as the primary local OCR path on macOS
-- when the local Vision helper is unavailable or fails, image imports fall back to the bounded structural summary path
+- when the local Vision helper is unavailable or fails, image imports keep the bounded structural summary path and still emit OCR-aware sections with warning-state content
 - image imports write OCR-aware `content.md` sections:
   - `Source Summary`
   - `Structural Summary`

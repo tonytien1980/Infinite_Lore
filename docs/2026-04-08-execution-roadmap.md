@@ -340,7 +340,7 @@ This phase is now delivered and should be treated as the current image baseline.
 The importer now supports:
 
 - Apple Vision OCR as the primary local OCR path on macOS
-- safe fallback to the bounded image summary path when Vision OCR is unavailable or fails
+- safe fallback that preserves the bounded structural summary path while keeping OCR-aware sections in a warning-state when Vision OCR is unavailable or fails
 - OCR-aware `content.md` sections for image bundles
 - explicit OCR-related metadata fields in raw bundle metadata
 
