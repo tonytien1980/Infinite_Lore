@@ -39,6 +39,12 @@ class ConversionResult:
     warnings: List[str]
     asset_paths: List[str]
     asset_files: List[Tuple[str, bytes]]
+    ocr_engine: str = ""
+    ocr_attempted: Optional[bool] = None
+    ocr_status: str = ""
+    ocr_text_present: Optional[bool] = None
+    image_interpretation_mode: str = ""
+    image_kind_guess: str = ""
 
 
 def yaml_quote(value: str) -> str:
@@ -411,6 +417,12 @@ def convert_image(path: Path, source_ref: str) -> ConversionResult:
         warnings=extraction.warnings,
         asset_paths=asset_paths,
         asset_files=extraction.asset_files,
+        ocr_engine=extraction.ocr_engine,
+        ocr_attempted=extraction.ocr_attempted,
+        ocr_status=extraction.ocr_status,
+        ocr_text_present=extraction.ocr_text_present,
+        image_interpretation_mode=extraction.image_interpretation_mode,
+        image_kind_guess=extraction.image_kind_guess,
     )
 
 
@@ -485,12 +497,30 @@ def build_metadata(
         f"review_required: {'true' if result.review_required else 'false'}",
         f"warnings: [{warnings}]" if warnings else "warnings: []",
         "",
+    ]
+
+    if result.ocr_attempted is not None:
+        lines.extend(
+            [
+                f"ocr_engine: {result.ocr_engine or 'apple-vision'}",
+                f"ocr_attempted: {'true' if result.ocr_attempted else 'false'}",
+                f"ocr_status: {result.ocr_status or 'unknown'}",
+                f"ocr_text_present: {'true' if result.ocr_text_present else 'false'}",
+                f"image_interpretation_mode: {result.image_interpretation_mode or 'bounded'}",
+                f"image_kind_guess: {result.image_kind_guess or 'generic-image'}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
         f"asset_paths: [{assets}]" if assets else "asset_paths: []",
         "---",
         "",
         "# Raw Bundle Metadata",
         "",
-    ]
+        ]
+    )
     return "\n".join(lines)
 
 

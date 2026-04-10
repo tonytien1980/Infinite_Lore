@@ -4,10 +4,12 @@ import textwrap
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
 from tools.import_bundle import import_source
+from tools.vision_ocr import VisionOcrResult
 
 
 PDF_BYTES = b"""%PDF-1.4
@@ -229,7 +231,19 @@ class ImportBundleTests(unittest.TestCase):
             write_test_png(png_source)
 
             pptx_bundle = import_source(root, str(pptx_source), "product-strategy")
-            png_bundle = import_source(root, str(png_source), "product-strategy")
+            with patch(
+                "tools.image_adapter.run_vision_ocr",
+                return_value=VisionOcrResult(
+                    engine="apple-vision",
+                    status="success",
+                    text="Toolbar\nSidebar",
+                    lines=["Toolbar", "Sidebar"],
+                    line_count=2,
+                    region_count=2,
+                    warning="",
+                ),
+            ):
+                png_bundle = import_source(root, str(png_source), "product-strategy")
 
             self.assertTrue((pptx_bundle / "source.pptx").exists())
             self.assertIn("Uppercase Slide", self.read(pptx_bundle / "content.md"))
@@ -247,7 +261,19 @@ class ImportBundleTests(unittest.TestCase):
             source = root / "diagram.png"
             write_test_png(source)
 
-            bundle = import_source(root, str(source), "product-strategy")
+            with patch(
+                "tools.image_adapter.run_vision_ocr",
+                return_value=VisionOcrResult(
+                    engine="apple-vision",
+                    status="success",
+                    text="Dashboard Overview",
+                    lines=["Dashboard Overview"],
+                    line_count=1,
+                    region_count=1,
+                    warning="",
+                ),
+            ):
+                bundle = import_source(root, str(source), "product-strategy")
 
             self.assertTrue((bundle / "source.png").exists())
             self.assertTrue((bundle / "content.md").exists())
@@ -257,12 +283,49 @@ class ImportBundleTests(unittest.TestCase):
             self.assertIn("# Image Import", content)
             self.assertIn("## Structural Summary", content)
             self.assertIn("extremely small", content)
-            self.assertIn("## Visible Text", content)
+            self.assertIn("## OCR Summary", content)
+            self.assertIn("## OCR Text", content)
+            self.assertIn("## Screenshot Signals", content)
             self.assertIn("source_format: png", metadata)
             self.assertIn("conversion_status: converted", metadata)
             self.assertIn("extraction_confidence: low", metadata)
             self.assertIn("review_required: true", metadata)
             self.assert_image_bundle_ocr_metadata(metadata)
+            self.assertIn("ocr_engine: apple-vision", metadata)
+            self.assertIn("ocr_attempted: true", metadata)
+            self.assertIn("ocr_status: success", metadata)
+            self.assertIn("ocr_text_present: true", metadata)
+
+    def test_imports_png_with_ocr_fallback_marks_review_warning_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "fallback.png"
+            write_test_png(source)
+
+            with patch(
+                "tools.image_adapter.run_vision_ocr",
+                return_value=VisionOcrResult(
+                    engine="apple-vision",
+                    status="failed",
+                    text="",
+                    lines=[],
+                    line_count=0,
+                    region_count=0,
+                    warning="vision OCR returned invalid JSON",
+                ),
+            ):
+                bundle = import_source(root, str(source), "product-strategy")
+
+            content = self.read(bundle / "content.md")
+            metadata = self.read(bundle / "metadata.md")
+            self.assertIn("## Structural Summary", content)
+            self.assertIn("## OCR Summary", content)
+            self.assertIn("vision OCR returned invalid JSON", content)
+            self.assertIn("ocr_engine: apple-vision", metadata)
+            self.assertIn("ocr_attempted: true", metadata)
+            self.assertIn("ocr_status: failed", metadata)
+            self.assertIn("ocr_text_present: false", metadata)
+            self.assertIn("review_required: true", metadata)
 
     def test_imports_pptx_with_no_extractable_text_still_requires_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
