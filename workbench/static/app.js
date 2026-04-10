@@ -72,7 +72,6 @@ const PAGE_TITLES = {
   knowledge: "知識庫",
   system: "系統",
   settings: "設定",
-  ask: "首頁",
 };
 
 function setPage(page) {
@@ -979,4 +978,4 @@ loadAll().catch((error) => {
   document.getElementById("healthDetails").textContent = error.message;
 });
 
-setPage("home");
+setPage(state.page);
