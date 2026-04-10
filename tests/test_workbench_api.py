@@ -224,6 +224,89 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(relation_item["relation"], "derived-from")
             self.assertEqual(relation_item["confidence"], "EXTRACTED")
 
+    def test_ask_endpoint_deduplicates_relation_trace_path_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wiki_root = root / "30_Wiki/ai-application"
+            wiki_root.mkdir(parents=True)
+            (wiki_root / "anchor--synthesis.md").write_text(
+                "---\n"
+                "title: Anchor Systems\n"
+                "note_type: synthesis\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/anchor\"]\n"
+                "---\n\n"
+                "# Anchor Systems\n\n"
+                "## Source Summary\n"
+                "Anchor notes should stay deduplicated.\n",
+                encoding="utf-8",
+            )
+            (wiki_root / "topic--concept.md").write_text(
+                "---\n"
+                "title: Topic Detail\n"
+                "note_type: concept\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/topic\"]\n"
+                "compiled_from: 30_Wiki/ai-application/anchor--synthesis.md\n"
+                "---\n\n"
+                "# Topic Detail\n\n"
+                "## Definition\n"
+                "Topic note definition.\n",
+                encoding="utf-8",
+            )
+            (root / "00_System").mkdir(parents=True)
+            (root / "00_System/relation-index.json").write_text(
+                json.dumps(
+                    {
+                        "generated_at": "2026-04-10T00:00:00Z",
+                        "notes": [
+                            {
+                                "path": "30_Wiki/ai-application/anchor--synthesis.md",
+                                "note_type": "synthesis",
+                                "primary_domain": "ai-application",
+                            },
+                            {
+                                "path": "30_Wiki/ai-application/topic--concept.md",
+                                "note_type": "concept",
+                                "primary_domain": "ai-application",
+                            },
+                        ],
+                        "edges": [
+                            {
+                                "source_note": "30_Wiki/ai-application/topic--concept.md",
+                                "target_note": "30_Wiki/ai-application/anchor--synthesis.md",
+                                "relation": "derived-from",
+                                "confidence": "EXTRACTED",
+                                "evidence_type": "compiled_from",
+                                "evidence_ref": "30_Wiki/ai-application/anchor--synthesis.md",
+                                "updated_at": "2026-04-10T00:00:00Z",
+                            },
+                            {
+                                "source_note": "30_Wiki/ai-application/./topic--concept.md",
+                                "target_note": "30_Wiki/ai-application/anchor--synthesis.md",
+                                "relation": "derived-from",
+                                "confidence": "EXTRACTED",
+                                "evidence_type": "compiled_from",
+                                "evidence_ref": "30_Wiki/ai-application/anchor--synthesis.md",
+                                "updated_at": "2026-04-10T00:00:00Z",
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/ask",
+                json={"question": "Explain anchor systems", "mode": "ask"},
+            )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(len(payload["relation_trace"]), 1)
+            self.assertEqual(payload["relation_trace"][0]["source_note"], "30_Wiki/ai-application/topic--concept.md")
+
     def test_reflection_endpoints_draft_and_confirm(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

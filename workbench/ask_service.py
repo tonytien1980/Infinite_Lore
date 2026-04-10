@@ -161,6 +161,13 @@ def resolve_relation_candidate(vault_root: Path, candidate_path: str) -> Optiona
     return candidate_file
 
 
+def canonicalize_relation_path(vault_root: Path, note_path: str) -> str:
+    candidate_file = resolve_relation_candidate(vault_root, note_path)
+    if not candidate_file:
+        return note_path
+    return candidate_file.resolve().relative_to(vault_root.resolve()).as_posix()
+
+
 def retrieve_lexical_notes(vault_root: Path, question: str) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
     wiki_root = vault_root / "30_Wiki"
     if not wiki_root.exists():
@@ -343,15 +350,15 @@ def build_trace(notes: List[Dict[str, object]]) -> List[Dict[str, object]]:
     return traces
 
 
-def build_relation_trace(notes: List[Dict[str, object]]) -> List[Dict[str, object]]:
+def build_relation_trace(vault_root: Path, notes: List[Dict[str, object]]) -> List[Dict[str, object]]:
     relation_trace: List[Dict[str, object]] = []
     seen = set()
     for note in notes:
         for trace in note.get("_relation_trace", []):
             if not isinstance(trace, dict):
                 continue
-            source_note = str(trace.get("source_note", ""))
-            target_note = str(trace.get("target_note", ""))
+            source_note = canonicalize_relation_path(vault_root, str(trace.get("source_note", "")))
+            target_note = canonicalize_relation_path(vault_root, str(trace.get("target_note", "")))
             relation = str(trace.get("relation", ""))
             confidence = str(trace.get("confidence", ""))
             key = (source_note, target_note, relation, confidence)
@@ -450,7 +457,7 @@ def answer_question(
     synthesis_notes, small_notes = retrieve_notes(vault_root, question, mode)
     grounding = synthesis_notes + small_notes
     trace = build_trace(grounding)
-    relation_trace = build_relation_trace(grounding)
+    relation_trace = build_relation_trace(vault_root, grounding)
     reflections = retrieve_reflections(vault_root, grounding)
 
     if mode == "query":
