@@ -51,8 +51,22 @@ The current importer now supports:
 Current multimodal behavior is intentionally bounded:
 
 - `pptx` imports normalize slide text into `content.md`
-- first-pass image imports produce a bounded structural summary
-- first-pass image imports capture visible text only when a local OCR path is available
+- image imports use Apple Vision as the primary local OCR path on macOS
+- when the local Vision helper is unavailable or fails, image imports fall back to the bounded structural summary path
+- image imports write OCR-aware `content.md` sections:
+  - `Source Summary`
+  - `Structural Summary`
+  - `OCR Summary`
+  - `OCR Text`
+  - `Screenshot Signals`
+  - `Extraction Notes`
+- image bundles record OCR metadata:
+  - `ocr_engine`
+  - `ocr_attempted`
+  - `ocr_status`
+  - `ocr_text_present`
+  - `image_interpretation_mode`
+  - `image_kind_guess`
 - image imports stay `review_required: true`
 - the original source file is still preserved inside the raw bundle
 

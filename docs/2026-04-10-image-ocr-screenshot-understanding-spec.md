@@ -1,18 +1,18 @@
 # Image OCR And Screenshot Understanding Specification
 
-**Status:** Approved for implementation
+**Status:** Delivered v1
 **Date:** 2026-04-10
 **Project:** Infinite Lore
 
 ## 1. Purpose
 
-This specification defines the next adjacent phase after delivered multimodal ingestion.
+This specification describes the delivered image OCR and screenshot understanding phase after multimodal ingestion.
 
 The goal is to deepen image usefulness inside `Infinite Lore` without creating a second ingest system or pretending that full model-based vision understanding already exists.
 
-This phase should make imported screenshots, scans, diagrams, and text-heavy images materially more usable by:
+This phase makes imported screenshots, scans, diagrams, and text-heavy images materially more usable by:
 
-- replacing opportunistic `tesseract` dependence with a real local OCR path on this Mac
+- using Apple Vision as the primary local OCR path on macOS
 - upgrading `content.md` from a bounded image summary into a bounded OCR-aware image note
 - adding lightweight screenshot-oriented structure signals that help later compile and Ask use the imported image more accurately
 
@@ -30,15 +30,15 @@ This phase should make imported screenshots, scans, diagrams, and text-heavy ima
 
 But the current delivered image path still has one major limitation:
 
-- OCR only works when `tesseract` happens to exist locally
+- OCR only works when the local Swift Vision helper can run successfully on macOS
 
 On this machine:
 
 - `swift` is available
 - `Pillow` is available
-- `tesseract` is not installed
+- `tesseract` is not required for the shipped image path
 
-That makes local Apple Vision OCR the most practical next step.
+That makes local Apple Vision OCR the shipped OCR path.
 
 This phase should deepen the same image bundle flow, not jump to a provider-heavy image reasoning stack too early.
 
@@ -94,9 +94,9 @@ The current path does not yet provide:
 - bounded screenshot-aware interpretation
 - explicit OCR engine metadata
 
-## 6. In Scope
+## 6. Delivered Behavior
 
-This phase should include:
+This phase includes:
 
 - local macOS Vision OCR for supported image bundle imports
 - replacement of best-effort `tesseract` probing as the primary OCR path
@@ -104,8 +104,9 @@ This phase should include:
 - bounded screenshot understanding signals derived from local extraction and image structure
 - image metadata extensions that record:
   - OCR engine
-  - OCR availability
-  - OCR confidence posture
+  - OCR attempt state
+  - OCR status
+  - OCR text presence
   - screenshot interpretation posture
 - fallback to the existing bounded image summary path when Vision OCR is unavailable or fails
 
@@ -164,7 +165,7 @@ That makes it a good fit for this phase because `Infinite Lore` needs:
 - repeatable text extraction from screenshots and scans
 - bounded structure signals that can be derived from recognized text observations
 
-This phase should use Vision for OCR, not VisionKit UI overlays.
+This phase uses Vision for OCR, not VisionKit UI overlays.
 
 The goal is import-time extraction, not interactive text selection.
 
@@ -265,9 +266,7 @@ These are support signals, not authoritative semantic claims.
 
 ## 13. Metadata Additions
 
-`metadata.md` should gain explicit image-extraction fields for this phase.
-
-Recommended additions:
+`metadata.md` includes explicit image-extraction fields for this phase:
 
 - `ocr_engine`
 - `ocr_attempted`
@@ -286,11 +285,11 @@ The system should also preserve:
 
 This phase must stay conservative.
 
-Recommended defaults:
+Current shipped defaults:
 
-- successful Vision OCR on clearly text-heavy screenshots may raise image extraction from `low` to `medium`
-- screenshot interpretation remains bounded and should not by itself raise confidence above `medium`
-- images with weak OCR, mixed layouts, or uncertain type guesses should remain `low`
+- image extraction remains `low`
+- screenshot interpretation remains bounded and does not raise confidence above `low`
+- images with weak OCR, mixed layouts, or uncertain type guesses remain `low`
 - `review_required: true` should remain the default for image bundles in this phase
 
 The system should prefer:
@@ -305,9 +304,9 @@ over:
 
 ## 15. Fallback Behavior
 
-If the local Vision helper is unavailable or fails, the importer should not break the whole image lane.
+If the local Vision helper is unavailable or fails, the importer does not break the whole image lane.
 
-Instead it should:
+Instead it:
 
 - preserve the original image
 - keep the current bounded structural summary path
@@ -333,10 +332,10 @@ The improvement should come from better source normalization, not from hiding un
 
 This phase is done when:
 
-- supported image imports use a real on-device OCR path on this Mac
+- supported image imports use Apple Vision OCR on this Mac
 - `content.md` is upgraded from shallow summary to OCR-aware image normalization
 - fallback behavior remains safe when OCR is unavailable or weak
-- metadata records OCR engine and image interpretation posture explicitly
+- metadata records OCR engine, OCR attempt state, OCR status, OCR text presence, and image interpretation posture explicitly
 - existing compile and Ask flows continue working on top of the same raw bundle contract
 - docs reflect the delivered behavior in the same task
 

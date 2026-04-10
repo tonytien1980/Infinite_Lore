@@ -212,6 +212,20 @@ Reference files:
 - `docs/2026-04-10-multimodal-ingestion-implementation-plan.md`
 - `docs/2026-04-10-graphify-multimodal-code-reuse-audit.md`
 
+### 4.10 Image OCR And Screenshot Understanding
+
+Completed:
+
+- Apple Vision as the primary local OCR path on macOS
+- fallback to the bounded image summary path when Vision OCR is unavailable or fails
+- OCR-aware image `content.md` sections
+- OCR metadata fields for engine, attempt state, status, text presence, interpretation mode, and image kind guess
+
+Reference files:
+
+- `docs/2026-04-10-image-ocr-screenshot-understanding-spec.md`
+- `docs/2026-04-10-image-ocr-screenshot-understanding-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -232,6 +246,9 @@ As of this roadmap update, the verified baseline is:
 - Ask now uses bounded relation-aware expansion after lexical anchors
 - Ask results expose visible relation trace alongside source trace
 - raw import now supports first-pass `pptx` and bounded image ingestion
+- raw image import now uses Apple Vision OCR first on macOS and falls back safely when Vision OCR is unavailable or fails
+- image `content.md` now includes OCR-aware sections for source summary, structural summary, OCR summary, OCR text, screenshot signals, and extraction notes
+- image raw bundle metadata now records OCR engine, OCR attempt state, OCR status, OCR text presence, interpretation mode, and image kind guess
 - tests pass
 - health check passes
 
@@ -239,6 +256,7 @@ Verified commands used recently:
 
 ```bash
 python3 -m unittest tests.test_import_bundle tests.test_wiki_compile tests.test_workbench_api tests.test_query_ask tests.test_health_check -v
+python3 -m unittest tests.test_vision_ocr tests.test_image_adapter tests.test_import_bundle tests.test_multimodal_detect tests.test_wiki_compile tests.test_query_ask -v
 python3 tools/health_check.py .
 python3 tools/run_workbench.py
 ```
@@ -314,6 +332,17 @@ The purpose of this phase is:
 - bounded image summary import into raw bundles
 - conservative confidence and review semantics for image imports
 - controlled import-boundary errors for malformed multimodal files
+
+### Phase 10: Image OCR And Screenshot Understanding
+
+This phase is now delivered and should be treated as the current image baseline.
+
+The importer now supports:
+
+- Apple Vision OCR as the primary local OCR path on macOS
+- safe fallback to the bounded image summary path when Vision OCR is unavailable or fails
+- OCR-aware `content.md` sections for image bundles
+- explicit OCR-related metadata fields in raw bundle metadata
 
 ## 9. Phase Boundaries
 
@@ -407,11 +436,11 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the delivered Phase 9 baseline and the approved Phase 10 spec to deepen multimodal quality through local OCR and bounded screenshot understanding.`
+`Use the delivered Phase 10 image baseline to keep OCR-aware image imports aligned with the current raw bundle contract.`
 
 ## 13. Future Adoption Direction
 
-Phase 9 is now delivered.
+Phase 9 and Phase 10 are now delivered.
 
 The next meaningful capability expansion should not be a graph UI.
 
@@ -434,23 +463,3 @@ Reference:
 - `docs/2026-04-10-graphify-multimodal-code-reuse-audit.md`
 - `docs/2026-04-10-image-ocr-screenshot-understanding-spec.md`
 - `docs/2026-04-10-image-ocr-screenshot-understanding-implementation-plan.md`
-
-## 14. Next Planned Lane
-
-### Phase 10: Image OCR And Screenshot Understanding
-
-This phase is now the approved next lane after delivered multimodal ingestion.
-
-The purpose of this phase is:
-
-- replace opportunistic local OCR with a dependable on-device OCR path on this Mac
-- make screenshot-heavy image bundles more useful to compile and Ask
-- keep image extraction honest, bounded, and review-aware
-
-### Definition of done
-
-- supported image imports use a real local OCR path when available on macOS
-- image `content.md` includes OCR-aware sections instead of only a shallow summary
-- image metadata records OCR engine and OCR status explicitly
-- fallback behavior preserves the current bounded summary path when OCR is unavailable or fails
-- compile and Ask continue to use the same raw bundle contract
