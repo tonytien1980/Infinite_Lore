@@ -204,6 +204,7 @@ Completed:
   - `webp`
 - controlled multimodal import error boundaries
 - first-pass image summary contract with conservative review posture
+- explicit Pillow runtime dependency for image support
 
 Reference files:
 
@@ -405,7 +406,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the delivered Phase 9 baseline, then decide whether to deepen multimodal quality next through richer OCR / screenshot understanding or another adjacent lane.`
+`Use the delivered Phase 9 baseline, then decide whether to deepen multimodal quality next through richer OCR / screenshot understanding or to shift to another adjacent lane.`
 
 ## 13. Future Adoption Direction
 

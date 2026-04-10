@@ -181,14 +181,14 @@ The purpose is AI-usable structure, not visual-perfect deck reconstruction.
 
 ### 10.2 Image normalization
 
-The first version should normalize images into Markdown like:
+The delivered first version normalizes images into Markdown like:
 
-- image type or guess
-- extracted visible text
-- concise summary of what the image contains
-- uncertainty markers when confidence is weak
+- image metadata
+- a concise structural summary
+- extracted visible text when a local OCR path is available
+- explicit uncertainty markers when OCR is unavailable or weak
 
-This should be useful enough for later compile and Ask, even if it is not a perfect description.
+This is a bounded first pass, not full screenshot or diagram understanding yet.
 
 ## 11. Confidence And Review Rules
 
@@ -207,6 +207,12 @@ The system should prefer:
 - bounded summaries
 
 over pretending uncertain extraction is clean.
+
+The delivered first pass currently uses:
+
+- conservative `low` confidence for image bundles
+- `review_required: true`
+- bounded visible-text capture when OCR is available
 
 ## 12. Relationship To Graphify
 
@@ -309,3 +315,5 @@ Phase 9 succeeds when:
 - imported multimodal bundles remain compatible with compile and Ask
 - `Graphify` reuse is real and selective, not cosmetic
 - the new lane makes the library more useful without turning the product into a graph tool
+
+The current delivered state satisfies that bar as a bounded first pass.

@@ -52,6 +52,7 @@ Current multimodal behavior is intentionally bounded:
 
 - `pptx` imports normalize slide text into `content.md`
 - first-pass image imports produce a bounded structural summary
+- first-pass image imports capture visible text only when a local OCR path is available
 - image imports stay `review_required: true`
 - the original source file is still preserved inside the raw bundle
 
