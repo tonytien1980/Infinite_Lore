@@ -15,6 +15,36 @@ class WorkbenchApiTests(unittest.TestCase):
         app = create_app(vault_root=root, config_path=config_path)
         return TestClient(app)
 
+    def test_root_html_uses_traditional_chinese_primary_navigation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.text
+            self.assertIn('lang="zh-Hant"', html)
+            for label in ("首頁", "摘要", "收件匣", "知識庫", "系統", "設定"):
+                self.assertIn(f">{label}<", html)
+            self.assertIn('data-page="summary"', html)
+            self.assertNotIn('data-page="ask"', html)
+
+    def test_root_html_makes_home_the_ask_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.text
+            self.assertIn("首頁工作台", html)
+            self.assertIn("圖書館答案", html)
+            self.assertIn("證據與脈絡", html)
+            self.assertIn("我的工作區", html)
+            self.assertIn("摘要", html)
+
     def test_dashboard_returns_core_counts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
