@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -23,12 +23,12 @@
           </div>
         </div>
         <nav class="nav">
-          <button class="nav-link active" data-page="home">Home</button>
-          <button class="nav-link" data-page="inbox">Inbox</button>
-          <button class="nav-link" data-page="knowledge">Knowledge</button>
-          <button class="nav-link" data-page="ask">Ask</button>
-          <button class="nav-link" data-page="system">System</button>
-          <button class="nav-link" data-page="settings">Settings</button>
+          <button class="nav-link active" data-page="home">首頁</button>
+          <button class="nav-link" data-page="summary">摘要</button>
+          <button class="nav-link" data-page="inbox">收件匣</button>
+          <button class="nav-link" data-page="knowledge">知識庫</button>
+          <button class="nav-link" data-page="system">系統</button>
+          <button class="nav-link" data-page="settings">設定</button>
         </nav>
         <div class="sidebar-foot">
           <p class="eyebrow">Shared Vault</p>
@@ -40,7 +40,7 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Operational Surface</p>
-            <h2 id="pageTitle">Home</h2>
+            <h2 id="pageTitle">首頁</h2>
           </div>
           <div class="status-pill" id="healthPill">Checking health…</div>
         </header>
@@ -62,6 +62,123 @@
               </div>
             </form>
           </div>
+
+          <div class="grid ask-layout">
+            <section class="panel" style="grid-column: 1 / -1;">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Strict Grounded Mode</p>
+                  <h3>Ask the library from compiled knowledge</h3>
+                </div>
+              </div>
+              <form id="askForm" class="stack-form">
+                <label>
+                  <span>Question</span>
+                  <textarea id="askInput" placeholder="Ask using your current wiki. The library will answer from grounded notes or tell you when evidence is insufficient."></textarea>
+                </label>
+                <label>
+                  <span>Answer mode</span>
+                  <select id="askMode">
+                    <option value="auto">Auto</option>
+                    <option value="ask">Ask</option>
+                    <option value="query">Query</option>
+                  </select>
+                </label>
+                <button id="askSubmitButton" type="submit" class="primary-button">Ask the library</button>
+              </form>
+            </section>
+
+            <section class="panel" style="grid-column: 1 / -1;">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Library Answer</p>
+                  <h3>Ask from compiled knowledge</h3>
+                </div>
+              </div>
+              <div id="askAnswer" class="empty-state">
+                Ask the library and the grounded answer will appear here.
+              </div>
+              <div class="grid three-col" style="margin-top: 1rem;">
+                <section>
+                  <p class="eyebrow">Grounding</p>
+                  <div id="askGrounding" class="list-stack empty-state">Grounding will appear here.</div>
+                </section>
+                <section>
+                  <p class="eyebrow">Trace</p>
+                  <div id="askTrace" class="list-stack empty-state">Source trace will appear here.</div>
+                </section>
+                <section>
+                  <p class="eyebrow">Relation Trace</p>
+                  <div id="askRelationTrace" class="list-stack empty-state">Relation trace will appear here when notes expand through links.</div>
+                </section>
+              </div>
+              <div style="margin-top: 1rem;">
+                <p class="eyebrow">Limits</p>
+                <div id="askLimits" class="list-stack empty-state">Limits and uncertainty will appear here when needed.</div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head split">
+                <div>
+                  <p class="eyebrow">Your Reflections</p>
+                  <h3>Linked interpretations</h3>
+                </div>
+                <button id="reflectionViewAllButton" class="ghost-button" type="button">View all</button>
+              </div>
+              <div id="reflectionList" class="list-stack empty-state">
+                Ask the library first, then the most recent linked reflections will appear here.
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Respond Now</p>
+                  <h3>Use one input for either path</h3>
+                </div>
+              </div>
+              <form class="stack-form">
+                <label>
+                  <span>Shared feedback input</span>
+                  <textarea id="feedbackInput" placeholder="Write the correction request or your interpretation here."></textarea>
+                </label>
+                <div class="button-row" style="justify-content: flex-start;">
+                  <button id="draftCorrectionButton" type="button" class="primary-button">Correct this knowledge</button>
+                  <button id="draftReflectionButton" type="button" class="secondary-button">Add my interpretation</button>
+                </div>
+                <p id="feedbackHint" class="empty-state">Use one input, then choose the action that matches the response you want.</p>
+              </form>
+            </section>
+
+            <section class="panel" style="grid-column: 1 / -1;">
+              <div class="panel-head split">
+                <div>
+                  <p class="eyebrow">Inline Review</p>
+                  <h3 id="feedbackEditorTitle">Draft review</h3>
+                </div>
+                <div id="feedbackEditorStatus" class="empty-state">No draft loaded yet.</div>
+              </div>
+              <div id="feedbackEditorEmpty" class="empty-state">
+                Use Respond Now to draft a reflection or proposed correction, then review it here before confirming.
+              </div>
+              <div id="feedbackEditorBody" class="stack-form" hidden>
+                <div id="feedbackEditorMeta" class="list-stack"></div>
+                <label>
+                  <span>Draft content</span>
+                  <textarea id="feedbackEditorTextarea"></textarea>
+                </label>
+                <div class="button-row">
+                  <button id="feedbackConfirmButton" type="button" class="primary-button">Confirm</button>
+                  <button id="feedbackDiscardButton" type="button" class="ghost-button">Discard</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" data-page="summary">
+          <p class="eyebrow">Operations Snapshot</p>
 
           <div class="grid two-col">
             <section class="panel">
@@ -193,121 +310,6 @@
                 </div>
               </div>
               <div id="smallNotesList" class="list-stack empty-state">Loading…</div>
-            </section>
-          </div>
-        </section>
-
-        <section class="page" data-page="ask">
-          <div class="grid ask-layout">
-            <section class="panel" style="grid-column: 1 / -1;">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Strict Grounded Mode</p>
-                  <h3>Ask the library from compiled knowledge</h3>
-                </div>
-              </div>
-              <form id="askForm" class="stack-form">
-                <label>
-                  <span>Question</span>
-                  <textarea id="askInput" placeholder="Ask using your current wiki. The library will answer from grounded notes or tell you when evidence is insufficient."></textarea>
-                </label>
-                <label>
-                  <span>Answer mode</span>
-                  <select id="askMode">
-                    <option value="auto">Auto</option>
-                    <option value="ask">Ask</option>
-                    <option value="query">Query</option>
-                  </select>
-                </label>
-                <button id="askSubmitButton" type="submit" class="primary-button">Ask the library</button>
-              </form>
-            </section>
-
-            <section class="panel" style="grid-column: 1 / -1;">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Library Answer</p>
-                  <h3>Ask from compiled knowledge</h3>
-                </div>
-              </div>
-              <div id="askAnswer" class="empty-state">
-                Ask the library and the grounded answer will appear here.
-              </div>
-              <div class="grid three-col" style="margin-top: 1rem;">
-                <section>
-                  <p class="eyebrow">Grounding</p>
-                  <div id="askGrounding" class="list-stack empty-state">Grounding will appear here.</div>
-                </section>
-                <section>
-                  <p class="eyebrow">Trace</p>
-                  <div id="askTrace" class="list-stack empty-state">Source trace will appear here.</div>
-                </section>
-                <section>
-                  <p class="eyebrow">Relation Trace</p>
-                  <div id="askRelationTrace" class="list-stack empty-state">Relation trace will appear here when notes expand through links.</div>
-                </section>
-              </div>
-              <div style="margin-top: 1rem;">
-                <p class="eyebrow">Limits</p>
-                <div id="askLimits" class="list-stack empty-state">Limits and uncertainty will appear here when needed.</div>
-              </div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-head split">
-                <div>
-                  <p class="eyebrow">Your Reflections</p>
-                  <h3>Linked interpretations</h3>
-                </div>
-                <button id="reflectionViewAllButton" class="ghost-button" type="button">View all</button>
-              </div>
-              <div id="reflectionList" class="list-stack empty-state">
-                Ask the library first, then the most recent linked reflections will appear here.
-              </div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Respond Now</p>
-                  <h3>Use one input for either path</h3>
-                </div>
-              </div>
-              <form class="stack-form">
-                <label>
-                  <span>Shared feedback input</span>
-                  <textarea id="feedbackInput" placeholder="Write the correction request or your interpretation here."></textarea>
-                </label>
-                <div class="button-row" style="justify-content: flex-start;">
-                  <button id="draftCorrectionButton" type="button" class="primary-button">Correct this knowledge</button>
-                  <button id="draftReflectionButton" type="button" class="secondary-button">Add my interpretation</button>
-                </div>
-                <p id="feedbackHint" class="empty-state">Use one input, then choose the action that matches the response you want.</p>
-              </form>
-            </section>
-
-            <section class="panel" style="grid-column: 1 / -1;">
-              <div class="panel-head split">
-                <div>
-                  <p class="eyebrow">Inline Review</p>
-                  <h3 id="feedbackEditorTitle">Draft review</h3>
-                </div>
-                <div id="feedbackEditorStatus" class="empty-state">No draft loaded yet.</div>
-              </div>
-              <div id="feedbackEditorEmpty" class="empty-state">
-                Use Respond Now to draft a reflection or proposed correction, then review it here before confirming.
-              </div>
-              <div id="feedbackEditorBody" class="stack-form" hidden>
-                <div id="feedbackEditorMeta" class="list-stack"></div>
-                <label>
-                  <span>Draft content</span>
-                  <textarea id="feedbackEditorTextarea"></textarea>
-                </label>
-                <div class="button-row">
-                  <button id="feedbackConfirmButton" type="button" class="primary-button">Confirm</button>
-                  <button id="feedbackDiscardButton" type="button" class="ghost-button">Discard</button>
-                </div>
-              </div>
             </section>
           </div>
         </section>

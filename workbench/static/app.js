@@ -65,12 +65,21 @@ const saveSourcesButton = document.getElementById("saveSourcesButton");
 const scanSummary = document.getElementById("scanSummary");
 const scanNowButton = document.getElementById("scanNowButton");
 const refreshBundlesButton = document.getElementById("refreshBundlesButton");
+const PAGE_TITLES = {
+  home: "首頁",
+  summary: "摘要",
+  inbox: "收件匣",
+  knowledge: "知識庫",
+  system: "系統",
+  settings: "設定",
+  ask: "首頁",
+};
 
 function setPage(page) {
   state.page = page;
   pages.forEach((element) => element.classList.toggle("active", element.dataset.page === page));
   navLinks.forEach((element) => element.classList.toggle("active", element.dataset.page === page));
-  pageTitle.textContent = page.charAt(0).toUpperCase() + page.slice(1);
+  pageTitle.textContent = PAGE_TITLES[page] || page.charAt(0).toUpperCase() + page.slice(1);
 }
 
 function createListItem(title, meta, detail) {
@@ -518,7 +527,7 @@ document.getElementById("homeAskForm").addEventListener("submit", (event) => {
   event.preventDefault();
   document.getElementById("askInput").value = document.getElementById("homeAskInput").value;
   document.getElementById("askMode").value = "auto";
-  setPage("ask");
+  setPage("home");
   runAsk(document.getElementById("askInput").value, "auto");
 });
 
@@ -969,3 +978,5 @@ loadAll().catch((error) => {
   healthPill.textContent = "Load failed";
   document.getElementById("healthDetails").textContent = error.message;
 });
+
+setPage("home");

@@ -64,7 +64,8 @@ class _WorkbenchRootHtmlParser(HTMLParser):
 
     def assert_nav_button(self, page: str, label: str) -> None:
         matches = [(button_page, button_label) for button_page, button_label in self.nav_buttons if button_page == page]
-        self.assertEqual(matches, [(page, label)])
+        if matches != [(page, label)]:
+            raise AssertionError(f"{page} nav button label mismatch: expected {(page, label)}, got {matches}")
 
 
 class WorkbenchApiTests(unittest.TestCase):
@@ -111,9 +112,14 @@ class WorkbenchApiTests(unittest.TestCase):
             home_section = home_sections[0]
             self.assertIn("homeAskForm", home_section["ids"])
             self.assertIn("homeAskInput", home_section["ids"])
-            self.assertNotIn("recentImports", home_section["ids"])
-            self.assertNotIn("recentKnowledge", home_section["ids"])
-            self.assertNotIn("snapshotCards", home_section["ids"])
+            self.assertIn("askForm", home_section["ids"])
+
+            summary_sections = [section for section in parser.sections if section.get("data_page") == "summary"]
+            self.assertEqual(len(summary_sections), 1)
+            summary_section = summary_sections[0]
+            self.assertIn("recentImports", summary_section["ids"])
+            self.assertIn("recentKnowledge", summary_section["ids"])
+            self.assertIn("snapshotCards", summary_section["ids"])
 
     def test_dashboard_returns_core_counts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
