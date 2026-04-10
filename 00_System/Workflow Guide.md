@@ -89,6 +89,32 @@ The shipped Workbench V2 shell is organized as:
 - a desktop-first shell posture that already assumes a windowed work surface, even before packaging as a desktop app
 - follow-up controls on `首頁` stay disabled until the answer has grounded note evidence
 
+## macOS App Shell
+
+Run the local desktop shell from source with:
+
+```bash
+python3 tools/run_macos_app.py
+```
+
+Build the packaged macOS app with:
+
+```bash
+tools/build_macos_app.sh
+```
+
+The first delivered macOS app shell currently provides:
+
+- a single main window
+- hidden localhost and no required browser tab
+- automatic embedded server startup and shutdown
+- the same shared vault workflow as the browser Workbench
+
+Current local-build behavior:
+
+- the packaged `.app` auto-resolves the vault root when it is launched from the local build output under `<vault>/dist/Infinite Lore.app`
+- if that bundle is moved away from the local build layout, automatic vault resolution is no longer guaranteed in this first version
+
 ## Automation And Scan Now
 
 Use the Workbench `Inbox` for practical automation.

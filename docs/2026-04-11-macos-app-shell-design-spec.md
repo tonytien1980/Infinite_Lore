@@ -1,6 +1,6 @@
 # macOS App Shell Design Specification
 
-**Status:** Approved for implementation
+**Status:** Delivered v1
 **Date:** 2026-04-11
 **Project:** Infinite Lore
 
@@ -260,6 +260,12 @@ Recommended direction:
 - keep local config external to the vault, as today
 
 The packaged app should not force a vault migration in this phase.
+
+In the delivered local-build version, the shell now resolves the vault root automatically when the packaged app is launched from the normal build output layout:
+
+- `<vault>/dist/Infinite Lore.app`
+
+This keeps the first local packaged shell compatible with the current repo-backed vault without introducing a separate setup phase.
 
 ## 13. Packaging Strategy
 

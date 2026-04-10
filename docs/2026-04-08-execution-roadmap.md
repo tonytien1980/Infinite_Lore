@@ -241,6 +241,21 @@ Reference files:
 - `docs/2026-04-10-workbench-v2-design-spec.md`
 - `docs/2026-04-11-workbench-v2-implementation-plan.md`
 
+### 4.12 macOS App Shell
+
+Completed:
+
+- local desktop shell launches from source with `python3 tools/run_macos_app.py`
+- packaged macOS app builds via `tools/build_macos_app.sh`
+- the packaged `.app` opens as a single-window desktop app
+- the packaged shell starts and stops the embedded Workbench server automatically
+- the packaged local build resolves the repo-backed vault when launched from `<vault>/dist/Infinite Lore.app`
+
+Reference files:
+
+- `docs/2026-04-11-macos-app-shell-design-spec.md`
+- `docs/2026-04-11-macos-app-shell-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -271,6 +286,8 @@ As of this roadmap update, the verified baseline is:
 - the shell is desktop-first
 - follow-up controls stay disabled until an Ask result has grounded note evidence
 - local insufficient-evidence Ask fallback copy is now in Traditional Chinese
+- local macOS app shell launches from source and as a packaged `.app`
+- packaged app startup and shutdown manage the embedded server automatically
 - tests pass
 - health check passes
 
@@ -279,8 +296,11 @@ Verified commands used recently:
 ```bash
 python3 -m unittest tests.test_import_bundle tests.test_wiki_compile tests.test_workbench_api tests.test_query_ask tests.test_health_check -v
 python3 -m unittest tests.test_vision_ocr tests.test_image_adapter tests.test_import_bundle tests.test_multimodal_detect tests.test_wiki_compile tests.test_query_ask -v
+python3 -m unittest tests.test_app_shell -v
 python3 tools/health_check.py .
 python3 tools/run_workbench.py
+python3 tools/run_macos_app.py
+tools/build_macos_app.sh
 ```
 
 ## 6. Approved Build Order
@@ -481,7 +501,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the approved macOS app shell spec and implementation plan to build the first packaged desktop shell.`
+`Use the delivered macOS app shell as the new desktop baseline, then decide whether the next priority is app-shell polish, notarization/distribution hardening, or another product lane.`
 
 ## 13. Future Adoption Direction
 
