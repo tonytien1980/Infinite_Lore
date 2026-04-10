@@ -17,13 +17,21 @@ class _WorkbenchRootHtmlParser(HTMLParser):
         super().__init__()
         self.nav_buttons: List[Tuple[str, str]] = []
         self.sections: List[Dict[str, Any]] = []
+        self.html_attrs: Dict[str, Optional[str]] = {}
+        self._in_sidebar_nav = False
         self._button_page: Optional[str] = None
         self._button_text_parts: List[str] = []
         self._section_stack: List[Dict[str, Any]] = []
 
     def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
         attr_map = {key: value for key, value in attrs}
+        if tag == "html":
+            self.html_attrs = attr_map
+        if tag == "nav" and attr_map.get("class") == "nav":
+            self._in_sidebar_nav = True
         if tag == "button" and attr_map.get("data-page") is not None:
+            if not self._in_sidebar_nav:
+                return
             self._button_page = attr_map["data-page"]
             self._button_text_parts = []
         if tag == "section":
@@ -49,8 +57,14 @@ class _WorkbenchRootHtmlParser(HTMLParser):
             self.nav_buttons.append((self._button_page, text))
             self._button_page = None
             self._button_text_parts = []
+        if tag == "nav":
+            self._in_sidebar_nav = False
         if tag == "section" and self._section_stack:
             self.sections.append(self._section_stack.pop())
+
+    def assert_nav_button(self, page: str, label: str) -> None:
+        matches = [(button_page, button_label) for button_page, button_label in self.nav_buttons if button_page == page]
+        self.assertEqual(matches, [(page, label)])
 
 
 class WorkbenchApiTests(unittest.TestCase):
@@ -66,21 +80,20 @@ class WorkbenchApiTests(unittest.TestCase):
             response = client.get("/")
 
             self.assertEqual(response.status_code, 200)
-            self.assertIn('lang="zh-Hant"', response.text)
             parser = _WorkbenchRootHtmlParser()
             parser.feed(response.text)
 
+            self.assertEqual(parser.html_attrs.get("lang"), "zh-Hant")
             page_keys = [page for page, _ in parser.nav_buttons]
             self.assertEqual(page_keys, ["home", "summary", "inbox", "knowledge", "system", "settings"])
             self.assertNotIn("ask", page_keys)
 
-            labels_by_page = dict(parser.nav_buttons)
-            self.assertEqual(labels_by_page["home"], "首頁")
-            self.assertEqual(labels_by_page["summary"], "摘要")
-            self.assertEqual(labels_by_page["inbox"], "收件匣")
-            self.assertEqual(labels_by_page["knowledge"], "知識庫")
-            self.assertEqual(labels_by_page["system"], "系統")
-            self.assertEqual(labels_by_page["settings"], "設定")
+            parser.assert_nav_button("home", "首頁")
+            parser.assert_nav_button("summary", "摘要")
+            parser.assert_nav_button("inbox", "收件匣")
+            parser.assert_nav_button("knowledge", "知識庫")
+            parser.assert_nav_button("system", "系統")
+            parser.assert_nav_button("settings", "設定")
 
     def test_root_html_makes_home_the_ask_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
