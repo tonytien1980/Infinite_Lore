@@ -445,6 +445,216 @@ class QueryAskTests(unittest.TestCase):
             self.assertIn("30_Wiki/ai-application/rag-foundations--synthesis.md", grounding_paths)
             self.assertNotIn("30_Wiki/ai-application/reflection-entry--chunking-gap.md", grounding_paths)
 
+    def test_relation_aware_retrieval_ignores_outside_vault_targets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            root = tmp_path / "vault"
+            outside = tmp_path / "outside-secret.md"
+            write_note(
+                root / "30_Wiki/ai-application/anchor--synthesis.md",
+                (
+                    "---\n"
+                    "title: Anchor Note\n"
+                    "note_type: synthesis\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/anchor\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# Anchor Note\n\n"
+                    "## Source Summary\n"
+                    "Anchor notes should stay inside the wiki boundary.\n"
+                ),
+            )
+            write_note(
+                outside,
+                (
+                    "---\n"
+                    "title: Outside Secret\n"
+                    "note_type: concept\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/outside\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# Outside Secret\n\n"
+                    "## Definition\n"
+                    "This note lives outside the vault and must never be grounded by Ask.\n"
+                ),
+            )
+            self.write_relation_index(
+                root,
+                notes=[
+                    {
+                        "path": "30_Wiki/ai-application/anchor--synthesis.md",
+                        "note_type": "synthesis",
+                        "primary_domain": "ai-application",
+                    }
+                ],
+                edges=[
+                    {
+                        "source_note": "30_Wiki/ai-application/anchor--synthesis.md",
+                        "target_note": "../outside-secret.md",
+                        "relation": "derived-from",
+                        "confidence": "EXTRACTED",
+                    }
+                ],
+            )
+
+            result = answer_question(
+                vault_root=root,
+                question="Explain anchor note",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            grounding_paths = {note["path"] for note in result["grounding"]}
+            self.assertIn("30_Wiki/ai-application/anchor--synthesis.md", grounding_paths)
+            self.assertNotIn("../outside-secret.md", grounding_paths)
+
+    def test_relation_aware_retrieval_keeps_lexical_anchor_as_primary_answer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_note(
+                root / "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                (
+                    "---\n"
+                    "title: RAG Foundations\n"
+                    "note_type: synthesis\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/rag\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# RAG Foundations\n\n"
+                    "## Source Summary\n"
+                    "RAG foundations describe retrieval pipelines.\n"
+                ),
+            )
+            write_note(
+                root / "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                (
+                    "---\n"
+                    "title: Chunking Strategy\n"
+                    "note_type: concept\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/rag\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# Chunking Strategy\n\n"
+                    "## Definition\n"
+                    "Chunking strategy sets note boundaries so retrieval preserves context windows.\n"
+                ),
+            )
+            self.write_relation_index(
+                root,
+                notes=[
+                    {
+                        "path": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                        "note_type": "synthesis",
+                        "primary_domain": "ai-application",
+                    },
+                    {
+                        "path": "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                        "note_type": "concept",
+                        "primary_domain": "ai-application",
+                    },
+                ],
+                edges=[
+                    {
+                        "source_note": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                        "target_note": "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                        "relation": "derived-from",
+                        "confidence": "EXTRACTED",
+                    }
+                ],
+            )
+
+            result = answer_question(
+                vault_root=root,
+                question="Explain retrieval",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            self.assertIn("RAG foundations describe retrieval pipelines", result["answer"])
+
+    def test_relation_aware_retrieval_deduplicates_path_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_note(
+                root / "30_Wiki/ai-application/anchor--synthesis.md",
+                (
+                    "---\n"
+                    "title: Anchor Note\n"
+                    "note_type: synthesis\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/anchor\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# Anchor Note\n\n"
+                    "## Source Summary\n"
+                    "Anchor note summary.\n"
+                ),
+            )
+            write_note(
+                root / "30_Wiki/ai-application/topic--concept.md",
+                (
+                    "---\n"
+                    "title: Topic Note\n"
+                    "note_type: concept\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/topic\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# Topic Note\n\n"
+                    "## Definition\n"
+                    "Topic note definition.\n"
+                ),
+            )
+            self.write_relation_index(
+                root,
+                notes=[
+                    {
+                        "path": "30_Wiki/ai-application/anchor--synthesis.md",
+                        "note_type": "synthesis",
+                        "primary_domain": "ai-application",
+                    },
+                    {
+                        "path": "30_Wiki/ai-application/topic--concept.md",
+                        "note_type": "concept",
+                        "primary_domain": "ai-application",
+                    },
+                ],
+                edges=[
+                    {
+                        "source_note": "30_Wiki/ai-application/anchor--synthesis.md",
+                        "target_note": "30_Wiki/ai-application/topic--concept.md",
+                        "relation": "derived-from",
+                        "confidence": "EXTRACTED",
+                    },
+                    {
+                        "source_note": "30_Wiki/ai-application/anchor--synthesis.md",
+                        "target_note": "30_Wiki/ai-application/./topic--concept.md",
+                        "relation": "shares-source",
+                        "confidence": "INFERRED",
+                    },
+                ],
+            )
+
+            result = answer_question(
+                vault_root=root,
+                question="Explain anchor note",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            grounding_paths = [note["path"] for note in result["grounding"]]
+            self.assertEqual(grounding_paths.count("30_Wiki/ai-application/topic--concept.md"), 1)
+
     def test_ask_mode_ignores_unsupported_provider_routes_for_now(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

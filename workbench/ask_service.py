@@ -131,8 +131,10 @@ def load_relation_edges(vault_root: Path) -> List[Dict[str, object]]:
 
 
 def build_note_entry(vault_root: Path, note_path: Path, metadata: Dict[str, object], body: str, score: int) -> Dict[str, object]:
+    resolved_root = vault_root.resolve()
+    resolved_note = note_path.resolve()
     return {
-        "path": note_path.relative_to(vault_root).as_posix(),
+        "path": resolved_note.relative_to(resolved_root).as_posix(),
         "title": metadata.get("title", note_path.stem),
         "note_type": metadata.get("note_type"),
         "primary_domain": metadata.get("primary_domain", ""),
@@ -140,6 +142,23 @@ def build_note_entry(vault_root: Path, note_path: Path, metadata: Dict[str, obje
         "body": body,
         "score": score,
     }
+
+
+def resolve_relation_candidate(vault_root: Path, candidate_path: str) -> Optional[Path]:
+    raw_candidate = Path(candidate_path)
+    if raw_candidate.is_absolute():
+        return None
+
+    candidate_file = (vault_root / raw_candidate).resolve()
+    wiki_root = (vault_root / "30_Wiki").resolve()
+    try:
+        candidate_file.relative_to(wiki_root)
+    except ValueError:
+        return None
+
+    if not candidate_file.exists() or not candidate_file.is_file():
+        return None
+    return candidate_file
 
 
 def retrieve_lexical_notes(vault_root: Path, question: str) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
@@ -177,6 +196,7 @@ def retrieve_lexical_notes(vault_root: Path, question: str) -> Tuple[List[Dict[s
 
 def expand_relation_notes(
     vault_root: Path,
+    question: str,
     synthesis_notes: List[Dict[str, object]],
     small_notes: List[Dict[str, object]],
 ) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
@@ -188,9 +208,9 @@ def expand_relation_notes(
     if not edges:
         return synthesis_notes, small_notes
 
-    anchor_paths = {str(note["path"]) for note in anchors}
-    seen_paths = set(anchor_paths)
-    related_entries: List[Tuple[int, Dict[str, object]]] = []
+    anchor_scores = {str(note["path"]): int(note.get("score", 0)) for note in anchors}
+    anchor_paths = set(anchor_scores)
+    related_entries: Dict[str, Dict[str, object]] = {}
 
     for edge in edges:
         relation = str(edge.get("relation", ""))
@@ -206,16 +226,21 @@ def expand_relation_notes(
         target_note = str(edge.get("target_note", ""))
         if source_note in anchor_paths:
             candidate_path = target_note
+            anchor_path = source_note
         elif target_note in anchor_paths:
             candidate_path = source_note
+            anchor_path = target_note
         else:
             continue
 
-        if not candidate_path or candidate_path in seen_paths:
+        if not candidate_path:
             continue
 
-        candidate_file = vault_root / candidate_path
-        if not candidate_file.exists():
+        candidate_file = resolve_relation_candidate(vault_root, candidate_path)
+        if not candidate_file:
+            continue
+        candidate_key = candidate_file.resolve().relative_to(vault_root.resolve()).as_posix()
+        if candidate_key in anchor_paths:
             continue
 
         metadata, body = read_note(candidate_file)
@@ -223,22 +248,31 @@ def expand_relation_notes(
         if note_type not in SUPPORTED_NOTE_TYPES:
             continue
 
-        entry = build_note_entry(vault_root, candidate_file, metadata, body, bonus)
+        anchor_score = anchor_scores.get(anchor_path, 0)
+        lexical_score = score_note(question, metadata, body)
+        bounded_score = max(1, min(lexical_score + bonus, max(anchor_score - 1, 1)))
+
+        existing = related_entries.get(candidate_key)
+        if existing and int(existing.get("score", 0)) >= bounded_score:
+            continue
+
+        entry = build_note_entry(vault_root, candidate_file, metadata, body, bounded_score)
         entry["_relation_bonus"] = bonus
-        related_entries.append((bonus, entry))
-        seen_paths.add(candidate_path)
+        entry["_anchor_path"] = anchor_path
+        related_entries[candidate_key] = entry
 
     if not related_entries:
         return synthesis_notes, small_notes
 
-    related_entries.sort(
-        key=lambda item: (item[0], 1 if item[1].get("note_type") == "synthesis" else 0),
+    ranked_related_entries = sorted(
+        related_entries.values(),
+        key=lambda entry: (int(entry.get("score", 0)), 1 if entry.get("note_type") == "synthesis" else 0),
         reverse=True,
     )
 
     expanded_synthesis = list(synthesis_notes)
     expanded_small = list(small_notes)
-    for _, entry in related_entries:
+    for entry in ranked_related_entries:
         if entry.get("note_type") == "synthesis":
             expanded_synthesis.append(entry)
         else:
@@ -253,7 +287,7 @@ def retrieve_notes(vault_root: Path, question: str, mode: str) -> Tuple[List[Dic
     synthesis_notes, small_notes = retrieve_lexical_notes(vault_root, question)
     if mode != "ask":
         return synthesis_notes, small_notes
-    return expand_relation_notes(vault_root, synthesis_notes, small_notes)
+    return expand_relation_notes(vault_root, question, synthesis_notes, small_notes)
 
 
 def local_answer(question: str, synthesis_notes: List[Dict[str, object]], small_notes: List[Dict[str, object]]) -> Tuple[str, List[str]]:
