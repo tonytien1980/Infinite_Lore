@@ -1,6 +1,6 @@
 # Multimodal Ingestion Specification
 
-**Status:** Draft v1 for review
+**Status:** Delivered v1
 **Date:** 2026-04-10
 **Project:** Infinite Lore
 
@@ -68,12 +68,19 @@ The current importer already supports:
 - `docx`
 - `pdf`
 
-The current importer explicitly does not yet support:
+The current importer now supports:
 
 - `pptx`
-- image OCR / screenshot understanding
+- bounded image import for:
+  - `png`
+  - `jpg`
+  - `jpeg`
+  - `webp`
 
-Those paths are currently reserved in `tools/import_bundle.py`.
+It still does not yet provide:
+
+- rich OCR by default
+- full screenshot / diagram understanding
 
 ## 6. In Scope
 
@@ -302,4 +309,3 @@ Phase 9 succeeds when:
 - imported multimodal bundles remain compatible with compile and Ask
 - `Graphify` reuse is real and selective, not cosmetic
 - the new lane makes the library more useful without turning the product into a graph tool
-

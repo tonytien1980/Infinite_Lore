@@ -191,6 +191,26 @@ Reference files:
 - `docs/2026-04-10-relation-aware-retrieval-spec.md`
 - `docs/2026-04-10-relation-aware-retrieval-implementation-plan.md`
 
+### 4.9 Multimodal Ingestion
+
+Completed:
+
+- shared multimodal detection helpers
+- local `pptx` raw bundle support
+- local image raw bundle support for:
+  - `png`
+  - `jpg`
+  - `jpeg`
+  - `webp`
+- controlled multimodal import error boundaries
+- first-pass image summary contract with conservative review posture
+
+Reference files:
+
+- `docs/2026-04-10-multimodal-ingestion-spec.md`
+- `docs/2026-04-10-multimodal-ingestion-implementation-plan.md`
+- `docs/2026-04-10-graphify-multimodal-code-reuse-audit.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -210,6 +230,7 @@ As of this roadmap update, the verified baseline is:
 - compile refreshes the relation artifact after wiki updates
 - Ask now uses bounded relation-aware expansion after lexical anchors
 - Ask results expose visible relation trace alongside source trace
+- raw import now supports first-pass `pptx` and bounded image ingestion
 - tests pass
 - health check passes
 
@@ -233,6 +254,7 @@ The approved delivery order is:
 6. Reflection / feedback layer
 7. Automation / watcher layer
 8. Relation-aware retrieval
+9. Multimodal ingestion
 
 This order should not be reversed unless there is a strong reason.
 
@@ -265,34 +287,31 @@ Background automation, watchers, and batch jobs are multipliers. They should be 
 
 ## 8. Current Phase
 
-### Phase 8: Relation-Aware Retrieval
+### Phase 9: Multimodal Ingestion
 
-This phase is now delivered and should be treated as the current Ask retrieval baseline.
+This phase is now delivered and should be treated as the current importer baseline.
 
-The Ask layer now works in this order:
+The importer now supports:
 
-1. lexical retrieval over compiled wiki notes
-2. anchored note selection
-3. bounded relation expansion through:
-   - `derived-from`
-   - `shares-source`
-4. grounded answer generation or abstention
+- `pptx`
+- bounded first-pass image import
+
+while keeping the existing raw bundle contract and downstream compile / Ask flow intact.
 
 The purpose of this phase is:
 
-- improve Ask quality without turning the product into a graph tool
-- keep relation use explicit and confidence-bounded
-- make it visible why extra notes were pulled into an answer
-- keep multimodal as the next adjacent expansion, not part of this lane
+- make slide decks usable inside the same library workflow
+- make images and screenshots first-class intake instead of reserved errors
+- stay honest about image quality limits instead of pretending full OCR / vision understanding already exists
+- absorb only the Graphify engine parts that genuinely help intake
 
 ### This phase covers
 
-- generated relation artifact in `00_System/relation-index.json`
-- exclusion of reflection / correction / journal / project-log / artifact notes from the relation layer
-- compile-triggered relation rebuild
-- relation-aware Ask retrieval that still requires lexical anchors
-- visible `relation_trace` in Ask results
-- Workbench Ask UI support for a compact relation-trace section
+- shared multimodal detection helpers
+- `pptx` extraction into raw bundles
+- bounded image summary import into raw bundles
+- conservative confidence and review semantics for image imports
+- controlled import-boundary errors for malformed multimodal files
 
 ## 9. Phase Boundaries
 
@@ -349,6 +368,17 @@ Definition of done:
 - Ask exposes a compact `relation_trace` in the API and Workbench UI
 - multimodal remains explicitly out of scope for this delivered phase
 
+### Phase 9: Multimodal Ingestion
+
+Definition of done:
+
+- `pptx` imports become real raw bundles instead of reserved errors
+- supported image imports become real raw bundles instead of reserved errors
+- multimodal imports preserve the existing `source.* -> content.md -> metadata.md -> assets/` contract
+- malformed multimodal inputs fail at the importer boundary with controlled errors
+- image imports remain explicit about confidence and review requirements
+- compile and Ask continue to work on top of the same raw bundle pipeline
+
 ## 10. Things We Are Explicitly Avoiding
 
 Do not drift into these unless explicitly re-approved:
@@ -375,11 +405,11 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Review and approve the Phase 9 multimodal ingestion spec and implementation plan, then decide whether to execute that lane immediately.`
+`Use the delivered Phase 9 baseline, then decide whether to deepen multimodal quality next through richer OCR / screenshot understanding or another adjacent lane.`
 
 ## 13. Future Adoption Direction
 
-Phase 8 is now delivered.
+Phase 9 is now delivered.
 
 The next meaningful capability expansion should not be a graph UI.
 
@@ -389,7 +419,7 @@ It should be selective adoption of Graphify-inspired engine capabilities:
 - watcher behavior split by cost
 - explicit relation extraction schema
 - confidence-labeled relations
-- multimodal expansion as the next adjacent lane
+- deeper multimodal quality after the current bounded first pass
 
 Reference:
 

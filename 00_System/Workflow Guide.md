@@ -31,6 +31,30 @@ python3 tools/import_bundle.py --source <path-or-url> --domain <primary-domain>
 
 This creates a raw bundle in `20_Raw/inbox/`, then automatically produces source-grounded wiki notes in `30_Wiki/<domain>/`.
 
+The current importer now supports:
+
+- text-first formats:
+  - `txt`
+  - `md`
+  - `html`
+  - web article captures
+  - `docx`
+  - `pdf`
+- first-pass multimodal formats:
+  - `pptx`
+  - images:
+    - `png`
+    - `jpg`
+    - `jpeg`
+    - `webp`
+
+Current multimodal behavior is intentionally bounded:
+
+- `pptx` imports normalize slide text into `content.md`
+- first-pass image imports produce a bounded structural summary
+- image imports stay `review_required: true`
+- the original source file is still preserved inside the raw bundle
+
 ## Workbench UI
 
 Run the local Workbench UI with:
@@ -76,7 +100,7 @@ Use the Workbench Ask page as the main knowledge entry surface.
   - note grounding
   - source trace
   - relation trace when extra notes were pulled in through note links
-- multimodal intake remains a later phase; the current Ask layer is still relation-first, not multimodal-first.
+- multimodal intake is now available at the importer layer, but the Ask layer is still relation-first rather than image-understanding-first.
 
 The Query / Ask layer serves the library, not the open internet.
 
