@@ -275,6 +275,7 @@ The approved delivery order is:
 8. Relation-aware retrieval
 9. Multimodal ingestion
 10. Image OCR and screenshot understanding
+11. Workbench V2 redesign
 
 This order should not be reversed unless there is a strong reason.
 
@@ -436,7 +437,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the delivered Phase 10 image baseline to keep OCR-aware image imports aligned with the current raw bundle contract.`
+`Use the delivered Phase 10 image baseline, then redesign Workbench V2 so the product surface catches up with the engine now underneath it.`
 
 ## 13. Future Adoption Direction
 
@@ -463,3 +464,4 @@ Reference:
 - `docs/2026-04-10-graphify-multimodal-code-reuse-audit.md`
 - `docs/2026-04-10-image-ocr-screenshot-understanding-spec.md`
 - `docs/2026-04-10-image-ocr-screenshot-understanding-implementation-plan.md`
+- `docs/2026-04-10-workbench-v2-design-spec.md`
