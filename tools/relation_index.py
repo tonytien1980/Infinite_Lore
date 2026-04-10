@@ -19,6 +19,10 @@ EXCLUDED_NOTE_TYPES = {
     "artifact",
     "artifacts",
 }
+EXCLUDED_LAYERS = {
+    "artifact",
+    "journal",
+}
 
 
 def now_iso() -> str:
@@ -59,7 +63,8 @@ def collect_notes(root: Path) -> List[Dict[str, object]]:
     for path in iter_compiled_wiki_notes(root):
         metadata, _ = read_wiki_note(path)
         note_type = normalize_ref(metadata.get("note_type")).lower()
-        if not note_type or note_type in EXCLUDED_NOTE_TYPES:
+        layer = normalize_ref(metadata.get("layer")).lower()
+        if not note_type or note_type in EXCLUDED_NOTE_TYPES or layer in EXCLUDED_LAYERS:
             continue
 
         notes.append(
@@ -102,6 +107,17 @@ def add_edge(
             "evidence_ref": evidence_ref,
             "updated_at": updated_at,
         }
+    )
+
+
+def edge_identity(edge: Dict[str, object]) -> Tuple[object, ...]:
+    return (
+        edge.get("source_note"),
+        edge.get("target_note"),
+        edge.get("relation"),
+        edge.get("confidence"),
+        edge.get("evidence_type"),
+        edge.get("evidence_ref"),
     )
 
 
@@ -190,7 +206,9 @@ def save_relation_index(root: Path) -> Dict[str, object]:
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         existing = json.loads(target.read_text(encoding="utf-8"))
-        if existing.get("notes") == artifact.get("notes") and existing.get("edges") == artifact.get("edges"):
+        existing_edge_keys = [edge_identity(edge) for edge in existing.get("edges", [])]
+        artifact_edge_keys = [edge_identity(edge) for edge in artifact.get("edges", [])]
+        if existing.get("notes") == artifact.get("notes") and existing_edge_keys == artifact_edge_keys:
             return existing
     target.write_text(json.dumps(artifact, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     return artifact

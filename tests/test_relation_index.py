@@ -1,7 +1,7 @@
 import tempfile
-import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tools.relation_index import build_relation_index, save_relation_index
 
@@ -29,7 +29,6 @@ class RelationIndexTests(unittest.TestCase):
                 ),
                 "# Library Systems\n",
             )
-
             artifact = build_relation_index(root)
 
             self.assertIn("generated_at", artifact)
@@ -298,7 +297,8 @@ class RelationIndexTests(unittest.TestCase):
                 (
                     "---\n"
                     "title: Research Artifact\n"
-                    "note_type: artifact\n"
+                    "layer: artifact\n"
+                    "note_type: deliverable\n"
                     "primary_domain: ai-application\n"
                     "source_refs: [\"raw/research\"]\n"
                     "raw_bundle_ref: 20_Raw/inbox/research\n"
@@ -372,14 +372,29 @@ class RelationIndexTests(unittest.TestCase):
                 ),
                 "# Library Systems\n",
             )
+            write_note(
+                root / "30_Wiki/ai-application/library-systems--concept.md",
+                (
+                    "---\n"
+                    "title: Library Concept\n"
+                    "note_type: concept\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/library\"]\n"
+                    "raw_bundle_ref: 20_Raw/inbox/library\n"
+                    "compiled_from: 30_Wiki/ai-application/library-systems--synthesis.md\n"
+                    "---\n"
+                ),
+                "# Library Concept\n",
+            )
 
-            first = save_relation_index(root)
+            with patch("tools.relation_index.now_iso", return_value="2026-04-10T00:00:00Z"):
+                first = save_relation_index(root)
             target = root / "00_System/relation-index.json"
             first_text = target.read_text(encoding="utf-8")
             first_mtime = target.stat().st_mtime_ns
 
-            time.sleep(0.01)
-            second = save_relation_index(root)
+            with patch("tools.relation_index.now_iso", return_value="2026-04-10T00:00:01Z"):
+                second = save_relation_index(root)
             second_text = target.read_text(encoding="utf-8")
             second_mtime = target.stat().st_mtime_ns
 
