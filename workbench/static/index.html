@@ -56,21 +56,12 @@
                 先提問，再沿著答案、證據與後續工作往下讀，不把首頁做成三欄控制台。
               </p>
             </div>
-            <form id="homeAskForm" class="ask-form compact-prompt">
-              <textarea
-                id="homeAskInput"
-                placeholder="從目前知識庫提問，例如：Infinite Lore 最近整理了哪些 AI workflow 重點？"
-              ></textarea>
-              <div class="ask-actions">
-                <button type="submit" class="secondary-button">帶入主工作區</button>
-              </div>
-            </form>
-            <form id="askForm" class="workspace-top-form">
+            <form id="askForm" class="workspace-top-form ask-form compact-prompt">
               <label class="workspace-top-question">
                 <span>問題</span>
                 <textarea
                   id="askInput"
-                  placeholder="以現有 wiki 為主回答；如果證據不足，系統會直接說明限制。"
+                  placeholder="從目前知識庫提問，例如：Infinite Lore 最近整理了哪些 AI workflow 重點？"
                 ></textarea>
               </label>
               <div class="workspace-top-controls">

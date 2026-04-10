@@ -45,6 +45,10 @@ const askLimits = document.getElementById("askLimits");
 const reflectionList = document.getElementById("reflectionList");
 const reflectionViewAllButton = document.getElementById("reflectionViewAllButton");
 const feedbackInput = document.getElementById("feedbackInput");
+const askForm = document.getElementById("askForm");
+const askInput = document.getElementById("askInput");
+const askMode = document.getElementById("askMode");
+const askSubmitButton = document.getElementById("askSubmitButton");
 const feedbackHint = document.getElementById("feedbackHint");
 const feedbackEditorTitle = document.getElementById("feedbackEditorTitle");
 const feedbackEditorStatus = document.getElementById("feedbackEditorStatus");
@@ -56,7 +60,6 @@ const feedbackConfirmButton = document.getElementById("feedbackConfirmButton");
 const feedbackDiscardButton = document.getElementById("feedbackDiscardButton");
 const draftCorrectionButton = document.getElementById("draftCorrectionButton");
 const draftReflectionButton = document.getElementById("draftReflectionButton");
-const askSubmitButton = document.getElementById("askSubmitButton");
 const inboxSourceStatus = document.getElementById("inboxSourceStatus");
 const inboxScanStatus = document.getElementById("inboxScanStatus");
 const sourceList = document.getElementById("sourceList");
@@ -522,14 +525,6 @@ navLinks.forEach((button) => {
   button.addEventListener("click", () => setPage(button.dataset.page));
 });
 
-document.getElementById("homeAskForm").addEventListener("submit", (event) => {
-  event.preventDefault();
-  document.getElementById("askInput").value = document.getElementById("homeAskInput").value;
-  document.getElementById("askMode").value = "auto";
-  setPage("home");
-  runAsk(document.getElementById("askInput").value, "auto");
-});
-
 function clearDraftEditor(message = "目前沒有草稿。") {
   state.ask.draft = null;
   feedbackEditorTitle.textContent = "草稿審閱";
@@ -603,8 +598,9 @@ function renderReflections() {
 
 function setAskBusy(isBusy) {
   state.ask.askBusy = isBusy;
+  askInput.disabled = isBusy;
+  askMode.disabled = isBusy;
   askSubmitButton.disabled = isBusy;
-  document.getElementById("askMode").disabled = isBusy;
 }
 
 function setFeedbackBusy(isBusy) {
@@ -895,9 +891,9 @@ async function confirmFeedbackDraft() {
   }
 }
 
-document.getElementById("askForm").addEventListener("submit", async (event) => {
+askForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  await runAsk(document.getElementById("askInput").value, document.getElementById("askMode").value);
+  await runAsk(askInput.value, askMode.value);
 });
 
 reflectionViewAllButton.addEventListener("click", () => {
