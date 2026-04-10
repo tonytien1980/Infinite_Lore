@@ -219,9 +219,14 @@ class ImportBundleTests(unittest.TestCase):
             self.assertTrue((bundle / "source.png").exists())
             self.assertTrue((bundle / "content.md").exists())
             self.assertTrue((bundle / "metadata.md").exists())
+            content = self.read(bundle / "content.md")
             metadata = self.read(bundle / "metadata.md")
+            self.assertIn("# Image Import", content)
+            self.assertIn("No OCR text was extracted", content)
             self.assertIn("source_format: png", metadata)
             self.assertIn("conversion_status: converted", metadata)
+            self.assertIn("extraction_confidence: low", metadata)
+            self.assertIn("review_required: true", metadata)
 
     def test_imports_pdf_via_pypdf(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

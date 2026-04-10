@@ -14,6 +14,7 @@ from typing import List, Optional, Tuple
 
 from pypdf import PdfReader
 
+from tools.image_adapter import extract_image_bundle
 from tools.multimodal_detect import MultimodalInputKind, classify_multimodal_input
 from tools.pptx_adapter import extract_pptx_bundle
 
@@ -385,6 +386,26 @@ def convert_pptx(path: Path, source_ref: str) -> ConversionResult:
     )
 
 
+def convert_image(path: Path, source_ref: str) -> ConversionResult:
+    extraction = extract_image_bundle(path)
+    asset_paths = [asset_path for asset_path, _ in extraction.asset_files]
+    return ConversionResult(
+        title=extraction.title,
+        source_filename=f"source{path.suffix.lower()}",
+        source_bytes=path.read_bytes(),
+        content_markdown=normalize_whitespace(extraction.markdown),
+        source_type="local-file",
+        source_ref=source_ref,
+        source_format=path.suffix.lower().lstrip("."),
+        conversion_status="converted",
+        extraction_confidence=extraction.extraction_confidence,
+        review_required=True,
+        warnings=extraction.warnings,
+        asset_paths=asset_paths,
+        asset_files=extraction.asset_files,
+    )
+
+
 def convert_source(source: str) -> ConversionResult:
     kind = detect_source_kind(source)
     data, extension, content_type = read_source_bytes(source)
@@ -408,7 +429,7 @@ def convert_source(source: str) -> ConversionResult:
     if multimodal_kind is MultimodalInputKind.OFFICE and extension == ".pptx":
         return convert_pptx(path, str(path))
     if multimodal_kind is MultimodalInputKind.IMAGE:
-        raise ValueError("Image OCR import is reserved for a later implementation phase")
+        return convert_image(path, str(path))
 
     raise ValueError(f"Unsupported source format: {extension or 'unknown'}")
 
