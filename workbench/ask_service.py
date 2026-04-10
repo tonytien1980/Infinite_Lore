@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -8,6 +9,13 @@ from openai import OpenAI
 
 from tools.wiki_compile import parse_frontmatter
 
+RELATION_INDEX_PATH = Path("00_System/relation-index.json")
+SUPPORTED_NOTE_TYPES = {"synthesis", "concept", "framework", "question", "reference"}
+RELATION_CONFIDENCE_BONUS = {
+    "EXTRACTED": 3,
+    "INFERRED": 1,
+}
+SUPPORTED_RELATIONS = {"derived-from", "shares-source"}
 
 QUERY_PATTERNS = [
     "what notes do i have",
@@ -106,7 +114,35 @@ def score_note(question: str, metadata: Dict[str, object], body: str) -> int:
     return score
 
 
-def retrieve_notes(vault_root: Path, question: str) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
+def load_relation_edges(vault_root: Path) -> List[Dict[str, object]]:
+    relation_index_path = vault_root / RELATION_INDEX_PATH
+    if not relation_index_path.exists():
+        return []
+
+    try:
+        payload = json.loads(relation_index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    edges = payload.get("edges")
+    if not isinstance(edges, list):
+        return []
+    return [edge for edge in edges if isinstance(edge, dict)]
+
+
+def build_note_entry(vault_root: Path, note_path: Path, metadata: Dict[str, object], body: str, score: int) -> Dict[str, object]:
+    return {
+        "path": note_path.relative_to(vault_root).as_posix(),
+        "title": metadata.get("title", note_path.stem),
+        "note_type": metadata.get("note_type"),
+        "primary_domain": metadata.get("primary_domain", ""),
+        "source_refs": metadata.get("source_refs", []),
+        "body": body,
+        "score": score,
+    }
+
+
+def retrieve_lexical_notes(vault_root: Path, question: str) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
     wiki_root = vault_root / "30_Wiki"
     if not wiki_root.exists():
         return [], []
@@ -121,20 +157,12 @@ def retrieve_notes(vault_root: Path, question: str) -> Tuple[List[Dict[str, obje
     for note_path in wiki_root.rglob("*.md"):
         metadata, body = read_note(note_path)
         note_type = metadata.get("note_type")
-        if note_type not in {"synthesis", "concept", "framework", "question", "reference"}:
+        if note_type not in SUPPORTED_NOTE_TYPES:
             continue
         score = score_note(question, metadata, body)
         if score <= 0:
             continue
-        entry = {
-            "path": note_path.relative_to(vault_root).as_posix(),
-            "title": metadata.get("title", note_path.stem),
-            "note_type": note_type,
-            "primary_domain": metadata.get("primary_domain", ""),
-            "source_refs": metadata.get("source_refs", []),
-            "body": body,
-            "score": score,
-        }
+        entry = build_note_entry(vault_root, note_path, metadata, body, score)
         if note_type == "synthesis":
             synthesis.append((score, entry))
         else:
@@ -145,6 +173,87 @@ def retrieve_notes(vault_root: Path, question: str) -> Tuple[List[Dict[str, obje
     synthesis = [item for item in synthesis if item[0] >= 2]
     small_notes = [item for item in small_notes if item[0] >= 2]
     return [item[1] for item in synthesis[:5]], [item[1] for item in small_notes[:5]]
+
+
+def expand_relation_notes(
+    vault_root: Path,
+    synthesis_notes: List[Dict[str, object]],
+    small_notes: List[Dict[str, object]],
+) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
+    anchors = synthesis_notes + small_notes
+    if not anchors:
+        return synthesis_notes, small_notes
+
+    edges = load_relation_edges(vault_root)
+    if not edges:
+        return synthesis_notes, small_notes
+
+    anchor_paths = {str(note["path"]) for note in anchors}
+    seen_paths = set(anchor_paths)
+    related_entries: List[Tuple[int, Dict[str, object]]] = []
+
+    for edge in edges:
+        relation = str(edge.get("relation", ""))
+        confidence = str(edge.get("confidence", ""))
+        if relation not in SUPPORTED_RELATIONS:
+            continue
+
+        bonus = RELATION_CONFIDENCE_BONUS.get(confidence, 0)
+        if bonus <= 0:
+            continue
+
+        source_note = str(edge.get("source_note", ""))
+        target_note = str(edge.get("target_note", ""))
+        if source_note in anchor_paths:
+            candidate_path = target_note
+        elif target_note in anchor_paths:
+            candidate_path = source_note
+        else:
+            continue
+
+        if not candidate_path or candidate_path in seen_paths:
+            continue
+
+        candidate_file = vault_root / candidate_path
+        if not candidate_file.exists():
+            continue
+
+        metadata, body = read_note(candidate_file)
+        note_type = metadata.get("note_type")
+        if note_type not in SUPPORTED_NOTE_TYPES:
+            continue
+
+        entry = build_note_entry(vault_root, candidate_file, metadata, body, bonus)
+        entry["_relation_bonus"] = bonus
+        related_entries.append((bonus, entry))
+        seen_paths.add(candidate_path)
+
+    if not related_entries:
+        return synthesis_notes, small_notes
+
+    related_entries.sort(
+        key=lambda item: (item[0], 1 if item[1].get("note_type") == "synthesis" else 0),
+        reverse=True,
+    )
+
+    expanded_synthesis = list(synthesis_notes)
+    expanded_small = list(small_notes)
+    for _, entry in related_entries:
+        if entry.get("note_type") == "synthesis":
+            expanded_synthesis.append(entry)
+        else:
+            expanded_small.append(entry)
+
+    expanded_synthesis.sort(key=lambda note: int(note.get("score", 0)), reverse=True)
+    expanded_small.sort(key=lambda note: int(note.get("score", 0)), reverse=True)
+    return expanded_synthesis[:5], expanded_small[:5]
+
+
+def retrieve_notes(vault_root: Path, question: str, mode: str) -> Tuple[List[Dict[str, object]], List[Dict[str, object]]]:
+    synthesis_notes, small_notes = retrieve_lexical_notes(vault_root, question)
+    if mode != "ask":
+        return synthesis_notes, small_notes
+    return expand_relation_notes(vault_root, synthesis_notes, small_notes)
 
 
 def local_answer(question: str, synthesis_notes: List[Dict[str, object]], small_notes: List[Dict[str, object]]) -> Tuple[str, List[str]]:
@@ -263,7 +372,7 @@ def answer_question(
     generate_answer: Optional[Callable[..., str]] = None,
 ) -> Dict[str, Any]:
     mode = infer_mode(question, requested_mode)
-    synthesis_notes, small_notes = retrieve_notes(vault_root, question)
+    synthesis_notes, small_notes = retrieve_notes(vault_root, question, mode)
     grounding = synthesis_notes + small_notes
     trace = build_trace(grounding)
     reflections = retrieve_reflections(vault_root, grounding)

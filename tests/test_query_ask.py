@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from workbench.ask_service import infer_mode, answer_question
@@ -50,6 +51,22 @@ class QueryAskTests(unittest.TestCase):
                 "## Source Lineage\n"
                 "- Raw bundle: `20_Raw/inbox/library`\n"
             ),
+        )
+
+    def write_relation_index(self, root: Path, notes: list[dict], edges: list[dict]) -> None:
+        relation_index_path = root / "00_System" / "relation-index.json"
+        relation_index_path.parent.mkdir(parents=True, exist_ok=True)
+        relation_index_path.write_text(
+            json.dumps(
+                {
+                    "generated_at": "2026-04-10T00:00:00Z",
+                    "notes": notes,
+                    "edges": edges,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
         )
 
     def test_infer_mode_prefers_query_for_listing_language(self) -> None:
@@ -235,6 +252,198 @@ class QueryAskTests(unittest.TestCase):
             self.assertEqual(result["answer_source"], "local")
             self.assertIn("does not currently contain enough grounded knowledge", result["answer"])
             self.assertTrue(result["limits"])
+
+    def test_relation_aware_retrieval_expands_from_lexical_anchor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_note(
+                root / "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                (
+                    "---\n"
+                    "title: RAG Foundations\n"
+                    "note_type: synthesis\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/rag\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# RAG Foundations\n\n"
+                    "## Source Summary\n"
+                    "RAG foundations describe retrieval pipelines.\n"
+                ),
+            )
+            write_note(
+                root / "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                (
+                    "---\n"
+                    "title: Chunking Strategy\n"
+                    "note_type: concept\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/rag\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# Chunking Strategy\n\n"
+                    "## Definition\n"
+                    "Chunking strategy sets note boundaries so retrieval preserves context windows.\n"
+                ),
+            )
+            self.write_relation_index(
+                root,
+                notes=[
+                    {
+                        "path": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                        "note_type": "synthesis",
+                        "primary_domain": "ai-application",
+                    },
+                    {
+                        "path": "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                        "note_type": "concept",
+                        "primary_domain": "ai-application",
+                    },
+                ],
+                edges=[
+                    {
+                        "source_note": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                        "target_note": "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                        "relation": "derived-from",
+                        "confidence": "EXTRACTED",
+                    }
+                ],
+            )
+
+            result = answer_question(
+                vault_root=root,
+                question="What does my library say about RAG foundations?",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            grounding_paths = {note["path"] for note in result["grounding"]}
+            self.assertIn("30_Wiki/ai-application/rag-foundations--synthesis.md", grounding_paths)
+            self.assertIn(
+                "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                grounding_paths,
+            )
+
+    def test_relation_aware_retrieval_does_not_override_insufficient_evidence_without_anchor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_note(
+                root / "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                (
+                    "---\n"
+                    "title: Chunking Strategy\n"
+                    "note_type: concept\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/rag\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# Chunking Strategy\n\n"
+                    "## Definition\n"
+                    "Chunking strategy sets note boundaries so retrieval preserves context windows.\n"
+                ),
+            )
+            self.write_relation_index(
+                root,
+                notes=[
+                    {
+                        "path": "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                        "note_type": "concept",
+                        "primary_domain": "ai-application",
+                    }
+                ],
+                edges=[
+                    {
+                        "source_note": "30_Wiki/ai-application/nonexistent-anchor.md",
+                        "target_note": "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                        "relation": "derived-from",
+                        "confidence": "EXTRACTED",
+                    }
+                ],
+            )
+
+            result = answer_question(
+                vault_root=root,
+                question="What does my library know about wafer pricing?",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            self.assertEqual(result["grounding"], [])
+            self.assertIn("does not currently contain enough grounded knowledge", result["answer"])
+            self.assertTrue(result["limits"])
+
+    def test_relation_aware_retrieval_ignores_reflection_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_note(
+                root / "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                (
+                    "---\n"
+                    "title: RAG Foundations\n"
+                    "note_type: synthesis\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/rag\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# RAG Foundations\n\n"
+                    "## Source Summary\n"
+                    "RAG foundations describe retrieval pipelines.\n"
+                ),
+            )
+            write_note(
+                root / "30_Wiki/ai-application/reflection-entry--chunking-gap.md",
+                (
+                    "---\n"
+                    "title: Chunking Gap Reflection\n"
+                    "note_type: reflection-entry\n"
+                    "primary_domain: ai-application\n"
+                    "source_refs: [\"raw/rag\"]\n"
+                    "---\n"
+                ),
+                (
+                    "# Chunking Gap Reflection\n\n"
+                    "## Reflection\n"
+                    "Chunking quality still needs review.\n"
+                ),
+            )
+            self.write_relation_index(
+                root,
+                notes=[
+                    {
+                        "path": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                        "note_type": "synthesis",
+                        "primary_domain": "ai-application",
+                    },
+                    {
+                        "path": "30_Wiki/ai-application/reflection-entry--chunking-gap.md",
+                        "note_type": "reflection-entry",
+                        "primary_domain": "ai-application",
+                    },
+                ],
+                edges=[
+                    {
+                        "source_note": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                        "target_note": "30_Wiki/ai-application/reflection-entry--chunking-gap.md",
+                        "relation": "shares-source",
+                        "confidence": "INFERRED",
+                    }
+                ],
+            )
+
+            result = answer_question(
+                vault_root=root,
+                question="What does my library say about RAG foundations?",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            grounding_paths = {note["path"] for note in result["grounding"]}
+            self.assertIn("30_Wiki/ai-application/rag-foundations--synthesis.md", grounding_paths)
+            self.assertNotIn("30_Wiki/ai-application/reflection-entry--chunking-gap.md", grounding_paths)
 
     def test_ask_mode_ignores_unsupported_provider_routes_for_now(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
