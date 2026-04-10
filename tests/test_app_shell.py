@@ -1,11 +1,13 @@
 import tempfile
 import time
+import sys
 import unittest
 from unittest import mock
 from pathlib import Path
 
 import httpx
 
+from app_shell.main import default_vault_root
 from app_shell.runtime import EmbeddedWorkbenchServer
 
 
@@ -81,6 +83,23 @@ class AppShellRuntimeTests(unittest.TestCase):
 
 
 class AppShellLaunchTests(unittest.TestCase):
+    def test_default_vault_root_uses_frozen_app_bundle_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault_root = Path(tmp)
+            (vault_root / "10_Domains").mkdir(parents=True)
+            (vault_root / "30_Wiki").mkdir(parents=True)
+
+            executable = vault_root / "dist/Infinite Lore.app/Contents/MacOS/Infinite Lore"
+            executable.parent.mkdir(parents=True)
+            executable.write_text("", encoding="utf-8")
+
+            with tempfile.TemporaryDirectory() as cwd_tmp:
+                cwd_root = Path(cwd_tmp)
+                with mock.patch.object(sys, "frozen", True, create=True), mock.patch.object(
+                    sys, "executable", str(executable)
+                ), mock.patch.object(Path, "cwd", return_value=cwd_root):
+                    self.assertEqual(default_vault_root(), vault_root.resolve())
+
     def test_launch_app_starts_server_then_opens_window(self) -> None:
         from app_shell.main import launch_app
 
