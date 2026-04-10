@@ -10,6 +10,8 @@
 - [[00_System/Execution Rules]]
 - [Execution Roadmap](../docs/2026-04-08-execution-roadmap.md)
 - [Graphify Selective Adoption Note](../docs/2026-04-09-graphify-selective-adoption-note.md)
+- [Relation-Aware Retrieval Spec](../docs/2026-04-10-relation-aware-retrieval-spec.md)
+- [Relation-Aware Retrieval Implementation Plan](../docs/2026-04-10-relation-aware-retrieval-implementation-plan.md)
 
 ## Domains
 

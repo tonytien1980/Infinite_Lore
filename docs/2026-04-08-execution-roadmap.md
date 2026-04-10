@@ -312,7 +312,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Finish the Phase 7 docs sync and full verification, then move into Graphify-inspired relation-aware retrieval and multimodal planning.`
+`Review and approve the Phase 8 relation-aware retrieval spec and implementation plan, then decide whether to execute that phase immediately.`
 
 ## 13. Future Adoption Direction
 
@@ -332,3 +332,5 @@ Reference:
 
 - `docs/2026-04-09-graphify-selective-adoption-note.md`
 - `docs/2026-04-09-automation-watcher-spec.md`
+- `docs/2026-04-10-relation-aware-retrieval-spec.md`
+- `docs/2026-04-10-relation-aware-retrieval-implementation-plan.md`
