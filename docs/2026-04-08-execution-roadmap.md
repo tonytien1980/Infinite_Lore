@@ -465,3 +465,4 @@ Reference:
 - `docs/2026-04-10-image-ocr-screenshot-understanding-spec.md`
 - `docs/2026-04-10-image-ocr-screenshot-understanding-implementation-plan.md`
 - `docs/2026-04-10-workbench-v2-design-spec.md`
+- `docs/2026-04-11-workbench-v2-implementation-plan.md`

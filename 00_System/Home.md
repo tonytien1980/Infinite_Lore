@@ -19,6 +19,7 @@
 - [Image OCR And Screenshot Understanding Spec](../docs/2026-04-10-image-ocr-screenshot-understanding-spec.md)
 - [Image OCR And Screenshot Understanding Implementation Plan](../docs/2026-04-10-image-ocr-screenshot-understanding-implementation-plan.md)
 - [Workbench V2 Design Spec](../docs/2026-04-10-workbench-v2-design-spec.md)
+- [Workbench V2 Implementation Plan](../docs/2026-04-11-workbench-v2-implementation-plan.md)
 
 ## Domains
 
