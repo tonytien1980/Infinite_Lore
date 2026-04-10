@@ -9,7 +9,7 @@ datas = [
 ]
 
 a = Analysis(
-    ["tools/run_macos_app.py"],
+    [str(ROOT / "tools" / "run_macos_app.py")],
     pathex=[str(ROOT)],
     binaries=[],
     datas=datas,
