@@ -1,6 +1,7 @@
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import httpx
@@ -60,3 +61,20 @@ class AppShellRuntimeTests(unittest.TestCase):
 
             with self.assertRaises(httpx.ConnectError):
                 httpx.get(base_url, timeout=0.5)
+
+    def test_embedded_server_cleans_up_when_readiness_check_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_vault(root)
+            server = EmbeddedWorkbenchServer(vault_root=root, config_path=root / "workbench.json")
+
+            mock_server = mock.Mock()
+            mock_thread = mock.Mock()
+            with mock.patch("app_shell.runtime.uvicorn.Server", return_value=mock_server), mock.patch(
+                "app_shell.runtime.threading.Thread", return_value=mock_thread
+            ), mock.patch.object(server, "wait_until_ready", side_effect=RuntimeError("boom")):
+                with self.assertRaisesRegex(RuntimeError, "boom"):
+                    server.start()
+
+            self.assertTrue(mock_server.should_exit)
+            mock_thread.join.assert_called_once()

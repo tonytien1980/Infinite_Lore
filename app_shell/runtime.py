@@ -43,7 +43,11 @@ class EmbeddedWorkbenchServer:
         self._server = uvicorn.Server(config)
         self._thread = threading.Thread(target=self._server.run, daemon=True)
         self._thread.start()
-        self.wait_until_ready(timeout=timeout)
+        try:
+            self.wait_until_ready(timeout=timeout)
+        except Exception:
+            self.stop()
+            raise
 
     def wait_until_ready(self, timeout: float = 10.0) -> None:
         deadline = time.time() + timeout
