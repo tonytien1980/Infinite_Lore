@@ -66,21 +66,21 @@ class WorkbenchApiTests(unittest.TestCase):
             response = client.get("/")
 
             self.assertEqual(response.status_code, 200)
+            self.assertIn('lang="zh-Hant"', response.text)
             parser = _WorkbenchRootHtmlParser()
             parser.feed(response.text)
 
-            self.assertEqual(
-                parser.nav_buttons,
-                [
-                    ("home", "首頁"),
-                    ("summary", "摘要"),
-                    ("inbox", "收件匣"),
-                    ("knowledge", "知識庫"),
-                    ("system", "系統"),
-                    ("settings", "設定"),
-                ],
-            )
-            self.assertNotIn(("ask", "Ask"), parser.nav_buttons)
+            page_keys = [page for page, _ in parser.nav_buttons]
+            self.assertEqual(page_keys, ["home", "summary", "inbox", "knowledge", "system", "settings"])
+            self.assertNotIn("ask", page_keys)
+
+            labels_by_page = dict(parser.nav_buttons)
+            self.assertEqual(labels_by_page["home"], "首頁")
+            self.assertEqual(labels_by_page["summary"], "摘要")
+            self.assertEqual(labels_by_page["inbox"], "收件匣")
+            self.assertEqual(labels_by_page["knowledge"], "知識庫")
+            self.assertEqual(labels_by_page["system"], "系統")
+            self.assertEqual(labels_by_page["settings"], "設定")
 
     def test_root_html_makes_home_the_ask_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
