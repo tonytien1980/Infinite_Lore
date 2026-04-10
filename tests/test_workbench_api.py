@@ -145,6 +145,85 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertIn("trace", payload)
             self.assertIn("reflections", payload)
 
+    def test_ask_endpoint_returns_relation_trace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wiki_root = root / "30_Wiki/ai-application"
+            wiki_root.mkdir(parents=True)
+            (wiki_root / "rag-foundations--synthesis.md").write_text(
+                "---\n"
+                "title: RAG Foundations\n"
+                "note_type: synthesis\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/rag\"]\n"
+                "---\n\n"
+                "# RAG Foundations\n\n"
+                "## Source Summary\n"
+                "RAG foundations organize retrieval around grounded notes.\n",
+                encoding="utf-8",
+            )
+            (wiki_root / "rag-foundations--concept--chunking-strategy.md").write_text(
+                "---\n"
+                "title: Chunking Strategy\n"
+                "note_type: concept\n"
+                "primary_domain: ai-application\n"
+                "source_refs: [\"raw/rag\"]\n"
+                "compiled_from: 30_Wiki/ai-application/rag-foundations--synthesis.md\n"
+                "---\n\n"
+                "# Chunking Strategy\n\n"
+                "## Definition\n"
+                "Chunking strategy preserves context windows.\n",
+                encoding="utf-8",
+            )
+            (root / "00_System").mkdir(parents=True)
+            (root / "00_System/relation-index.json").write_text(
+                json.dumps(
+                    {
+                        "generated_at": "2026-04-10T00:00:00Z",
+                        "notes": [
+                            {
+                                "path": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                                "note_type": "synthesis",
+                                "primary_domain": "ai-application",
+                            },
+                            {
+                                "path": "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                                "note_type": "concept",
+                                "primary_domain": "ai-application",
+                            },
+                        ],
+                        "edges": [
+                            {
+                                "source_note": "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md",
+                                "target_note": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                                "relation": "derived-from",
+                                "confidence": "EXTRACTED",
+                                "evidence_type": "compiled_from",
+                                "evidence_ref": "30_Wiki/ai-application/rag-foundations--synthesis.md",
+                                "updated_at": "2026-04-10T00:00:00Z",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post(
+                "/api/ask",
+                json={"question": "What does my library say about RAG foundations?", "mode": "ask"},
+            )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertIn("relation_trace", payload)
+            self.assertTrue(payload["relation_trace"])
+            relation_item = payload["relation_trace"][0]
+            self.assertEqual(relation_item["source_note"], "30_Wiki/ai-application/rag-foundations--concept--chunking-strategy.md")
+            self.assertEqual(relation_item["target_note"], "30_Wiki/ai-application/rag-foundations--synthesis.md")
+            self.assertEqual(relation_item["relation"], "derived-from")
+            self.assertEqual(relation_item["confidence"], "EXTRACTED")
+
     def test_reflection_endpoints_draft_and_confirm(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

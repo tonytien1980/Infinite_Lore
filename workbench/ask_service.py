@@ -251,14 +251,29 @@ def expand_relation_notes(
         anchor_score = anchor_scores.get(anchor_path, 0)
         lexical_score = score_note(question, metadata, body)
         bounded_score = max(1, min(lexical_score + bonus, max(anchor_score - 1, 1)))
+        relation_trace_item = {
+            "source_note": source_note,
+            "target_note": target_note,
+            "relation": relation,
+            "confidence": confidence,
+        }
 
         existing = related_entries.get(candidate_key)
-        if existing and int(existing.get("score", 0)) >= bounded_score:
+        if existing:
+            traces = existing.setdefault("_relation_trace", [])
+            if relation_trace_item not in traces:
+                traces.append(relation_trace_item)
+            if int(existing.get("score", 0)) >= bounded_score:
+                continue
+            existing["score"] = bounded_score
+            existing["_relation_bonus"] = bonus
+            existing["_anchor_path"] = anchor_path
             continue
 
         entry = build_note_entry(vault_root, candidate_file, metadata, body, bounded_score)
         entry["_relation_bonus"] = bonus
         entry["_anchor_path"] = anchor_path
+        entry["_relation_trace"] = [relation_trace_item]
         related_entries[candidate_key] = entry
 
     if not related_entries:
@@ -326,6 +341,32 @@ def build_trace(notes: List[Dict[str, object]]) -> List[Dict[str, object]]:
             seen.add(source_ref)
             traces.append({"source_ref": source_ref, "from_note": note["path"]})
     return traces
+
+
+def build_relation_trace(notes: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    relation_trace: List[Dict[str, object]] = []
+    seen = set()
+    for note in notes:
+        for trace in note.get("_relation_trace", []):
+            if not isinstance(trace, dict):
+                continue
+            source_note = str(trace.get("source_note", ""))
+            target_note = str(trace.get("target_note", ""))
+            relation = str(trace.get("relation", ""))
+            confidence = str(trace.get("confidence", ""))
+            key = (source_note, target_note, relation, confidence)
+            if key in seen:
+                continue
+            seen.add(key)
+            relation_trace.append(
+                {
+                    "source_note": source_note,
+                    "target_note": target_note,
+                    "relation": relation,
+                    "confidence": confidence,
+                }
+            )
+    return relation_trace
 
 
 def retrieve_reflections(vault_root: Path, grounding: List[Dict[str, object]]) -> List[Dict[str, object]]:
@@ -409,6 +450,7 @@ def answer_question(
     synthesis_notes, small_notes = retrieve_notes(vault_root, question, mode)
     grounding = synthesis_notes + small_notes
     trace = build_trace(grounding)
+    relation_trace = build_relation_trace(grounding)
     reflections = retrieve_reflections(vault_root, grounding)
 
     if mode == "query":
@@ -417,6 +459,7 @@ def answer_question(
             "answer": "",
             "grounding": grounding,
             "trace": trace,
+            "relation_trace": relation_trace,
             "reflections": reflections,
             "limits": [] if grounding else ["No matching notes found in the current library."],
             "answer_source": "local",
@@ -429,6 +472,7 @@ def answer_question(
             "answer": answer,
             "grounding": grounding,
             "trace": trace,
+            "relation_trace": relation_trace,
             "reflections": reflections,
             "limits": limits,
             "answer_source": "local",
@@ -448,6 +492,7 @@ def answer_question(
             "answer": answer,
             "grounding": grounding,
             "trace": trace,
+            "relation_trace": relation_trace,
             "reflections": reflections,
             "limits": [],
             "answer_source": "model",
@@ -459,6 +504,7 @@ def answer_question(
         "answer": answer,
         "grounding": grounding,
         "trace": trace,
+        "relation_trace": relation_trace,
         "reflections": reflections,
         "limits": limits,
         "answer_source": "local",

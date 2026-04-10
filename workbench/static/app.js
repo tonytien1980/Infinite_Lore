@@ -18,6 +18,7 @@ const state = {
     answer: "",
     grounding: [],
     trace: [],
+    relationTrace: [],
     limits: [],
     reflections: [],
     reflectionsExpanded: false,
@@ -39,6 +40,7 @@ const systemVaultPath = document.getElementById("systemVaultPath");
 const askAnswer = document.getElementById("askAnswer");
 const askGrounding = document.getElementById("askGrounding");
 const askTrace = document.getElementById("askTrace");
+const askRelationTrace = document.getElementById("askRelationTrace");
 const askLimits = document.getElementById("askLimits");
 const reflectionList = document.getElementById("reflectionList");
 const reflectionViewAllButton = document.getElementById("reflectionViewAllButton");
@@ -552,6 +554,18 @@ function renderAskAnswer() {
   );
 
   renderListStack(
+    askRelationTrace,
+    state.ask.relationTrace,
+    "Relation trace will appear here when notes expand through links.",
+    (item) =>
+      createListItem(
+        item.source_note || "Source note",
+        `${item.relation || "relation"} • ${item.confidence || "confidence"}`,
+        item.target_note || "Target note"
+      )
+  );
+
+  renderListStack(
     askLimits,
     state.ask.limits,
     "Limits and uncertainty will appear here when needed.",
@@ -677,6 +691,7 @@ async function runAsk(question, mode) {
   state.ask.answer = "Thinking through the library…";
   state.ask.grounding = [];
   state.ask.trace = [];
+  state.ask.relationTrace = [];
   state.ask.limits = [];
   state.ask.reflections = [];
   state.ask.reflectionsExpanded = false;
@@ -698,6 +713,7 @@ async function runAsk(question, mode) {
     state.ask.answer = payload.answer || "No answer returned.";
     state.ask.grounding = Array.isArray(payload.grounding) ? payload.grounding : [];
     state.ask.trace = Array.isArray(payload.trace) ? payload.trace : [];
+    state.ask.relationTrace = Array.isArray(payload.relation_trace) ? payload.relation_trace : [];
     state.ask.limits = Array.isArray(payload.limits) ? payload.limits : [];
     state.ask.reflections = Array.isArray(payload.reflections)
       ? payload.reflections
@@ -714,6 +730,7 @@ async function runAsk(question, mode) {
     state.ask.answer = `Ask failed: ${error.message}`;
     state.ask.grounding = [];
     state.ask.trace = [];
+    state.ask.relationTrace = [];
     state.ask.limits = [error.message];
     state.ask.reflections = [];
     state.ask.reflectionsExpanded = false;
