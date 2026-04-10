@@ -110,6 +110,14 @@ def write_test_png(path: Path) -> None:
     image.save(path, format="PNG")
 
 
+def write_malformed_pptx(path: Path) -> None:
+    path.write_bytes(b"not a valid pptx archive")
+
+
+def write_malformed_png(path: Path) -> None:
+    path.write_bytes(b"not a valid png image")
+
+
 class ImportBundleTests(unittest.TestCase):
     def read(self, path: Path) -> str:
         return path.read_text(encoding="utf-8")
@@ -204,6 +212,25 @@ class ImportBundleTests(unittest.TestCase):
             self.assertIn("source_format: pptx", metadata)
             self.assertIn("conversion_status: converted", metadata)
 
+    def test_imports_uppercase_supported_extensions_into_raw_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pptx_source = root / "DECK.PPTX"
+            png_source = root / "PREVIEW.PNG"
+            write_minimal_pptx(pptx_source, slide_title="Uppercase Slide")
+            write_test_png(png_source)
+
+            pptx_bundle = import_source(root, str(pptx_source), "product-strategy")
+            png_bundle = import_source(root, str(png_source), "product-strategy")
+
+            self.assertTrue((pptx_bundle / "source.pptx").exists())
+            self.assertIn("Uppercase Slide", self.read(pptx_bundle / "content.md"))
+            self.assertIn("source_format: pptx", self.read(pptx_bundle / "metadata.md"))
+
+            self.assertTrue((png_bundle / "source.png").exists())
+            self.assertIn("source_format: png", self.read(png_bundle / "metadata.md"))
+            self.assertIn("conversion_status: converted", self.read(png_bundle / "metadata.md"))
+
     def test_imports_png_into_raw_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -225,6 +252,40 @@ class ImportBundleTests(unittest.TestCase):
             self.assertIn("conversion_status: converted", metadata)
             self.assertIn("extraction_confidence: low", metadata)
             self.assertIn("review_required: true", metadata)
+
+    def test_imports_pptx_with_no_extractable_text_still_requires_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "review-needed.pptx"
+            write_minimal_pptx(source, slide_title="")
+
+            bundle = import_source(root, str(source), "product-strategy")
+            content = self.read(bundle / "content.md")
+            metadata = self.read(bundle / "metadata.md")
+
+            self.assertIn("No extractable slide text was found.", content)
+            self.assertIn("conversion_status: converted", metadata)
+            self.assertIn("extraction_confidence: low", metadata)
+            self.assertIn("review_required: true", metadata)
+            self.assertIn("slide 1 extracted no text", metadata)
+
+    def test_malformed_pptx_fails_with_controlled_import_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "broken.pptx"
+            write_malformed_pptx(source)
+
+            with self.assertRaises(ValueError):
+                import_source(root, str(source), "product-strategy")
+
+    def test_malformed_image_fails_with_controlled_import_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "broken.png"
+            write_malformed_png(source)
+
+            with self.assertRaises(ValueError):
+                import_source(root, str(source), "product-strategy")
 
     def test_imports_pdf_via_pypdf(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

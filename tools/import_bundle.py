@@ -367,7 +367,10 @@ def convert_pdf(path: Path, source_ref: str) -> ConversionResult:
 
 
 def convert_pptx(path: Path, source_ref: str) -> ConversionResult:
-    extraction = extract_pptx_bundle(path)
+    try:
+        extraction = extract_pptx_bundle(path)
+    except Exception as exc:
+        raise ValueError(f"Unsupported or unreadable presentation import: {path}") from exc
     asset_paths = [asset_path for asset_path, _ in extraction.asset_files]
     return ConversionResult(
         title=extraction.title,
@@ -387,7 +390,10 @@ def convert_pptx(path: Path, source_ref: str) -> ConversionResult:
 
 
 def convert_image(path: Path, source_ref: str) -> ConversionResult:
-    extraction = extract_image_bundle(path)
+    try:
+        extraction = extract_image_bundle(path)
+    except Exception as exc:
+        raise ValueError(f"Unsupported or unreadable image import: {path}") from exc
     asset_paths = [asset_path for asset_path, _ in extraction.asset_files]
     return ConversionResult(
         title=extraction.title,

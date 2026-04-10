@@ -11,6 +11,16 @@ class MultimodalDetectTests(unittest.TestCase):
             MultimodalInputKind.OFFICE,
         )
 
+    def test_uppercase_supported_extensions_classify_the_same(self) -> None:
+        self.assertEqual(
+            classify_multimodal_input(Path("DECK.PPTX")),
+            MultimodalInputKind.OFFICE,
+        )
+        self.assertEqual(
+            classify_multimodal_input(Path("PREVIEW.PNG")),
+            MultimodalInputKind.IMAGE,
+        )
+
     def test_images_classify_as_image_input(self) -> None:
         for filename in ("image.png", "photo.jpg", "photo.jpeg", "preview.webp"):
             with self.subTest(filename=filename):
