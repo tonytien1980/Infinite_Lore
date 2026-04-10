@@ -98,8 +98,9 @@ class WorkbenchApiTests(unittest.TestCase):
             home_section = home_sections[0]
             self.assertIn("homeAskForm", home_section["ids"])
             self.assertIn("homeAskInput", home_section["ids"])
-            self.assertIn("snapshotCards", home_section["ids"])
-            self.assertIn("askWorkspace", home_section["ids"])
+            self.assertNotIn("recentImports", home_section["ids"])
+            self.assertNotIn("recentKnowledge", home_section["ids"])
+            self.assertNotIn("snapshotCards", home_section["ids"])
 
     def test_dashboard_returns_core_counts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
