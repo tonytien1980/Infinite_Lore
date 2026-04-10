@@ -433,6 +433,7 @@ Reference:
 - `docs/2026-04-10-multimodal-ingestion-implementation-plan.md`
 - `docs/2026-04-10-graphify-multimodal-code-reuse-audit.md`
 - `docs/2026-04-10-image-ocr-screenshot-understanding-spec.md`
+- `docs/2026-04-10-image-ocr-screenshot-understanding-implementation-plan.md`
 
 ## 14. Next Planned Lane
 

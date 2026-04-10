@@ -17,6 +17,7 @@
 - [Multimodal Ingestion Implementation Plan](../docs/2026-04-10-multimodal-ingestion-implementation-plan.md)
 - [Graphify Multimodal Code Reuse Audit](../docs/2026-04-10-graphify-multimodal-code-reuse-audit.md)
 - [Image OCR And Screenshot Understanding Spec](../docs/2026-04-10-image-ocr-screenshot-understanding-spec.md)
+- [Image OCR And Screenshot Understanding Implementation Plan](../docs/2026-04-10-image-ocr-screenshot-understanding-implementation-plan.md)
 
 ## Domains
 
