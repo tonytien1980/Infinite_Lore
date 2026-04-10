@@ -67,13 +67,28 @@ class _WorkbenchRootHtmlParser(HTMLParser):
         if matches != [(page, label)]:
             raise AssertionError(f"{page} nav button label mismatch: expected {(page, label)}, got {matches}")
 
+    def sections_with_class(self, class_name: str) -> List[Dict[str, Any]]:
+        matches: List[Dict[str, Any]] = []
+        for section in self.sections:
+            class_attr = section["attrs"].get("class", "")
+            class_tokens = class_attr.split()
+            if class_name in class_tokens:
+                matches.append(section)
+        return matches
+
+    def section_with_class(self, class_name: str) -> Dict[str, Any]:
+        matches = self.sections_with_class(class_name)
+        if len(matches) != 1:
+            raise AssertionError(f"expected exactly one section with class {class_name!r}, got {len(matches)}")
+        return matches[0]
+
 
 class WorkbenchApiTests(unittest.TestCase):
     def make_client(self, root: Path, config_path: Path) -> TestClient:
         app = create_app(vault_root=root, config_path=config_path)
         return TestClient(app)
 
-    def test_root_html_uses_traditional_chinese_primary_navigation(self) -> None:
+    def test_root_html_homepage_uses_top_middle_bottom_workspace_regions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             client = self.make_client(root, root / "workbench-config.json")
@@ -85,18 +100,32 @@ class WorkbenchApiTests(unittest.TestCase):
             parser.feed(response.text)
 
             self.assertEqual(parser.html_attrs.get("lang"), "zh-Hant")
-            page_keys = [page for page, _ in parser.nav_buttons]
-            self.assertEqual(page_keys, ["home", "summary", "inbox", "knowledge", "system", "settings"])
-            self.assertNotIn("ask", page_keys)
+            for class_name in ("workspace-top", "workspace-answer", "workspace-evidence", "workspace-followup"):
+                self.assertEqual(
+                    len(parser.sections_with_class(class_name)),
+                    1,
+                    msg=f"missing V2 homepage workspace region: {class_name}",
+                )
 
-            parser.assert_nav_button("home", "首頁")
-            parser.assert_nav_button("summary", "摘要")
-            parser.assert_nav_button("inbox", "收件匣")
-            parser.assert_nav_button("knowledge", "知識庫")
-            parser.assert_nav_button("system", "系統")
-            parser.assert_nav_button("settings", "設定")
+            self.assertIn("askForm", parser.section_with_class("workspace-top")["ids"])
+            self.assertIn("askInput", parser.section_with_class("workspace-top")["ids"])
+            self.assertIn("askMode", parser.section_with_class("workspace-top")["ids"])
+            self.assertIn("askSubmitButton", parser.section_with_class("workspace-top")["ids"])
 
-    def test_root_html_makes_home_the_ask_workspace(self) -> None:
+            self.assertIn("askAnswer", parser.section_with_class("workspace-answer")["ids"])
+            self.assertIn("askLimits", parser.section_with_class("workspace-answer")["ids"])
+
+            self.assertIn("askGrounding", parser.section_with_class("workspace-evidence")["ids"])
+            self.assertIn("askTrace", parser.section_with_class("workspace-evidence")["ids"])
+            self.assertIn("askRelationTrace", parser.section_with_class("workspace-evidence")["ids"])
+
+            self.assertIn("reflectionList", parser.section_with_class("workspace-followup")["ids"])
+            self.assertIn("feedbackInput", parser.section_with_class("workspace-followup")["ids"])
+            self.assertIn("draftCorrectionButton", parser.section_with_class("workspace-followup")["ids"])
+            self.assertIn("draftReflectionButton", parser.section_with_class("workspace-followup")["ids"])
+            self.assertIn("feedbackEditorEmpty", parser.section_with_class("workspace-followup")["ids"])
+
+    def test_root_html_keeps_reflection_and_correction_outside_the_answer_block(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             client = self.make_client(root, root / "workbench-config.json")
@@ -107,19 +136,22 @@ class WorkbenchApiTests(unittest.TestCase):
             parser = _WorkbenchRootHtmlParser()
             parser.feed(response.text)
 
-            home_sections = [section for section in parser.sections if section.get("data_page") == "home"]
-            self.assertEqual(len(home_sections), 1)
-            home_section = home_sections[0]
-            self.assertIn("homeAskForm", home_section["ids"])
-            self.assertIn("homeAskInput", home_section["ids"])
-            self.assertIn("askForm", home_section["ids"])
+            answer_section = parser.section_with_class("workspace-answer")
+            followup_section = parser.section_with_class("workspace-followup")
 
-            summary_sections = [section for section in parser.sections if section.get("data_page") == "summary"]
-            self.assertEqual(len(summary_sections), 1)
-            summary_section = summary_sections[0]
-            self.assertIn("recentImports", summary_section["ids"])
-            self.assertIn("recentKnowledge", summary_section["ids"])
-            self.assertIn("snapshotCards", summary_section["ids"])
+            self.assertIn("askAnswer", answer_section["ids"])
+            self.assertIn("askLimits", answer_section["ids"])
+            self.assertNotIn("reflectionList", answer_section["ids"])
+            self.assertNotIn("feedbackInput", answer_section["ids"])
+            self.assertNotIn("draftCorrectionButton", answer_section["ids"])
+            self.assertNotIn("draftReflectionButton", answer_section["ids"])
+            self.assertNotIn("feedbackEditorEmpty", answer_section["ids"])
+
+            self.assertIn("reflectionList", followup_section["ids"])
+            self.assertIn("feedbackInput", followup_section["ids"])
+            self.assertIn("draftCorrectionButton", followup_section["ids"])
+            self.assertIn("draftReflectionButton", followup_section["ids"])
+            self.assertIn("feedbackEditorEmpty", followup_section["ids"])
 
     def test_dashboard_returns_core_counts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
