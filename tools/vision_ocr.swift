@@ -1,9 +1,5 @@
 import Foundation
 
-#if canImport(AppKit) && canImport(Vision)
-import AppKit
-import Vision
-
 struct OcrPayload: Encodable {
     let engine: String
     let status: String
@@ -14,6 +10,21 @@ struct OcrPayload: Encodable {
     let warning: String
 }
 
+func exitCode(for status: String) -> Int32 {
+    switch status {
+    case "success", "no-text", "unavailable":
+        return 0
+    case "failed":
+        return 1
+    default:
+        return 1
+    }
+}
+
+func fallbackJSONString(status: String, warning: String) -> String {
+    return "{\"engine\":\"apple-vision\",\"status\":\"\(status)\",\"text\":\"\",\"lines\":[],\"line_count\":0,\"region_count\":0,\"warning\":\"\(warning)\"}"
+}
+
 func emit(_ payload: OcrPayload) -> Never {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.withoutEscapingSlashes]
@@ -22,11 +33,16 @@ func emit(_ payload: OcrPayload) -> Never {
        let output = String(data: data, encoding: .utf8) {
         print(output)
     } else {
-        print("{\"engine\":\"apple-vision\",\"status\":\"failed\",\"text\":\"\",\"lines\":[],\"line_count\":0,\"region_count\":0,\"warning\":\"failed to encode JSON\"}")
+        print(fallbackJSONString(status: "failed", warning: "failed to encode JSON"))
+        exit(1)
     }
 
-    exit(payload.status == "failed" ? 1 : 0)
+    exit(exitCode(for: payload.status))
 }
+
+#if canImport(AppKit) && canImport(Vision)
+import AppKit
+import Vision
 
 func cgImage(from path: String) -> CGImage? {
     guard let image = NSImage(contentsOfFile: path) else {
@@ -124,18 +140,8 @@ emit(
 )
 
 #else
-
-struct OcrPayload: Encodable {
-    let engine: String
-    let status: String
-    let text: String
-    let lines: [String]
-    let line_count: Int
-    let region_count: Int
-    let warning: String
-}
-
-let payload = OcrPayload(
+emit(
+    OcrPayload(
     engine: "apple-vision",
     status: "unavailable",
     text: "",
@@ -144,13 +150,6 @@ let payload = OcrPayload(
     region_count: 0,
     warning: "Vision OCR is unavailable on this platform"
 )
-
-let encoder = JSONEncoder()
-if let data = try? encoder.encode(payload),
-   let output = String(data: data, encoding: .utf8) {
-    print(output)
-} else {
-    print("{\"engine\":\"apple-vision\",\"status\":\"unavailable\",\"text\":\"\",\"lines\":[],\"line_count\":0,\"region_count\":0,\"warning\":\"Vision OCR is unavailable on this platform\"}")
-}
+)
 
 #endif

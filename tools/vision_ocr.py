@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 _ALLOWED_STATUSES = {"success", "no-text", "unavailable", "failed"}
+_VISION_OCR_TIMEOUT_SECONDS = 5
 
 
 @dataclass
@@ -19,6 +20,18 @@ class VisionOcrResult:
     line_count: int
     region_count: int
     warning: str
+
+
+def _failed_result(warning: str, status: str = "failed") -> VisionOcrResult:
+    return VisionOcrResult(
+        engine="apple-vision",
+        status=_normalize_status(status),
+        text="",
+        lines=[],
+        line_count=0,
+        region_count=0,
+        warning=warning.strip(),
+    )
 
 
 def _normalize_status(value: Any) -> str:
@@ -45,14 +58,11 @@ def _extract_json_object(raw: str) -> Dict[str, Any]:
     if not text:
         raise ValueError("missing JSON output")
 
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start < 0 or end < start:
-            raise ValueError("missing JSON object")
-        parsed = json.loads(text[start : end + 1])
+    candidate_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not candidate_lines:
+        raise ValueError("missing JSON output")
+
+    parsed = json.loads(candidate_lines[-1])
 
     if not isinstance(parsed, dict):
         raise ValueError("JSON payload must be an object")
@@ -87,15 +97,7 @@ def _result_from_payload(payload: Dict[str, Any]) -> VisionOcrResult:
 def run_vision_ocr(path: Path) -> VisionOcrResult:
     swift = shutil.which("swift")
     if not swift:
-        return VisionOcrResult(
-            engine="apple-vision",
-            status="unavailable",
-            text="",
-            lines=[],
-            line_count=0,
-            region_count=0,
-            warning="swift runtime unavailable",
-        )
+        return _failed_result("swift runtime unavailable", status="unavailable")
 
     script_path = Path(__file__).with_name("vision_ocr.swift")
 
@@ -105,31 +107,20 @@ def run_vision_ocr(path: Path) -> VisionOcrResult:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_VISION_OCR_TIMEOUT_SECONDS,
         )
+    except subprocess.TimeoutExpired:
+        return _failed_result("vision OCR process timed out")
     except OSError as exc:
-        return VisionOcrResult(
-            engine="apple-vision",
-            status="unavailable",
-            text="",
-            lines=[],
-            line_count=0,
-            region_count=0,
-            warning=str(exc),
-        )
+        return _failed_result(str(exc), status="unavailable")
+    except (UnicodeDecodeError, ValueError) as exc:
+        return _failed_result(f"vision OCR process output could not be decoded: {exc}")
 
     try:
         payload = _extract_json_object(completed.stdout)
     except (ValueError, json.JSONDecodeError):
         warning = completed.stderr.strip() or "vision OCR returned invalid JSON"
-        return VisionOcrResult(
-            engine="apple-vision",
-            status="failed",
-            text="",
-            lines=[],
-            line_count=0,
-            region_count=0,
-            warning=warning,
-        )
+        return _failed_result(warning)
 
     result = _result_from_payload(payload)
     if result.status == "failed" and not result.warning:

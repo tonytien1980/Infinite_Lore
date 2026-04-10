@@ -43,6 +43,36 @@ class VisionOcrTests(unittest.TestCase):
         self.assertEqual(result.status, "unavailable")
         self.assertEqual(result.text, "")
 
+    def test_run_vision_ocr_returns_failed_when_process_times_out(self) -> None:
+        with patch("shutil.which", return_value="/usr/bin/swift"), patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(
+                cmd=["swift"],
+                timeout=5,
+            ),
+        ):
+            result = run_vision_ocr(Path("/tmp/sample.png"))
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.text, "")
+        self.assertIn("timed out", result.warning)
+
+    def test_run_vision_ocr_rejects_noisy_non_json_output(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=["swift"],
+            returncode=0,
+            stdout='prefix {"status":"success"} suffix\n',
+            stderr="",
+        )
+
+        with patch("shutil.which", return_value="/usr/bin/swift"), patch(
+            "subprocess.run", return_value=completed
+        ):
+            result = run_vision_ocr(Path("/tmp/sample.png"))
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.text, "")
+
 
 if __name__ == "__main__":
     unittest.main()
