@@ -203,6 +203,29 @@ class WikiCompileTests(unittest.TestCase):
                 )
             )
 
+    def test_compile_recovers_from_invalid_existing_relation_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "20_Raw/inbox").mkdir(parents=True)
+            (root / "30_Wiki/ai-application").mkdir(parents=True)
+            (root / "10_Domains/ai-application").mkdir(parents=True)
+            (root / "10_Domains/ai-application/index.md").write_text("# AI Application\n", encoding="utf-8")
+            relation_index_path = root / "00_System/relation-index.json"
+            relation_index_path.parent.mkdir(parents=True, exist_ok=True)
+            relation_index_path.write_text("{not valid json", encoding="utf-8")
+
+            source = root / "compile-safe.txt"
+            source.write_text(
+                "# Compile Safety\n\nGenerated artifacts should be rebuildable if they drift out of shape.\n",
+                encoding="utf-8",
+            )
+            bundle = import_source(root, str(source), "ai-application")
+
+            result = compile_bundle(root, bundle)
+
+            relation_index = json.loads(relation_index_path.read_text(encoding="utf-8"))
+            self.assertIn(result["synthesis_path"], {note["path"] for note in relation_index["notes"]})
+
 
 if __name__ == "__main__":
     unittest.main()

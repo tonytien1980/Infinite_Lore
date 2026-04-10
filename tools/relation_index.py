@@ -204,8 +204,13 @@ def save_relation_index(root: Path) -> Dict[str, object]:
     artifact = build_relation_index(root)
     target = root / RELATION_INDEX_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
+    existing = None
     if target.exists():
-        existing = json.loads(target.read_text(encoding="utf-8"))
+        try:
+            existing = json.loads(target.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            existing = None
+    if isinstance(existing, dict):
         existing_edge_keys = [edge_identity(edge) for edge in existing.get("edges", [])]
         artifact_edge_keys = [edge_identity(edge) for edge in artifact.get("edges", [])]
         if existing.get("notes") == artifact.get("notes") and existing_edge_keys == artifact_edge_keys:
