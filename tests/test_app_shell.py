@@ -40,7 +40,7 @@ class AppShellRuntimeTests(unittest.TestCase):
             try:
                 response = httpx.get(server.base_url, timeout=2.0)
                 self.assertEqual(response.status_code, 200)
-                self.assertIn("知識工作台", response.text)
+                self.assertIn('data-page="home"', response.text)
             finally:
                 server.stop()
 
@@ -51,11 +51,12 @@ class AppShellRuntimeTests(unittest.TestCase):
             server = EmbeddedWorkbenchServer(vault_root=root, config_path=root / "workbench.json")
 
             server.start()
-            base_url = server.base_url
-            response = httpx.get(f"{base_url}/api/system/health", timeout=2.0)
-            self.assertEqual(response.status_code, 200)
+            try:
+                base_url = server.base_url
+                response = httpx.get(f"{base_url}/api/system/health", timeout=2.0)
+                self.assertEqual(response.status_code, 200)
+            finally:
+                server.stop()
 
-            server.stop()
-
-            with self.assertRaises(Exception):
+            with self.assertRaises(httpx.ConnectError):
                 httpx.get(base_url, timeout=0.5)
