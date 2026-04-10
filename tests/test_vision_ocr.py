@@ -26,7 +26,9 @@ class VisionOcrTests(unittest.TestCase):
             stderr="",
         )
 
-        with patch("subprocess.run", return_value=completed):
+        with patch("shutil.which", return_value="/usr/bin/swift"), patch(
+            "subprocess.run", return_value=completed
+        ):
             result = run_vision_ocr(Path("/tmp/sample.png"))
 
         self.assertEqual(result.engine, "apple-vision")
