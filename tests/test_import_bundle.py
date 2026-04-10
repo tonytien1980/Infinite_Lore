@@ -122,6 +122,14 @@ class ImportBundleTests(unittest.TestCase):
     def read(self, path: Path) -> str:
         return path.read_text(encoding="utf-8")
 
+    def assert_image_bundle_ocr_metadata(self, metadata: str) -> None:
+        self.assertIn("ocr_engine:", metadata)
+        self.assertIn("ocr_attempted:", metadata)
+        self.assertIn("ocr_status:", metadata)
+        self.assertIn("ocr_text_present:", metadata)
+        self.assertIn("image_interpretation_mode:", metadata)
+        self.assertIn("image_kind_guess:", metadata)
+
     def test_imports_text_file_into_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -228,8 +236,10 @@ class ImportBundleTests(unittest.TestCase):
             self.assertIn("source_format: pptx", self.read(pptx_bundle / "metadata.md"))
 
             self.assertTrue((png_bundle / "source.png").exists())
-            self.assertIn("source_format: png", self.read(png_bundle / "metadata.md"))
-            self.assertIn("conversion_status: converted", self.read(png_bundle / "metadata.md"))
+            png_metadata = self.read(png_bundle / "metadata.md")
+            self.assertIn("source_format: png", png_metadata)
+            self.assertIn("conversion_status: converted", png_metadata)
+            self.assert_image_bundle_ocr_metadata(png_metadata)
 
     def test_imports_png_into_raw_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -252,6 +262,7 @@ class ImportBundleTests(unittest.TestCase):
             self.assertIn("conversion_status: converted", metadata)
             self.assertIn("extraction_confidence: low", metadata)
             self.assertIn("review_required: true", metadata)
+            self.assert_image_bundle_ocr_metadata(metadata)
 
     def test_imports_pptx_with_no_extractable_text_still_requires_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
