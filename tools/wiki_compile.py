@@ -430,6 +430,10 @@ def compile_bundle(root: Path, bundle_path: Path) -> Dict[str, object]:
         index_path.write_text(f"# {domain}\n", encoding="utf-8")
     update_domain_index(index_path, synthesis_rel, title)
 
+    from tools.relation_index import save_relation_index
+
+    save_relation_index(root)
+
     return {
         "synthesis_path": synthesis_rel,
         "small_note_paths": small_note_paths,

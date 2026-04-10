@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -148,6 +149,59 @@ class WikiCompileTests(unittest.TestCase):
             self.assertIn(result["synthesis_path"], metadata_text)
             self.assertIn("## Recently Compiled", index_text)
             self.assertIn("repeatable-strategy--synthesis", index_text)
+
+    def test_compile_refreshes_relation_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "20_Raw/inbox").mkdir(parents=True)
+            wiki_dir = root / "30_Wiki/ai-application"
+            wiki_dir.mkdir(parents=True)
+            (root / "10_Domains/ai-application").mkdir(parents=True)
+            (root / "10_Domains/ai-application/index.md").write_text("# AI Application\n", encoding="utf-8")
+
+            source = root / "shared-source.txt"
+            source.write_text(
+                "# Knowledge Graphs\n\nRelation-aware retrieval should surface linked notes.\n",
+                encoding="utf-8",
+            )
+            source_ref = str(source)
+            existing = wiki_dir / "linked-concept.md"
+            existing.write_text(
+                "---\n"
+                "id: linked-concept\n"
+                "title: Linked Concept\n"
+                "layer: wiki\n"
+                "note_type: concept\n"
+                "primary_domain: ai-application\n"
+                "related_domains: []\n"
+                "privacy: private\n"
+                "status: active\n"
+                "created_at: 2026-04-08T00:00:00Z\n"
+                "updated_at: 2026-04-08T00:00:00Z\n"
+                f'source_refs: ["{source_ref}"]\n'
+                "confidence: medium\n"
+                "last_compiled_at: 2026-04-08T00:00:00Z\n"
+                "last_reviewed_at:\n"
+                "raw_bundle_ref: 20_Raw/inbox/linked-concept\n"
+                "compiled_from: 20_Raw/inbox/linked-concept/content.md\n"
+                "---\n\n# Linked Concept\n",
+                encoding="utf-8",
+            )
+            bundle = import_source(root, str(source), "ai-application")
+
+            result = compile_bundle(root, bundle)
+
+            relation_index_path = root / "00_System/relation-index.json"
+            self.assertTrue(relation_index_path.exists())
+            relation_index = json.loads(relation_index_path.read_text(encoding="utf-8"))
+            self.assertIn(result["synthesis_path"], {note["path"] for note in relation_index["notes"]})
+            self.assertTrue(
+                any(
+                    edge["relation"] == "shares-source"
+                    and result["synthesis_path"] in {edge["source_note"], edge["target_note"]}
+                    for edge in relation_index["edges"]
+                )
+            )
 
 
 if __name__ == "__main__":
