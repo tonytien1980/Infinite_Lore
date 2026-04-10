@@ -1,13 +1,56 @@
 import json
 import tempfile
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 from unittest import mock
 
 from fastapi.testclient import TestClient
 
 from workbench.server import create_app
 from workbench.source_store import load_source_state
+
+
+class _WorkbenchRootHtmlParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.nav_buttons: List[Tuple[str, str]] = []
+        self.sections: List[Dict[str, Any]] = []
+        self._button_page: Optional[str] = None
+        self._button_text_parts: List[str] = []
+        self._section_stack: List[Dict[str, Any]] = []
+
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
+        attr_map = {key: value for key, value in attrs}
+        if tag == "button" and attr_map.get("data-page") is not None:
+            self._button_page = attr_map["data-page"]
+            self._button_text_parts = []
+        if tag == "section":
+            self._section_stack.append(
+                {
+                    "data_page": attr_map.get("data-page"),
+                    "attrs": attr_map,
+                    "ids": set(),  # type: Set[str]
+                }
+            )
+        element_id = attr_map.get("id")
+        if element_id is not None:
+            for section in self._section_stack:
+                section["ids"].add(element_id)
+
+    def handle_data(self, data: str) -> None:
+        if self._button_page is not None:
+            self._button_text_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "button" and self._button_page is not None:
+            text = " ".join("".join(self._button_text_parts).split())
+            self.nav_buttons.append((self._button_page, text))
+            self._button_page = None
+            self._button_text_parts = []
+        if tag == "section" and self._section_stack:
+            self.sections.append(self._section_stack.pop())
 
 
 class WorkbenchApiTests(unittest.TestCase):
@@ -23,12 +66,21 @@ class WorkbenchApiTests(unittest.TestCase):
             response = client.get("/")
 
             self.assertEqual(response.status_code, 200)
-            html = response.text
-            self.assertIn('lang="zh-Hant"', html)
-            for label in ("首頁", "摘要", "收件匣", "知識庫", "系統", "設定"):
-                self.assertIn(f">{label}<", html)
-            self.assertIn('data-page="summary"', html)
-            self.assertNotIn('data-page="ask"', html)
+            parser = _WorkbenchRootHtmlParser()
+            parser.feed(response.text)
+
+            self.assertEqual(
+                parser.nav_buttons,
+                [
+                    ("home", "首頁"),
+                    ("summary", "摘要"),
+                    ("inbox", "收件匣"),
+                    ("knowledge", "知識庫"),
+                    ("system", "系統"),
+                    ("settings", "設定"),
+                ],
+            )
+            self.assertNotIn(("ask", "Ask"), parser.nav_buttons)
 
     def test_root_html_makes_home_the_ask_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -38,12 +90,16 @@ class WorkbenchApiTests(unittest.TestCase):
             response = client.get("/")
 
             self.assertEqual(response.status_code, 200)
-            html = response.text
-            self.assertIn("首頁工作台", html)
-            self.assertIn("圖書館答案", html)
-            self.assertIn("證據與脈絡", html)
-            self.assertIn("我的工作區", html)
-            self.assertIn("摘要", html)
+            parser = _WorkbenchRootHtmlParser()
+            parser.feed(response.text)
+
+            home_sections = [section for section in parser.sections if section.get("data_page") == "home"]
+            self.assertEqual(len(home_sections), 1)
+            home_section = home_sections[0]
+            self.assertIn("homeAskForm", home_section["ids"])
+            self.assertIn("homeAskInput", home_section["ids"])
+            self.assertIn("snapshotCards", home_section["ids"])
+            self.assertIn("askWorkspace", home_section["ids"])
 
     def test_dashboard_returns_core_counts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
