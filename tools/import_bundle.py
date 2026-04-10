@@ -14,6 +14,9 @@ from typing import List, Optional, Tuple
 
 from pypdf import PdfReader
 
+from tools.multimodal_detect import MultimodalInputKind, classify_multimodal_input
+from tools.pptx_adapter import extract_pptx_bundle
+
 
 VAULT_INBOX = Path("20_Raw/inbox")
 
@@ -32,6 +35,7 @@ class ConversionResult:
     review_required: bool
     warnings: List[str]
     asset_paths: List[str]
+    asset_files: List[Tuple[str, bytes]]
 
 
 def yaml_quote(value: str) -> str:
@@ -280,6 +284,7 @@ def convert_text_like(data: bytes, extension: str, source_ref: str) -> Conversio
         review_required=False,
         warnings=[],
         asset_paths=[],
+        asset_files=[],
     )
 
 
@@ -299,6 +304,7 @@ def convert_html_bytes(data: bytes, source_ref: str, source_type: str) -> Conver
         review_required=False,
         warnings=[],
         asset_paths=[],
+        asset_files=[],
     )
 
 
@@ -322,6 +328,7 @@ def convert_docx(path: Path, source_ref: str) -> ConversionResult:
         review_required=False,
         warnings=[],
         asset_paths=[],
+        asset_files=[],
     )
 
 
@@ -354,6 +361,27 @@ def convert_pdf(path: Path, source_ref: str) -> ConversionResult:
         review_required=bool(warnings),
         warnings=warnings,
         asset_paths=[],
+        asset_files=[],
+    )
+
+
+def convert_pptx(path: Path, source_ref: str) -> ConversionResult:
+    extraction = extract_pptx_bundle(path)
+    asset_paths = [asset_path for asset_path, _ in extraction.asset_files]
+    return ConversionResult(
+        title=extraction.title,
+        source_filename="source.pptx",
+        source_bytes=path.read_bytes(),
+        content_markdown=normalize_whitespace(extraction.markdown),
+        source_type="local-file",
+        source_ref=source_ref,
+        source_format="pptx",
+        conversion_status="converted",
+        extraction_confidence=extraction.extraction_confidence,
+        review_required=bool(extraction.warnings),
+        warnings=extraction.warnings,
+        asset_paths=asset_paths,
+        asset_files=extraction.asset_files,
     )
 
 
@@ -376,9 +404,10 @@ def convert_source(source: str) -> ConversionResult:
         return convert_docx(path, str(path))
     if extension == ".pdf":
         return convert_pdf(path, str(path))
-    if extension == ".pptx":
-        raise ValueError("PPTX import is reserved for a later implementation phase")
-    if extension in {".png", ".jpg", ".jpeg", ".webp"}:
+    multimodal_kind = classify_multimodal_input(path)
+    if multimodal_kind is MultimodalInputKind.OFFICE and extension == ".pptx":
+        return convert_pptx(path, str(path))
+    if multimodal_kind is MultimodalInputKind.IMAGE:
         raise ValueError("Image OCR import is reserved for a later implementation phase")
 
     raise ValueError(f"Unsupported source format: {extension or 'unknown'}")
@@ -451,6 +480,10 @@ def import_source(
 
     (bundle_path / result.source_filename).write_bytes(result.source_bytes)
     (bundle_path / "content.md").write_text(result.content_markdown, encoding="utf-8")
+    for asset_path, asset_bytes in result.asset_files:
+        target_path = bundle_path / asset_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_bytes(asset_bytes)
     (bundle_path / "metadata.md").write_text(
         build_metadata(result, bundle_path, primary_domain, related_domains, privacy),
         encoding="utf-8",
