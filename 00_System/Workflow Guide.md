@@ -82,11 +82,12 @@ Then open the local URL shown in the terminal.
 
 The shipped Workbench V2 shell is organized as:
 
-- `首頁` as the Ask 工作台 and main working surface
+- `首頁` as the 提問工作台 and main working surface
 - `摘要` as the former dashboard-like overview page
 - Traditional Chinese as the primary navigation and control language
 - a top / middle / bottom homepage layout
 - a desktop-first shell posture that already assumes a windowed work surface, even before packaging as a desktop app
+- follow-up controls on `首頁` stay disabled until the answer has grounded note evidence
 
 ## Automation And Scan Now
 
@@ -139,10 +140,10 @@ The Query / Ask layer serves the library, not the open internet.
 
 ## Reflection And Feedback
 
-Use the same Ask page for lightweight correction and interpretation after the library answers.
+在同一個提問頁面上完成輕量的修正與個人詮釋，不要另外切走。
 
-- Keep `Library Answer` separate from `Your Reflections`.
-- Show the latest `3` linked reflections on the page, with a `View all` control for the full set.
-- Use `Respond Now` with one shared input for either `Correct this knowledge` or `Add my interpretation`.
-- Drafts stay inline on the same page so the user can review and edit them before confirmation.
-- A correction must be confirmed before it applies, and the Ask answer should be ready to refresh immediately after the apply step.
+- 保持 `圖書館答案` 和 `你的反思` 分開顯示。
+- 頁面上預設顯示最近 `3` 筆已連結的反思，必要時再用 `查看全部` 展開。
+- 用同一個輸入框支援 `起草修正` 與 `起草反思`。
+- 草稿留在同一頁面 inline 審閱，確認前都可以直接修改。
+- 修正必須先確認才會套用，套用後首頁答案應可立即重新整理。

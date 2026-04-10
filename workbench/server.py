@@ -50,6 +50,10 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
     def root() -> FileResponse:
         return FileResponse(static_dir / "index.html")
 
+    @app.get("/favicon.ico")
+    def favicon() -> FileResponse:
+        return FileResponse(static_dir / "favicon.svg", media_type="image/svg+xml")
+
     @app.get("/api/dashboard")
     def dashboard() -> dict:
         return get_dashboard(vault_root)

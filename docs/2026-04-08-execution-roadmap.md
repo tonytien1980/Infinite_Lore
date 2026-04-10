@@ -230,7 +230,7 @@ Reference files:
 
 Completed:
 
-- `首頁` is the Ask 工作台 and the primary working surface
+- `首頁` is the 提問工作台 and the primary working surface
 - `摘要` carries the former dashboard-like overview content
 - primary navigation uses Traditional Chinese labels
 - the homepage is organized vertically into top / middle / bottom regions
@@ -265,10 +265,12 @@ As of this roadmap update, the verified baseline is:
 - image `content.md` now includes OCR-aware sections for source summary, structural summary, OCR summary, OCR text, screenshot signals, and extraction notes
 - image raw bundle metadata now records OCR engine, OCR attempt state, OCR status, OCR text presence, interpretation mode, and image kind guess
 - Workbench V2 shell navigation is in Traditional Chinese
-- `首頁` is the Ask 工作台
+- `首頁` is the 提問工作台
 - `摘要` carries the old dashboard-style overview
 - the homepage layout is top / middle / bottom
 - the shell is desktop-first
+- follow-up controls stay disabled until an Ask result has grounded note evidence
+- local insufficient-evidence Ask fallback copy is now in Traditional Chinese
 - tests pass
 - health check passes
 
@@ -371,7 +373,7 @@ This phase is now delivered and should be treated as the current product-surface
 
 The Workbench now supports:
 
-- `首頁` as the Ask 工作台 and primary work surface
+- `首頁` as the 提問工作台 and primary work surface
 - `摘要` as the former dashboard-style overview page
 - Traditional Chinese primary navigation
 - a top / middle / bottom homepage layout

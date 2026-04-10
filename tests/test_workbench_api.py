@@ -18,6 +18,7 @@ class _WorkbenchRootHtmlParser(HTMLParser):
         self.nav_buttons: List[Tuple[str, str]] = []
         self.sections: List[Dict[str, Any]] = []
         self.html_attrs: Dict[str, Optional[str]] = {}
+        self.elements_by_id: Dict[str, Dict[str, Optional[str]]] = {}
         self._in_sidebar_nav = False
         self._button_page: Optional[str] = None
         self._button_text_parts: List[str] = []
@@ -47,6 +48,7 @@ class _WorkbenchRootHtmlParser(HTMLParser):
             )
         element_id = attr_map.get("id")
         if element_id is not None:
+            self.elements_by_id[element_id] = attr_map
             for section in self._workspace_stack:
                 section["ids"].add(element_id)
 
@@ -84,6 +86,11 @@ class _WorkbenchRootHtmlParser(HTMLParser):
         if not matches:
             raise AssertionError(f"missing section with class {class_name!r}")
         return matches[0]
+
+    def attrs_for_id(self, element_id: str) -> Dict[str, Optional[str]]:
+        if element_id not in self.elements_by_id:
+            raise AssertionError(f"missing element id {element_id!r}")
+        return self.elements_by_id[element_id]
 
 
 class WorkbenchApiTests(unittest.TestCase):
@@ -143,6 +150,44 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertIn("draftCorrectionButton", followup_section["ids"])
             self.assertIn("draftReflectionButton", followup_section["ids"])
             self.assertIn("feedbackEditorEmpty", followup_section["ids"])
+
+    def test_root_html_initially_disables_followup_actions_until_grounded_answer_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/")
+
+            self.assertEqual(response.status_code, 200)
+            parser = _WorkbenchRootHtmlParser()
+            parser.feed(response.text)
+
+            self.assertIn("disabled", parser.attrs_for_id("draftCorrectionButton"))
+            self.assertIn("disabled", parser.attrs_for_id("draftReflectionButton"))
+            self.assertIn("disabled", parser.attrs_for_id("feedbackInput"))
+
+    def test_root_html_uses_traditional_chinese_primary_copy_and_shell_polish_hooks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.text
+            self.assertIn("提問工作台", html)
+            self.assertNotIn("Ask 工作台", html)
+            self.assertIn('rel="icon"', html)
+            self.assertIn('autocomplete="new-password"', html)
+
+    def test_favicon_route_serves_shell_icon_asset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/favicon.ico")
+
+            self.assertEqual(response.status_code, 200)
 
     def test_dashboard_returns_core_counts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

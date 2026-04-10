@@ -221,8 +221,9 @@ class QueryAskTests(unittest.TestCase):
                 settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
             )
 
-            self.assertIn("does not currently contain enough grounded knowledge", result["answer"])
+            self.assertIn("目前知識庫中沒有足夠可依據的內容", result["answer"])
             self.assertTrue(result["limits"])
+            self.assertIn("目前知識庫中的可用證據不足。", result["limits"])
 
     def test_ask_mode_does_not_call_model_when_grounding_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -250,8 +251,9 @@ class QueryAskTests(unittest.TestCase):
             )
 
             self.assertEqual(result["answer_source"], "local")
-            self.assertIn("does not currently contain enough grounded knowledge", result["answer"])
+            self.assertIn("目前知識庫中沒有足夠可依據的內容", result["answer"])
             self.assertTrue(result["limits"])
+            self.assertIn("目前知識庫中的可用證據不足。", result["limits"])
 
     def test_relation_aware_retrieval_expands_from_lexical_anchor(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -372,8 +374,23 @@ class QueryAskTests(unittest.TestCase):
             )
 
             self.assertEqual(result["grounding"], [])
-            self.assertIn("does not currently contain enough grounded knowledge", result["answer"])
+            self.assertIn("目前知識庫中沒有足夠可依據的內容", result["answer"])
             self.assertTrue(result["limits"])
+            self.assertIn("目前知識庫中的可用證據不足。", result["limits"])
+
+    def test_ask_mode_local_answer_uses_traditional_chinese_scaffold(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_vault(root)
+
+            result = answer_question(
+                vault_root=root,
+                question="Summarize what my library knows about library systems.",
+                requested_mode="ask",
+                settings={"providers": [], "routes": {"query": "no_model", "ask": "best_deep"}},
+            )
+
+            self.assertIn("目前可依據的筆記包括：", result["answer"])
 
     def test_relation_aware_retrieval_ignores_reflection_entries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

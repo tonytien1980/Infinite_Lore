@@ -16,6 +16,8 @@ RELATION_CONFIDENCE_BONUS = {
     "INFERRED": 1,
 }
 SUPPORTED_RELATIONS = {"derived-from", "shares-source"}
+INSUFFICIENT_GROUNDED_ANSWER = "目前知識庫中沒有足夠可依據的內容，無法有把握地回答這個問題。"
+INSUFFICIENT_GROUNDED_LIMIT = "目前知識庫中的可用證據不足。"
 
 QUERY_PATTERNS = [
     "what notes do i have",
@@ -315,8 +317,8 @@ def retrieve_notes(vault_root: Path, question: str, mode: str) -> Tuple[List[Dic
 def local_answer(question: str, synthesis_notes: List[Dict[str, object]], small_notes: List[Dict[str, object]]) -> Tuple[str, List[str]]:
     if not synthesis_notes and not small_notes:
         return (
-            "The library does not currently contain enough grounded knowledge to answer this confidently.",
-            ["Insufficient evidence in the current wiki."],
+            INSUFFICIENT_GROUNDED_ANSWER,
+            [INSUFFICIENT_GROUNDED_LIMIT],
         )
 
     strongest = max(
@@ -334,7 +336,7 @@ def local_answer(question: str, synthesis_notes: List[Dict[str, object]], small_
         core = strongest["title"]
 
     note_titles = ", ".join(note["title"] for note in (synthesis_notes[:2] + small_notes[:2]))
-    answer = f"{core} The current grounded answer is based on: {note_titles}."
+    answer = f"{core} 目前可依據的筆記包括：{note_titles}。"
     return answer.strip(), []
 
 

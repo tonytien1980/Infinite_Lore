@@ -10,6 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
     <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body>
@@ -49,11 +50,11 @@
           <section class="panel workspace-top">
             <div class="workspace-heading">
               <div>
-                <p class="eyebrow">Ask 工作台</p>
+                <p class="eyebrow">提問工作台</p>
                 <h3>提問入口</h3>
               </div>
               <p class="workspace-copy">
-                先定義問題，讓系統先回報核心答案，再往下檢閱證據與後續工作。
+                先定義問題，讓系統先給出主答案，再往下檢閱證據、限制與後續作業。
               </p>
             </div>
             <form id="askForm" class="workspace-top-form ask-form compact-prompt">
@@ -61,7 +62,7 @@
                 <span>問題</span>
                 <textarea
                   id="askInput"
-                  placeholder="例如：Infinite Lore 最近整理了哪些 AI workflow 重點？"
+                  placeholder="例如：Infinite Lore 最近整理了哪些 AI 工作流程重點？"
                 ></textarea>
               </label>
               <div class="workspace-top-controls">
@@ -81,7 +82,7 @@
           <section class="panel workspace-answer">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">主回答區</p>
+                <p class="eyebrow">回答主區</p>
                 <h3>主答案</h3>
               </div>
             </div>
@@ -99,16 +100,16 @@
                 <h3>證據與脈絡</h3>
               </div>
             </div>
-            <div class="grid three-col workspace-evidence-grid">
-              <section>
+            <div class="workspace-evidence-grid">
+              <section class="evidence-card">
                 <p class="eyebrow">基礎證據</p>
                 <div id="askGrounding" class="list-stack empty-state">基礎證據將顯示在這裡。</div>
               </section>
-              <section>
+              <section class="evidence-card">
                 <p class="eyebrow">回溯軌跡</p>
                 <div id="askTrace" class="list-stack empty-state">來源回溯將顯示在這裡。</div>
               </section>
-              <section>
+              <section class="evidence-card">
                 <p class="eyebrow">關聯追蹤</p>
                 <div id="askRelationTrace" class="list-stack empty-state">
                   關聯追蹤會在知識沿連結展開時顯示於此。
@@ -148,13 +149,13 @@
                 <form class="stack-form">
                   <label>
                     <span>共用回饋輸入</span>
-                    <textarea id="feedbackInput" placeholder="例如：補上關鍵判斷依據，或修正某個結論語氣。"></textarea>
+                    <textarea id="feedbackInput" placeholder="例如：補上關鍵判斷依據，或修正某個結論語氣。" disabled></textarea>
                   </label>
                   <div class="button-row followup-actions">
-                    <button id="draftCorrectionButton" type="button" class="primary-button">起草修正</button>
-                    <button id="draftReflectionButton" type="button" class="secondary-button">起草反思</button>
+                    <button id="draftCorrectionButton" type="button" class="primary-button" disabled>起草修正</button>
+                    <button id="draftReflectionButton" type="button" class="secondary-button" disabled>起草反思</button>
                   </div>
-                <p id="feedbackHint" class="empty-state">共用同一輸入框，先完成提問後再起草修正或反思。</p>
+                <p id="feedbackHint" class="empty-state">需先取得有證據的回答，才能起草修正或反思。</p>
                 </form>
               </section>
             </div>
@@ -365,18 +366,23 @@
                 </label>
                 <label>
                   <span>供應商 ID</span>
-                  <input type="text" id="providerId" value="openai-main" />
+                  <input type="text" id="providerId" value="openai-main" autocomplete="username" />
                 </label>
                 <label>
                   <span>API 金鑰</span>
-                  <input type="password" id="providerApiKey" placeholder="存放於本機設定，不進入知識庫" />
+                  <input
+                    type="password"
+                    id="providerApiKey"
+                    placeholder="存放於本機設定，不進入知識庫"
+                    autocomplete="new-password"
+                  />
                 </label>
                 <label>
-                  <span>Balanced 模型</span>
+                  <span>平衡模型</span>
                   <input type="text" id="balancedModel" placeholder="模型識別碼" />
                 </label>
                 <label>
-                  <span>Best / Deep 模型</span>
+                  <span>高品質 / 深度模型</span>
                   <input type="text" id="bestModel" placeholder="模型識別碼" />
                 </label>
                 <button type="submit" class="primary-button">儲存本機設定</button>

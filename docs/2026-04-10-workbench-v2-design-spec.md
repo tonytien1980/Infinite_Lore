@@ -54,9 +54,10 @@ Workbench V2 is a `Ask-first, desktop-first, Traditional Chinese-first knowledge
 The shipped surface now works this way:
 
 - the main working surface is `首頁`
-- `首頁` is the Ask 工作台, not a shallow dashboard
+- `首頁` is the 提問工作台, not a shallow dashboard
 - `摘要` holds the former dashboard-like overview content
 - the main interface defaults to Traditional Chinese navigation and labels
+- the primary shell copy no longer surfaces mixed-language affordances like `Ask 工作台`
 - the current shell already assumes a desktop window posture, even before packaging as a macOS app
 - reading quality is treated as equally important as functional power
 
@@ -80,6 +81,7 @@ The design emphasizes:
 - readable answer surfaces
 - clear evidence visibility
 - low-friction follow-up work
+- honest affordances that disable follow-up actions until grounded evidence exists
 
 The design avoids:
 

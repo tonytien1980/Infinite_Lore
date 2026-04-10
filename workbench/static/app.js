@@ -76,12 +76,24 @@ const PAGE_TITLES = {
   system: "系統",
   settings: "設定",
 };
+const ASK_EMPTY_MESSAGE = "提出問題後，系統會在這裡顯示可閱讀的主答案。";
+const ASK_LOADING_MESSAGE = "系統正在整理答案，請稍候…";
+const FOLLOWUP_DISABLED_HINT = "需先取得有證據的回答，才能起草修正或反思。";
+const FOLLOWUP_ENABLED_HINT = "可在這裡補充修正方向、語氣調整或新的觀察。";
 
 function setPage(page) {
   state.page = page;
   pages.forEach((element) => element.classList.toggle("active", element.dataset.page === page));
   navLinks.forEach((element) => element.classList.toggle("active", element.dataset.page === page));
   pageTitle.textContent = PAGE_TITLES[page] || page.charAt(0).toUpperCase() + page.slice(1);
+}
+
+function formatVaultName(path) {
+  if (typeof path !== "string" || !path.trim()) {
+    return "尚未指定";
+  }
+  const segments = path.split("/").filter(Boolean);
+  return segments[segments.length - 1] || path;
 }
 
 function createListItem(title, meta, detail) {
@@ -135,6 +147,23 @@ function createMetricCard(label, value, detail) {
   body.textContent = detail || "";
   card.append(eyebrow, strong, body);
   return card;
+}
+
+function canDraftFollowup() {
+  return !state.ask.askBusy && Array.isArray(state.ask.grounding) && state.ask.grounding.length > 0;
+}
+
+function syncFollowupControls() {
+  const canDraft = canDraftFollowup();
+  feedbackInput.disabled = state.ask.feedbackBusy || !canDraft;
+  draftCorrectionButton.disabled = state.ask.feedbackBusy || !canDraft;
+  draftReflectionButton.disabled = state.ask.feedbackBusy || !canDraft;
+  feedbackConfirmButton.disabled = state.ask.feedbackBusy || !state.ask.draft;
+  feedbackDiscardButton.disabled = state.ask.feedbackBusy || !state.ask.draft;
+  feedbackEditorTextarea.disabled = state.ask.feedbackBusy || !state.ask.draft;
+  if (!state.ask.draft) {
+    feedbackHint.textContent = canDraft ? FOLLOWUP_ENABLED_HINT : FOLLOWUP_DISABLED_HINT;
+  }
 }
 
 function renderInboxSources() {
@@ -311,13 +340,13 @@ function renderDashboard() {
       )
     );
   });
-  if (!imports.children.length) imports.textContent = "目前沒有匯入紀錄。";
+  if (!imports.children.length) imports.textContent = "目前還沒有匯入紀錄。先到收件匣加入第一份原始資料。";
 
   knowledge.innerHTML = "";
   (state.dashboard?.recent_synthesis || []).forEach((item) => {
     knowledge.appendChild(createListItem(item.title, item.primary_domain || "知識庫", item.path));
   });
-  if (!knowledge.children.length) knowledge.textContent = "目前沒有已編譯知識。";
+  if (!knowledge.children.length) knowledge.textContent = "目前還沒有已編譯知識。完成匯入與編譯後，摘要會先在這裡更新。";
 
   cards.innerHTML = "";
   const snapshotEntries = [
@@ -342,7 +371,7 @@ function renderBundles() {
       createListItem(bundle.title, bundle.primary_domain || "未分類", `${bundle.bundle_path} • ${review}`)
     );
   });
-  if (!container.children.length) container.textContent = "目前沒有待處理的 bundle。";
+  if (!container.children.length) container.textContent = "目前沒有待處理的項目。可在上方立即掃描，或先新增新的來源入口。";
 }
 
 function renderKnowledge() {
@@ -354,12 +383,12 @@ function renderKnowledge() {
   state.knowledge.synthesis.forEach((note) => {
     synthesis.appendChild(createListItem(note.title, note.primary_domain || "知識庫", note.path));
   });
-  if (!synthesis.children.length) synthesis.textContent = "目前沒有合成筆記。";
+  if (!synthesis.children.length) synthesis.textContent = "目前還沒有合成條目。先從收件匣匯入資料，或執行立即掃描。";
 
   state.knowledge.small_notes.forEach((note) => {
     small.appendChild(createListItem(note.title, `${note.note_type} • ${note.primary_domain || "知識庫"}`, note.path));
   });
-  if (!small.children.length) small.textContent = "目前沒有小節筆記。";
+  if (!small.children.length) small.textContent = "目前還沒有小節筆記。完成編譯後，概念、框架與問題會逐步累積在這裡。";
 }
 
 function renderHealth() {
@@ -420,7 +449,8 @@ async function loadAll() {
   state.inbox.summary = await fetchJson("/api/inbox/summary");
   state.inbox.sources = cloneInboxSources(state.inbox.summary.sources || []);
   state.settings = await fetchJson("/api/settings");
-  vaultPath.textContent = systemInfo.vault_root;
+  vaultPath.textContent = formatVaultName(systemInfo.vault_root);
+  vaultPath.title = systemInfo.vault_root;
   systemVaultPath.textContent = systemInfo.vault_root;
   renderDashboard();
   renderBundles();
@@ -428,6 +458,7 @@ async function loadAll() {
   renderHealth();
   renderInbox();
   populateSettings();
+  syncFollowupControls();
 }
 
 function setInboxBusy(isBusy, message) {
@@ -535,12 +566,14 @@ function clearDraftEditor(message = "目前沒有草稿。") {
   feedbackEditorTextarea.value = "";
   feedbackEditorTextarea.dataset.draftId = "";
   feedbackConfirmButton.textContent = "確認";
-  feedbackConfirmButton.disabled = true;
-  feedbackDiscardButton.disabled = true;
+  syncFollowupControls();
 }
 
 function renderAskAnswer() {
-  askAnswer.textContent = state.ask.answer || "提出問題後，系統會在這裡顯示可閱讀的主答案。";
+  const answerText = state.ask.answer || ASK_EMPTY_MESSAGE;
+  askAnswer.textContent = answerText;
+  askAnswer.classList.toggle("empty-state", answerText === ASK_EMPTY_MESSAGE || answerText === ASK_LOADING_MESSAGE);
+  askAnswer.classList.toggle("answer-body", !(answerText === ASK_EMPTY_MESSAGE || answerText === ASK_LOADING_MESSAGE));
 
   renderListStack(
     askGrounding,
@@ -574,6 +607,7 @@ function renderAskAnswer() {
     "需要提示時，這裡會顯示答案邊界與不確定性。",
     (item) => createListItem(item, "限制", "證據邊界")
   );
+  syncFollowupControls();
 }
 
 function renderReflections() {
@@ -601,16 +635,12 @@ function setAskBusy(isBusy) {
   askInput.disabled = isBusy;
   askMode.disabled = isBusy;
   askSubmitButton.disabled = isBusy;
+  syncFollowupControls();
 }
 
 function setFeedbackBusy(isBusy) {
   state.ask.feedbackBusy = isBusy;
-  draftCorrectionButton.disabled = isBusy;
-  draftReflectionButton.disabled = isBusy;
-  feedbackConfirmButton.disabled = isBusy || !state.ask.draft;
-  feedbackDiscardButton.disabled = isBusy || !state.ask.draft;
-  feedbackInput.disabled = isBusy;
-  feedbackEditorTextarea.disabled = isBusy;
+  syncFollowupControls();
 }
 
 function normalizeDraft(kind, payload, userInput) {
@@ -654,7 +684,7 @@ function normalizeDraft(kind, payload, userInput) {
 function renderDraftEditor() {
   const draft = state.ask.draft;
   if (!draft) {
-    clearDraftEditor(state.ask.grounding.length ? "目前沒有草稿。" : "先完成提問，再起草修正或反思。");
+    clearDraftEditor(state.ask.grounding.length ? "目前沒有草稿。" : "先取得有證據的回答，才會開啟草稿審閱。");
     return;
   }
 
@@ -682,8 +712,7 @@ function renderDraftEditor() {
     feedbackEditorTextarea.dataset.draftId = draft.id;
   }
   feedbackConfirmButton.textContent = draft.confirmLabel;
-  feedbackConfirmButton.disabled = state.ask.feedbackBusy ? true : false;
-  feedbackDiscardButton.disabled = state.ask.feedbackBusy ? true : false;
+  syncFollowupControls();
 }
 
 async function runAsk(question, mode) {
@@ -692,7 +721,7 @@ async function runAsk(question, mode) {
   setAskBusy(true);
   state.ask.question = question;
   state.ask.mode = mode;
-  state.ask.answer = "系統正在整理答案，請稍候…";
+  state.ask.answer = ASK_LOADING_MESSAGE;
   state.ask.grounding = [];
   state.ask.trace = [];
   state.ask.relationTrace = [];
@@ -725,6 +754,7 @@ async function runAsk(question, mode) {
         ? payload.recent_reflections
         : [];
     state.ask.reflectionsExpanded = false;
+    clearDraftEditor(state.ask.grounding.length ? "目前沒有草稿。" : "先取得有證據的回答，才會開啟草稿審閱。");
     renderAskAnswer();
     renderReflections();
   } catch (error) {
@@ -738,9 +768,9 @@ async function runAsk(question, mode) {
     state.ask.limits = [error.message];
     state.ask.reflections = [];
     state.ask.reflectionsExpanded = false;
+    clearDraftEditor("提問失敗，暫時無法建立草稿。");
     renderAskAnswer();
     renderReflections();
-    feedbackEditorStatus.textContent = `提問失敗：${error.message}`;
   } finally {
     if (requestId === state.ask.requestSeq) {
       setAskBusy(false);
