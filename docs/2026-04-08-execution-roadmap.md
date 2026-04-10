@@ -256,6 +256,7 @@ The approved delivery order is:
 7. Automation / watcher layer
 8. Relation-aware retrieval
 9. Multimodal ingestion
+10. Image OCR and screenshot understanding
 
 This order should not be reversed unless there is a strong reason.
 
@@ -406,7 +407,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the delivered Phase 9 baseline, then decide whether to deepen multimodal quality next through richer OCR / screenshot understanding or to shift to another adjacent lane.`
+`Use the delivered Phase 9 baseline and the approved Phase 10 spec to deepen multimodal quality through local OCR and bounded screenshot understanding.`
 
 ## 13. Future Adoption Direction
 
@@ -431,3 +432,24 @@ Reference:
 - `docs/2026-04-10-multimodal-ingestion-spec.md`
 - `docs/2026-04-10-multimodal-ingestion-implementation-plan.md`
 - `docs/2026-04-10-graphify-multimodal-code-reuse-audit.md`
+- `docs/2026-04-10-image-ocr-screenshot-understanding-spec.md`
+
+## 14. Next Planned Lane
+
+### Phase 10: Image OCR And Screenshot Understanding
+
+This phase is now the approved next lane after delivered multimodal ingestion.
+
+The purpose of this phase is:
+
+- replace opportunistic local OCR with a dependable on-device OCR path on this Mac
+- make screenshot-heavy image bundles more useful to compile and Ask
+- keep image extraction honest, bounded, and review-aware
+
+### Definition of done
+
+- supported image imports use a real local OCR path when available on macOS
+- image `content.md` includes OCR-aware sections instead of only a shallow summary
+- image metadata records OCR engine and OCR status explicitly
+- fallback behavior preserves the current bounded summary path when OCR is unavailable or fails
+- compile and Ask continue to use the same raw bundle contract
