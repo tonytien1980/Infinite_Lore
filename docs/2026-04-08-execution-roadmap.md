@@ -148,6 +148,49 @@ Reference files:
 - `docs/2026-04-08-query-ask-spec.md`
 - `docs/2026-04-08-query-ask-implementation-plan.md`
 
+### 4.6 Reflection / Feedback Layer
+
+Completed:
+
+- same-page feedback loop on Ask
+- linked reflections separated from the library answer
+- inline correction / reflection drafting
+- correction apply flow with answer refresh
+
+Reference files:
+
+- `docs/2026-04-09-reflection-feedback-spec.md`
+- `docs/2026-04-09-reflection-feedback-implementation-plan.md`
+
+### 4.7 Automation / Watcher Layer
+
+Completed:
+
+- practical Inbox automation
+- explicit source management inside Inbox
+- `Scan now` over local intake plus configured feed / article-list sources
+- retry, cooldown, and stale-state cleanup behavior
+
+Reference files:
+
+- `docs/2026-04-09-automation-watcher-spec.md`
+- `docs/2026-04-09-automation-watcher-implementation-plan.md`
+
+### 4.8 Relation-Aware Retrieval
+
+Completed:
+
+- persistent `00_System/relation-index.json`
+- relation extraction over compiled wiki notes
+- compile-triggered relation artifact refresh
+- relation-aware Ask expansion after lexical anchors
+- visible relation trace in Ask API and Workbench UI
+
+Reference files:
+
+- `docs/2026-04-10-relation-aware-retrieval-spec.md`
+- `docs/2026-04-10-relation-aware-retrieval-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -163,6 +206,10 @@ As of this roadmap update, the verified baseline is:
   - configured article-list-page sources
 - Inbox source edits are persisted before scan runs
 - automation retry and stale-state behavior are implemented for the practical automation layer
+- relation artifact builds from compiled wiki notes
+- compile refreshes the relation artifact after wiki updates
+- Ask now uses bounded relation-aware expansion after lexical anchors
+- Ask results expose visible relation trace alongside source trace
 - tests pass
 - health check passes
 
@@ -185,6 +232,7 @@ The approved delivery order is:
 5. Query / ask layer
 6. Reflection / feedback layer
 7. Automation / watcher layer
+8. Relation-aware retrieval
 
 This order should not be reversed unless there is a strong reason.
 
@@ -217,30 +265,34 @@ Background automation, watchers, and batch jobs are multipliers. They should be 
 
 ## 8. Current Phase
 
-### Phase 6: Reflection / Feedback Layer
+### Phase 8: Relation-Aware Retrieval
 
-This phase is now delivered and should be treated as the current reflection / feedback layer.
+This phase is now delivered and should be treated as the current Ask retrieval baseline.
 
-The Ask page now becomes the same-page feedback loop for the library answer.
+The Ask layer now works in this order:
+
+1. lexical retrieval over compiled wiki notes
+2. anchored note selection
+3. bounded relation expansion through:
+   - `derived-from`
+   - `shares-source`
+4. grounded answer generation or abstention
 
 The purpose of this phase is:
 
-- let the user attach reflection and feedback to existing knowledge safely
-- preserve the clean boundary between source-grounded wiki and personal interpretation
-- keep `Library Answer` visually separate from `Your Reflections`
-- let the user review a drafted reflection or a full proposed corrected note inline before confirmation
-- make later refinement possible without polluting source-grounded notes
+- improve Ask quality without turning the product into a graph tool
+- keep relation use explicit and confidence-bounded
+- make it visible why extra notes were pulled into an answer
+- keep multimodal as the next adjacent expansion, not part of this lane
 
 ### This phase covers
 
-- linked reflection notes
-- safe attachment of personal interpretation to existing wiki notes
-- a visible `Your Reflections` section with the latest `3` linked reflections and a `View all` control
-- a `Respond Now` section with one shared input and two explicit actions:
-  - `Correct this knowledge`
-  - `Add my interpretation`
-- an inline feedback editor for reviewing the drafted reflection or proposed corrected note before confirmation
-- correction confirmation that refreshes the current Ask answer after apply
+- generated relation artifact in `00_System/relation-index.json`
+- exclusion of reflection / correction / journal / project-log / artifact notes from the relation layer
+- compile-triggered relation rebuild
+- relation-aware Ask retrieval that still requires lexical anchors
+- visible `relation_trace` in Ask results
+- Workbench Ask UI support for a compact relation-trace section
 
 ## 9. Phase Boundaries
 
@@ -286,6 +338,17 @@ Definition of done:
 - retry state is visible and bounded
 - automation remains lightweight and does not become mandatory for normal use
 
+### Phase 8: Relation-Aware Retrieval
+
+Definition of done:
+
+- the system builds a relation artifact from compiled wiki notes
+- compile refreshes the relation artifact after wiki updates
+- Ask expands through `derived-from` and `shares-source` only after lexical anchors exist
+- relation expansion stays supplemental and does not override abstention
+- Ask exposes a compact `relation_trace` in the API and Workbench UI
+- multimodal remains explicitly out of scope for this delivered phase
+
 ## 10. Things We Are Explicitly Avoiding
 
 Do not drift into these unless explicitly re-approved:
@@ -312,11 +375,11 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Review and approve the Phase 8 relation-aware retrieval spec and implementation plan, then decide whether to execute that phase immediately.`
+`Use the delivered Phase 8 baseline, then scope the next adjacent multimodal lane without reopening graph-first product drift.`
 
 ## 13. Future Adoption Direction
 
-Phase 7 is now delivered.
+Phase 8 is now delivered.
 
 The next meaningful capability expansion should not be a graph UI.
 
@@ -326,7 +389,7 @@ It should be selective adoption of Graphify-inspired engine capabilities:
 - watcher behavior split by cost
 - explicit relation extraction schema
 - confidence-labeled relations
-- later multimodal expansion
+- multimodal expansion as the next adjacent lane
 
 Reference:
 

@@ -1,12 +1,12 @@
 # Relation-Aware Retrieval Specification
 
-**Status:** Draft v1 for review  
+**Status:** Delivered v1
 **Date:** 2026-04-10  
 **Project:** Infinite Lore
 
 ## 1. Purpose
 
-This specification defines the next knowledge-layer expansion after Phase 7.
+This specification defines the Phase 8 knowledge-layer expansion after Phase 7.
 
 The goal is to make `Ask` more accurate, more trustworthy, and more structurally grounded by adding a formal relation layer between compiled wiki notes.
 

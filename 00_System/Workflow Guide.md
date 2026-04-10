@@ -66,6 +66,17 @@ Use the Workbench Ask page as the main knowledge entry surface.
 - `Auto` is the default mode.
 - `Ask` produces a grounded answer from compiled wiki notes.
 - `Query` shows matching notes and source coverage without forcing a synthesized answer.
+- `Ask` now expands from lexical anchors through bounded relation edges:
+  - `derived-from`
+  - `shares-source`
+- relation expansion stays supplemental:
+  - no lexical anchor means no relation-driven answer
+  - insufficient evidence still produces abstention instead of a guessed answer
+- Ask results now show:
+  - note grounding
+  - source trace
+  - relation trace when extra notes were pulled in through note links
+- multimodal intake remains a later phase; the current Ask layer is still relation-first, not multimodal-first.
 
 The Query / Ask layer serves the library, not the open internet.
 
