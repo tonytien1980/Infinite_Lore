@@ -72,6 +72,7 @@ class ImageAdapterTests(unittest.TestCase):
             self.assertIn("## Extraction Notes", result.markdown)
             self.assertIn("warning", result.markdown.lower())
             self.assertEqual(result.ocr_status, "unavailable")
+            self.assertFalse(result.ocr_attempted)
             self.assertFalse(result.ocr_text_present)
             self.assertEqual(result.extraction_confidence, "low")
             self.assertIn("review", " ".join(result.warnings).lower())

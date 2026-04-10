@@ -126,6 +126,10 @@ def _ocr_text_block(ocr: VisionOcrResult) -> str:
     return "No OCR text was detected from this image."
 
 
+def _ocr_attempted(ocr: VisionOcrResult) -> bool:
+    return ocr.status in {"success", "no-text", "failed"}
+
+
 def extract_image_bundle(path: Path) -> ImageExtractionResult:
     try:
         with Image.open(path) as image:
@@ -199,7 +203,7 @@ def extract_image_bundle(path: Path) -> ImageExtractionResult:
         extraction_confidence="low",
         asset_files=[],
         ocr_engine=ocr.engine or "apple-vision",
-        ocr_attempted=ocr.status != "unavailable" or bool(ocr.warning) or bool(ocr.engine),
+        ocr_attempted=_ocr_attempted(ocr),
         ocr_status=ocr.status,
         ocr_text_present=bool(_normalize_ocr_text(ocr.text)),
         image_interpretation_mode="bounded",
