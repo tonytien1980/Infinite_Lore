@@ -180,6 +180,35 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertIn('rel="icon"', html)
             self.assertIn('autocomplete="new-password"', html)
 
+    def test_root_html_settings_surface_uses_multi_provider_list_and_add_control(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/")
+
+            self.assertEqual(response.status_code, 200)
+            parser = _WorkbenchRootHtmlParser()
+            parser.feed(response.text)
+
+            self.assertIn("providerList", parser.elements_by_id)
+            self.assertIn("addProviderButton", parser.elements_by_id)
+
+    def test_root_html_settings_surface_uses_route_enrich_selector_and_drops_legacy_single_provider_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/")
+
+            self.assertEqual(response.status_code, 200)
+            parser = _WorkbenchRootHtmlParser()
+            parser.feed(response.text)
+
+            self.assertIn("routeEnrichRaw", parser.elements_by_id)
+            for legacy_id in ("providerName", "providerId", "providerApiKey", "balancedModel", "bestModel"):
+                self.assertNotIn(legacy_id, parser.elements_by_id)
+
     def test_favicon_route_serves_shell_icon_asset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
