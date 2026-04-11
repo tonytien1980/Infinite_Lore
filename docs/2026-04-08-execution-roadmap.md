@@ -306,6 +306,22 @@ Reference files:
 - `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-spec.md`
 - `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-implementation-plan.md`
 
+### 4.16 Manual Enrichment Retry And Recovery Controls
+
+Completed:
+
+- `收件匣` now provides inline single-bundle `重試` / `清除` controls for actionable failed / deferred enrichment entries
+- `摘要` remains read-only and status-focused
+- retry requeues a bundle back to active `pending` work
+- dismiss removes only the active queue entry and keeps the raw bundle plus `enrichment.json` sidecar intact
+- bundle payloads now distinguish historical sidecar status from active queue state so dismissed bundles no longer keep showing stale recovery controls
+- live local browser verification now confirms retry / dismiss behavior in the existing Workbench UI
+
+Reference files:
+
+- `docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-spec.md`
+- `docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -350,6 +366,10 @@ As of this roadmap update, the verified baseline is:
 - raw enrichment queue state now self-heals duplicate entries and preserves corrupt state files before reset
 - Workbench server now drains queued enrichment automatically in the background
 - `摘要` and `收件匣` now show raw enrichment status directly in the existing UI
+- `收件匣` now lets the operator retry or dismiss active failed / deferred enrichment entries inline
+- `摘要` remains read-only even after recovery controls were added to `收件匣`
+- dismissed bundles now preserve historical failed / deferred sidecar status without incorrectly keeping recovery buttons visible
+- local temp-vault browser verification now covers the retry / dismiss controls in `收件匣`
 - tests pass
 - health check passes
 
@@ -387,6 +407,7 @@ The approved delivery order is:
 13. macOS app shell polish
 14. Raw enrichment and multi-provider routing
 15. Background raw enrichment lane and Workbench status visibility
+16. Manual enrichment retry and recovery controls
 
 This order should not be reversed unless there is a strong reason.
 
@@ -492,6 +513,40 @@ The shell now supports:
 - explicit shell window sizing, title, and localization defaults
 - a pinned shell/build dependency baseline for packaging verification
 
+### Phase 14: Raw Enrichment And Multi-Provider Routing
+
+This phase is now delivered locally in a bounded runner form and should be treated as the current enrichment-routing baseline.
+
+The system now supports:
+
+- multiple configured providers in Workbench settings
+- explicit `ask` / `enrich_raw` route mapping
+- honest provider-aware Ask behavior
+- automatic enrichment queueing during import and `Scan now`
+- a bounded local enrichment runner for queued bundles
+
+### Phase 15: Background Raw Enrichment Lane And Workbench Status Visibility
+
+This phase is now delivered and verified locally as the current enrichment-operations baseline.
+
+The system now supports:
+
+- a server-owned bounded background enrichment worker
+- automatic queue draining while Workbench is open
+- visible enrichment status in `摘要` and `收件匣`
+
+### Phase 16: Manual Enrichment Retry And Recovery Controls
+
+This phase is now delivered and verified locally as the current enrichment-recovery baseline.
+
+The system now supports:
+
+- inline single-bundle `重試` / `清除` actions in `收件匣`
+- read-only enrichment status in `摘要`
+- retry back to active `pending`
+- dismiss that clears active queue state without deleting the raw bundle or sidecar
+- action visibility that follows true queue activity instead of stale historical status alone
+
 ## 9. Phase Boundaries
 
 ### Phase 4: Workbench UI
@@ -594,7 +649,15 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Execute the approved manual enrichment retry and recovery controls plan, starting with queue action tests before API and inbox UI wiring.`
+`Define and execute the next enrichment-operations slice, starting with deeper per-bundle enrichment detail in Workbench now that manual retry / dismiss recovery is delivered.`
+
+The latest retry / dismiss verification for this phase was local-only:
+
+- isolated temp vault
+- local temp Workbench server
+- temp Playwright runner
+
+It was not a production verification pass and did not include live OpenAI enrichment execution.
 
 ## 13. Future Adoption Direction
 

@@ -107,6 +107,17 @@ python3 tools/raw_enrichment.py --root . --config ~/.config/infinite_lore/workbe
   - `completed`
   - `failed`
   - `deferred`
+- `摘要` remains read-only for enrichment status
+- `收件匣` now provides inline single-bundle recovery actions for active failed / deferred entries:
+  - `重試`
+  - `清除`
+- `重試` requeues that bundle back to active `pending` work so the background worker can pick it up again
+- `清除` removes only the active queue entry:
+  - the raw bundle stays in place
+  - the bundle-local `enrichment.json` sidecar stays as history
+- action buttons follow true queue state rather than historical sidecar status alone:
+  - failed / deferred history can remain visible after `清除`
+  - but the inline controls disappear once that bundle is no longer active queue work
 
 ## Workbench UI
 

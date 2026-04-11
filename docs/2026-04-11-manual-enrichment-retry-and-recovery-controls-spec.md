@@ -1,8 +1,16 @@
 # Manual Enrichment Retry And Recovery Controls
 
-**Status:** Approved for implementation
+**Status:** Delivered and verified locally
 **Date:** 2026-04-11  
 **Project:** Infinite Lore
+
+**Delivery note:** The delivered version is intentionally bounded:
+
+- single-bundle inline controls only
+- `摘要` remains read-only
+- `收件匣` provides `重試` / `清除` for active `failed` / `deferred` queue entries
+- `清除` removes only the active queue entry and keeps the raw bundle plus `enrichment.json` sidecar intact
+- action visibility follows true active queue state, so historical failed / deferred sidecars can remain visible without still showing controls
 
 ## 1. Purpose
 
@@ -166,6 +174,7 @@ After this phase:
 - dismiss removes the active entry
 - completed items are still removed by the worker
 - failed / deferred items remain operator-visible until retried or dismissed
+- historical failed / deferred sidecars can remain visible after dismiss, but they are no longer actionable once the active queue entry is gone
 
 ## 9. API Surface
 
@@ -227,6 +236,11 @@ But not action buttons.
 - `重試` for `failed` / `deferred`
 - `清除` for `failed` / `deferred`
 
+In the delivered implementation, these controls are additionally gated by active queue state:
+
+- if a bundle still has an active failed / deferred queue entry, show the controls
+- if the bundle only has historical failed / deferred sidecar state after dismiss, keep the status visible but hide the controls
+
 These should appear inline with the existing bundle row rather than as a separate detail drawer in this phase.
 
 ## 12. Copy And UX Tone
@@ -265,6 +279,17 @@ This phase is only acceptable if it is verified in three layers:
 1. queue action unit tests
 2. API tests for retry and dismiss
 3. live browser verification in `收件匣`
+
+Delivered local verification included:
+
+- queue helper tests in `tests.test_raw_enrichment`
+- retry / dismiss API tests in `tests.test_workbench_api`
+- local-only live browser verification on an isolated temp vault with a local temp Workbench server and temp Playwright runner that confirmed:
+  - `摘要` stays read-only
+  - `收件匣` shows inline controls only for active failed / deferred entries
+  - `重試` returns a bundle to visible `pending`
+  - `清除` removes the active queue entry without deleting the bundle
+- this verification did not include production deployment checks or live OpenAI enrichment execution
 
 ## 15. Definition Of Done
 
