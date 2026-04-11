@@ -38,14 +38,28 @@ def _write_json_atomic(target_path: Path, payload: Dict[str, Any]) -> None:
     tmp_path.replace(target_path)
 
 
-def _load_json_dict(path: Path) -> Dict[str, Any]:
+def _corrupt_backup_path(path: Path) -> Path:
+    return path.parent / f"{path.name}.corrupt"
+
+
+def _preserve_corrupt_file(path: Path) -> None:
+    backup_path = _corrupt_backup_path(path)
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+    path.replace(backup_path)
+
+
+def _load_json_dict(path: Path, *, preserve_corrupt: bool = False) -> Dict[str, Any]:
     if not path.exists():
         return {}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        if preserve_corrupt and path.exists():
+            _preserve_corrupt_file(path)
         return {}
     if not isinstance(payload, dict):
+        if preserve_corrupt and path.exists():
+            _preserve_corrupt_file(path)
         return {}
     return payload
 
@@ -81,38 +95,30 @@ def queue_bundle_for_enrichment(root: Path, bundle_path: Path) -> None:
         sidecar_payload.setdefault("queued_at", queued_at)
         sidecar_payload["updated_at"] = queued_at
 
-    state_payload = _load_json_dict(state_path)
+    state_payload = _load_json_dict(state_path, preserve_corrupt=True)
     pending_bundles = state_payload.get("pending_bundles")
     if not isinstance(pending_bundles, list):
         pending_bundles = []
 
-    updated_existing_entry = False
+    filtered_pending_bundles = []
     for entry in pending_bundles:
         if not isinstance(entry, dict):
             continue
-        if str(entry.get("bundle_path") or "") != relative_bundle_path:
+        if str(entry.get("bundle_path") or "") == relative_bundle_path:
             continue
-        entry["bundle_path"] = relative_bundle_path
-        entry["status"] = "pending"
-        entry["provider"] = ""
-        entry["model"] = ""
-        entry["updated_at"] = queued_at
-        entry.setdefault("queued_at", queued_at)
-        updated_existing_entry = True
-        break
+        filtered_pending_bundles.append(entry)
 
-    if not updated_existing_entry:
-        pending_bundles.append(
-            {
-                "bundle_path": relative_bundle_path,
-                "status": "pending",
-                "provider": "",
-                "model": "",
-                "queued_at": queued_at,
-                "updated_at": queued_at,
-            }
-        )
-    state_payload["pending_bundles"] = pending_bundles
+    filtered_pending_bundles.append(
+        {
+            "bundle_path": relative_bundle_path,
+            "status": "pending",
+            "provider": "",
+            "model": "",
+            "queued_at": queued_at,
+            "updated_at": queued_at,
+        }
+    )
+    state_payload["pending_bundles"] = filtered_pending_bundles
     state_payload.setdefault("created_at", queued_at)
     state_payload["updated_at"] = queued_at
     _write_json_atomic(state_path, state_payload)
