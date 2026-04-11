@@ -255,6 +255,52 @@ class AutomationScanTests(unittest.TestCase):
             final_state = load_source_state(state_path)
             self.assertIn("configured-article:https://example.com/posts/alpha", final_state["processed_sources"])
 
+    def test_run_scan_requeues_imported_bundle_even_when_sidecar_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "20_Raw" / "inbox" / "alpha.txt"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("Alpha body", encoding="utf-8")
+            content_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+            bundle_path = _dated_bundle_path(root, "alpha")
+            _write_imported_bundle_metadata(bundle_path, source, content_hash)
+            (bundle_path / "enrichment.json").write_text('{"status":"pending"}\n', encoding="utf-8")
+
+            state_path = root / "automation-state.json"
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "sources": [],
+                        "last_scan": None,
+                        "failed_items": [],
+                        "processed_sources": {
+                            f"local-file:20_Raw/inbox/{source.name}": {
+                                "source_key": f"local-file:20_Raw/inbox/{source.name}",
+                                "source": str(source.relative_to(root)),
+                                "source_url": str(source.relative_to(root)),
+                                "url": str(source.relative_to(root)),
+                                "content_hash": content_hash,
+                                "primary_domain": "business-strategy",
+                                "related_domains": ["finance-investing"],
+                                "bundle_path": bundle_path.relative_to(root).as_posix(),
+                                "stage": "imported",
+                                "retry_count": 0,
+                                "completed_at": "",
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch("tools.automation_scan.compile_bundle", return_value=None), mock.patch(
+                "tools.automation_scan.queue_bundle_for_enrichment"
+            ) as queue_bundle:
+                summary = run_scan(root, [], state_path)
+
+            self.assertEqual(summary["compiled_count"], 1)
+            queue_bundle.assert_called_once_with(root, bundle_path)
+
     def test_run_scan_uses_timeout_for_configured_source_fetches(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

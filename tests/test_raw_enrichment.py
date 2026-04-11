@@ -65,3 +65,20 @@ class RawEnrichmentQueueTests(unittest.TestCase):
                     "20_Raw/inbox/source-four",
                 ],
             )
+
+    def test_queue_same_bundle_twice_does_not_duplicate_pending_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw" / "inbox" / "source-five"
+            bundle.mkdir(parents=True)
+
+            queue_bundle_for_enrichment(root, bundle)
+            queue_bundle_for_enrichment(root, bundle)
+
+            state_path = default_enrichment_state_path(root)
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            pending_entries = state["pending_bundles"]
+
+            self.assertEqual(len(pending_entries), 1)
+            self.assertEqual(pending_entries[0]["bundle_path"], "20_Raw/inbox/source-five")
+            self.assertEqual(pending_entries[0]["status"], "pending")

@@ -86,16 +86,33 @@ def queue_bundle_for_enrichment(root: Path, bundle_path: Path) -> None:
     pending_bundles = state_payload.get("pending_bundles")
     if not isinstance(pending_bundles, list):
         pending_bundles = []
-    pending_bundles.append(
-        {
-            "bundle_path": relative_bundle_path,
-            "status": "pending",
-            "provider": "",
-            "model": "",
-            "queued_at": queued_at,
-            "updated_at": queued_at,
-        }
-    )
+
+    updated_existing_entry = False
+    for entry in pending_bundles:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("bundle_path") or "") != relative_bundle_path:
+            continue
+        entry["bundle_path"] = relative_bundle_path
+        entry["status"] = "pending"
+        entry["provider"] = ""
+        entry["model"] = ""
+        entry["updated_at"] = queued_at
+        entry.setdefault("queued_at", queued_at)
+        updated_existing_entry = True
+        break
+
+    if not updated_existing_entry:
+        pending_bundles.append(
+            {
+                "bundle_path": relative_bundle_path,
+                "status": "pending",
+                "provider": "",
+                "model": "",
+                "queued_at": queued_at,
+                "updated_at": queued_at,
+            }
+        )
     state_payload["pending_bundles"] = pending_bundles
     state_payload.setdefault("created_at", queued_at)
     state_payload["updated_at"] = queued_at
