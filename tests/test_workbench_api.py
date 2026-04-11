@@ -239,6 +239,16 @@ class WorkbenchApiTests(unittest.TestCase):
             for legacy_id in ("providerName", "providerId", "providerApiKey", "balancedModel", "bestModel"):
                 self.assertNotIn(legacy_id, parser.elements_by_id)
 
+    def test_root_html_settings_script_uses_new_settings_contract_hooks(self) -> None:
+        app_js = Path(__file__).resolve().parents[1] / "workbench" / "static" / "app.js"
+        script_text = app_js.read_text(encoding="utf-8")
+
+        for hook in ("providerList", "addProviderButton", "routeEnrichRaw"):
+            self.assertIn(hook, script_text)
+
+        for legacy_id in ("providerName", "providerId", "providerApiKey", "balancedModel", "bestModel"):
+            self.assertNotIn(legacy_id, script_text)
+
     def test_favicon_route_serves_shell_icon_asset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
