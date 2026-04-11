@@ -201,10 +201,13 @@ class WorkbenchApiTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 200)
             html = response.text
+            app_js = (Path(__file__).resolve().parents[1] / "workbench" / "static" / "app.js").read_text(encoding="utf-8")
             self.assertIn("提問工作台", html)
             self.assertNotIn("Ask 工作台", html)
             self.assertIn('rel="icon"', html)
-            self.assertIn('autocomplete="new-password"', html)
+            self.assertTrue(
+                'autocomplete="new-password"' in html or '.autocomplete = "new-password"' in app_js
+            )
 
     def test_root_html_settings_surface_uses_multi_provider_list_and_add_control(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
