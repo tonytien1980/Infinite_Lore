@@ -19,6 +19,7 @@ RELATION_CONFIDENCE_BONUS = {
 SUPPORTED_RELATIONS = {"derived-from", "shares-source"}
 INSUFFICIENT_GROUNDED_ANSWER = "目前知識庫中沒有足夠可依據的內容，無法有把握地回答這個問題。"
 INSUFFICIENT_GROUNDED_LIMIT = "目前知識庫中的可用證據不足。"
+ASK_PROVIDER_FALLBACK_LIMIT = "已選擇的提供者尚未支援 Ask 執行，已改用本地知識庫回答。"
 
 QUERY_PATTERNS = [
     "what notes do i have",
@@ -489,6 +490,8 @@ def answer_question(
         }
 
     answer, limits = local_answer(question, synthesis_notes, small_notes)
+    if route and route.get("provider") != "openai":
+        limits = [*limits, ASK_PROVIDER_FALLBACK_LIMIT]
     return {
         "mode": "ask",
         "answer": answer,

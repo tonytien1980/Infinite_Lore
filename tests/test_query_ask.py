@@ -246,6 +246,7 @@ class QueryAskTests(unittest.TestCase):
 
             self.assertEqual(result["answer_source"], "local")
             self.assertIn("Knowledge compilation", result["answer"])
+            self.assertIn("已選擇的提供者尚未支援 Ask 執行，已改用本地知識庫回答。", result["limits"])
 
     def test_ask_mode_uses_model_when_route_prefers_openai_provider(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
