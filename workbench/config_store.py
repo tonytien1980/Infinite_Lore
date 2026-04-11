@@ -38,14 +38,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 }
 
 
-def load_config(path: Path) -> Dict[str, Any]:
-    if not path.exists():
-        return copy.deepcopy(DEFAULT_CONFIG)
-
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    config = copy.deepcopy(DEFAULT_CONFIG)
-    config.update(payload)
-
+def _merge_nested_defaults(config: Dict[str, Any], payload: Dict[str, Any]) -> None:
     routes = payload.get("routes")
     if isinstance(routes, dict):
         config["routes"].update(routes)
@@ -53,6 +46,23 @@ def load_config(path: Path) -> Dict[str, Any]:
     route_preferences = payload.get("route_provider_preferences")
     if isinstance(route_preferences, dict):
         config["route_provider_preferences"].update(route_preferences)
+
+
+def load_config(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return copy.deepcopy(DEFAULT_CONFIG)
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    config = copy.deepcopy(DEFAULT_CONFIG)
+    if isinstance(payload.get("providers"), list):
+        config["providers"] = payload["providers"]
+
+    _merge_nested_defaults(config, payload)
+
+    for key, value in payload.items():
+        if key in {"providers", "routes", "route_provider_preferences"}:
+            continue
+        config[key] = value
 
     return config
 

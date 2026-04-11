@@ -1,6 +1,10 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from workbench.config_store import DEFAULT_CONFIG
+from workbench.config_store import load_config
 from workbench.provider_router import resolve_route_provider
 
 
@@ -11,6 +15,20 @@ class ProviderRouterTests(unittest.TestCase):
         self.assertEqual(DEFAULT_CONFIG["providers"][0]["provider"], "openai")
         self.assertEqual(DEFAULT_CONFIG["route_provider_preferences"]["ask"], ["openai-main"])
         self.assertEqual(DEFAULT_CONFIG["route_provider_preferences"]["enrich_raw"], ["openai-main"])
+
+    def test_load_config_backfills_nested_route_defaults_from_partial_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.json"
+            path.write_text(json.dumps({"routes": {"ask": "balanced"}}, indent=2), encoding="utf-8")
+
+            config = load_config(path)
+
+        self.assertEqual(config["routes"]["ask"], "balanced")
+        self.assertEqual(config["routes"]["enrich_raw"], "balanced")
+        self.assertEqual(config["routes"]["compile"], "balanced")
+        self.assertEqual(config["routes"]["reflection"], "balanced")
+        self.assertEqual(config["route_provider_preferences"]["ask"], ["openai-main"])
+        self.assertEqual(config["route_provider_preferences"]["enrich_raw"], ["openai-main"])
 
     def test_openai_route_is_chosen_when_openai_provider_matches_role(self) -> None:
         settings = {
@@ -163,3 +181,42 @@ class ProviderRouterTests(unittest.TestCase):
         }
 
         self.assertIsNone(resolve_route_provider(settings, "scan"))
+
+    def test_malformed_routes_shape_does_not_crash_resolution(self) -> None:
+        settings = {
+            "providers": [
+                {
+                    "id": "openai-main",
+                    "provider": "openai",
+                    "api_key": "sk-test",
+                    "enabled": True,
+                    "base_url": "",
+                    "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
+                }
+            ],
+            "routes": ["ask", "balanced"],
+            "route_provider_preferences": {"ask": ["openai-main"]},
+        }
+
+        self.assertIsNone(resolve_route_provider(settings, "ask"))
+
+    def test_malformed_route_provider_preferences_shape_does_not_crash_resolution(self) -> None:
+        settings = {
+            "providers": [
+                {
+                    "id": "openai-main",
+                    "provider": "openai",
+                    "api_key": "sk-test",
+                    "enabled": True,
+                    "base_url": "",
+                    "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
+                }
+            ],
+            "routes": {"ask": "balanced"},
+            "route_provider_preferences": "openai-main",
+        }
+
+        route = resolve_route_provider(settings, "ask")
+
+        self.assertEqual(route["provider_id"], "openai-main")
+        self.assertEqual(route["model"], "gpt-5.4-mini")

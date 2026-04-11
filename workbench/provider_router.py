@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 
+def _settings_dict(value: Any, key: str) -> Dict[str, Any]:
+    nested = value.get(key, {}) if isinstance(value, dict) else {}
+    return nested if isinstance(nested, dict) else {}
+
+
 def _provider_enabled(provider: Dict[str, Any]) -> bool:
     return provider.get("enabled") is not False
 
@@ -31,7 +36,7 @@ def _model_for_role(provider: Dict[str, Any], role: str) -> Optional[str]:
 
 def _ordered_providers(settings: Dict[str, Any], route_name: str) -> List[Dict[str, Any]]:
     providers = [provider for provider in settings.get("providers", []) if isinstance(provider, dict)]
-    preferred_ids = settings.get("route_provider_preferences", {}).get(route_name, [])
+    preferred_ids = _settings_dict(settings, "route_provider_preferences").get(route_name, [])
 
     ordered: List[Dict[str, Any]] = []
     if isinstance(preferred_ids, list):
@@ -48,7 +53,7 @@ def _ordered_providers(settings: Dict[str, Any], route_name: str) -> List[Dict[s
 
 
 def resolve_route_provider(settings: Dict[str, Any], route_name: str) -> Optional[Dict[str, str]]:
-    role = settings.get("routes", {}).get(route_name)
+    role = _settings_dict(settings, "routes").get(route_name)
     if not role or role == "no_model":
         return None
 
