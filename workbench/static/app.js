@@ -68,6 +68,17 @@ const saveSourcesButton = document.getElementById("saveSourcesButton");
 const scanSummary = document.getElementById("scanSummary");
 const scanNowButton = document.getElementById("scanNowButton");
 const refreshBundlesButton = document.getElementById("refreshBundlesButton");
+const providerList = document.getElementById("providerList");
+const addProviderButton = document.getElementById("addProviderButton");
+const settingsForm = document.getElementById("settingsForm");
+const routeScan = document.getElementById("routeScan");
+const routeImport = document.getElementById("routeImport");
+const routeEnrichRaw = document.getElementById("routeEnrichRaw");
+const routeCompile = document.getElementById("routeCompile");
+const routeQuery = document.getElementById("routeQuery");
+const routeAsk = document.getElementById("routeAsk");
+const routeReflection = document.getElementById("routeReflection");
+const settingsStatus = document.getElementById("settingsStatus");
 const PAGE_TITLES = {
   home: "首頁",
   summary: "摘要",
@@ -133,6 +144,235 @@ function normalizeInboxSource(source, index) {
 
 function cloneInboxSources(sources) {
   return (Array.isArray(sources) ? sources : []).map((source, index) => normalizeInboxSource(source, index));
+}
+
+function normalizeProvider(provider, index) {
+  const models = Array.isArray(provider?.models) ? provider.models : [];
+  const fallbackProvider = typeof provider?.provider === "string" && provider.provider.trim() ? provider.provider.trim() : "openai";
+  const fallbackId = fallbackProvider === "openai" ? `openai-${index + 1}` : `${fallbackProvider}-${index + 1}`;
+  return {
+    id: typeof provider?.id === "string" && provider.id.trim() ? provider.id.trim() : fallbackId,
+    provider: fallbackProvider,
+    enabled: provider?.enabled !== false,
+    api_key: typeof provider?.api_key === "string" ? provider.api_key : "",
+    base_url: typeof provider?.base_url === "string" ? provider.base_url : "",
+    balanced:
+      models.find((model) => model?.role === "balanced" && typeof model.id === "string" && model.id.trim())?.id || "",
+    best_deep:
+      models.find((model) => model?.role === "best_deep" && typeof model.id === "string" && model.id.trim())?.id || "",
+  };
+}
+
+function cloneProviders(providers) {
+  const normalized = (Array.isArray(providers) ? providers : []).map((provider, index) => normalizeProvider(provider, index));
+  return normalized.length ? normalized : [normalizeProvider({}, 0)];
+}
+
+function providerLabel(provider, index) {
+  const providerName = provider.provider || "provider";
+  return provider.id || `${providerName}-${index + 1}`;
+}
+
+function createProviderPayload(provider, index) {
+  const normalized = normalizeProvider(provider, index);
+  const models = [];
+  if (normalized.balanced) {
+    models.push({ id: normalized.balanced, role: "balanced" });
+  }
+  if (normalized.best_deep) {
+    models.push({ id: normalized.best_deep, role: "best_deep" });
+  }
+  return {
+    id: normalized.id,
+    provider: normalized.provider,
+    enabled: normalized.enabled,
+    api_key: normalized.api_key,
+    base_url: normalized.base_url,
+    models,
+  };
+}
+
+function buildRouteProviderPreferences(providers) {
+  const providerIds = providers
+    .map((provider, index) => normalizeProvider(provider, index))
+    .filter((provider) => provider.id)
+    .map((provider) => provider.id);
+  const openaiFirst = providers
+    .map((provider, index) => normalizeProvider(provider, index))
+    .sort((left, right) => {
+      const leftScore = left.provider === "openai" ? 0 : 1;
+      const rightScore = right.provider === "openai" ? 0 : 1;
+      return leftScore - rightScore;
+    })
+    .map((provider) => provider.id);
+  const localFirst = providers
+    .map((provider, index) => normalizeProvider(provider, index))
+    .sort((left, right) => {
+      const leftScore = left.provider === "openai" ? 1 : 0;
+      const rightScore = right.provider === "openai" ? 1 : 0;
+      return leftScore - rightScore;
+    })
+    .map((provider) => provider.id);
+
+  return {
+    ask: openaiFirst,
+    enrich_raw: openaiFirst,
+    reflection: openaiFirst,
+    compile: localFirst.length ? localFirst : providerIds,
+  };
+}
+
+function addProvider() {
+  const nextIndex = Array.isArray(state.settings?.providers) ? state.settings.providers.length : 0;
+  const defaultProvider =
+    nextIndex === 0
+      ? normalizeProvider({}, nextIndex)
+      : normalizeProvider({ provider: "ollama", base_url: "http://127.0.0.1:11434" }, nextIndex);
+  state.settings = {
+    ...(state.settings || {}),
+    providers: [...(state.settings?.providers || []), defaultProvider],
+  };
+  renderProviders();
+}
+
+function renderProviders() {
+  const providers = cloneProviders(state.settings?.providers || []);
+  state.settings = { ...(state.settings || {}), providers };
+  providerList.innerHTML = "";
+  providerList.className = "list-stack";
+
+  providers.forEach((provider, index) => {
+    const card = document.createElement("article");
+    card.className = "list-item";
+
+    const header = document.createElement("div");
+    header.className = "panel-head split";
+    const titleWrap = document.createElement("div");
+    const meta = document.createElement("p");
+    meta.className = "eyebrow";
+    meta.textContent = provider.enabled ? "啟用中" : "已停用";
+    const title = document.createElement("h3");
+    title.textContent = providerLabel(provider, index);
+    titleWrap.append(meta, title);
+
+    const actions = document.createElement("div");
+    actions.className = "button-row";
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "ghost-button";
+    removeButton.textContent = "移除";
+    removeButton.disabled = providers.length === 1;
+    removeButton.addEventListener("click", () => {
+      state.settings.providers.splice(index, 1);
+      renderProviders();
+    });
+    actions.appendChild(removeButton);
+    header.append(titleWrap, actions);
+
+    const fields = document.createElement("div");
+    fields.className = "route-grid";
+
+    const providerTypeLabel = document.createElement("label");
+    providerTypeLabel.innerHTML = "<span>供應商類型</span>";
+    const providerTypeSelect = document.createElement("select");
+    [
+      ["openai", "OpenAI"],
+      ["ollama", "Ollama"],
+    ].forEach(([value, text]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      providerTypeSelect.appendChild(option);
+    });
+    providerTypeSelect.value = provider.provider;
+    providerTypeSelect.addEventListener("change", () => {
+      state.settings.providers[index].provider = providerTypeSelect.value;
+      if (providerTypeSelect.value === "ollama" && !state.settings.providers[index].base_url) {
+        state.settings.providers[index].base_url = "http://127.0.0.1:11434";
+      }
+      renderProviders();
+    });
+    providerTypeLabel.appendChild(providerTypeSelect);
+
+    const providerIdLabel = document.createElement("label");
+    providerIdLabel.innerHTML = "<span>供應商 ID</span>";
+    const providerIdInput = document.createElement("input");
+    providerIdInput.type = "text";
+    providerIdInput.value = provider.id;
+    providerIdInput.autocomplete = "username";
+    providerIdInput.addEventListener("input", () => {
+      state.settings.providers[index].id = providerIdInput.value;
+      title.textContent = providerLabel(state.settings.providers[index], index);
+    });
+    providerIdLabel.appendChild(providerIdInput);
+
+    const enabledLabel = document.createElement("label");
+    enabledLabel.className = "inline-checkbox";
+    const enabledInput = document.createElement("input");
+    enabledInput.type = "checkbox";
+    enabledInput.checked = provider.enabled !== false;
+    enabledInput.addEventListener("change", () => {
+      state.settings.providers[index].enabled = enabledInput.checked;
+      meta.textContent = enabledInput.checked ? "啟用中" : "已停用";
+    });
+    const enabledText = document.createElement("span");
+    enabledText.textContent = "啟用";
+    enabledLabel.append(enabledInput, enabledText);
+
+    const apiKeyLabel = document.createElement("label");
+    apiKeyLabel.innerHTML = "<span>API 金鑰</span>";
+    const apiKeyInput = document.createElement("input");
+    apiKeyInput.type = "password";
+    apiKeyInput.value = provider.api_key;
+    apiKeyInput.placeholder = "存放於本機設定，不進入知識庫";
+    apiKeyInput.autocomplete = "new-password";
+    apiKeyInput.addEventListener("input", () => {
+      state.settings.providers[index].api_key = apiKeyInput.value;
+    });
+    apiKeyLabel.appendChild(apiKeyInput);
+
+    const baseUrlLabel = document.createElement("label");
+    baseUrlLabel.innerHTML = "<span>Base URL</span>";
+    const baseUrlInput = document.createElement("input");
+    baseUrlInput.type = "url";
+    baseUrlInput.value = provider.base_url;
+    baseUrlInput.placeholder = "例如：http://127.0.0.1:11434";
+    baseUrlInput.addEventListener("input", () => {
+      state.settings.providers[index].base_url = baseUrlInput.value;
+    });
+    baseUrlLabel.appendChild(baseUrlInput);
+
+    const balancedLabel = document.createElement("label");
+    balancedLabel.innerHTML = "<span>平衡模型</span>";
+    const balancedInput = document.createElement("input");
+    balancedInput.type = "text";
+    balancedInput.value = provider.balanced;
+    balancedInput.placeholder = "模型識別碼";
+    balancedInput.addEventListener("input", () => {
+      state.settings.providers[index].balanced = balancedInput.value;
+    });
+    balancedLabel.appendChild(balancedInput);
+
+    const bestLabel = document.createElement("label");
+    bestLabel.innerHTML = "<span>高品質 / 深度模型</span>";
+    const bestInput = document.createElement("input");
+    bestInput.type = "text";
+    bestInput.value = provider.best_deep;
+    bestInput.placeholder = "模型識別碼";
+    bestInput.addEventListener("input", () => {
+      state.settings.providers[index].best_deep = bestInput.value;
+    });
+    bestLabel.appendChild(bestInput);
+
+    fields.append(providerTypeLabel, providerIdLabel, enabledLabel, apiKeyLabel, baseUrlLabel, balancedLabel, bestLabel);
+    card.append(header, fields);
+    providerList.appendChild(card);
+  });
+
+  if (!providerList.children.length) {
+    providerList.className = "list-stack empty-state";
+    providerList.textContent = "尚未設定供應商。";
+  }
 }
 
 function createMetricCard(label, value, detail) {
@@ -405,22 +645,20 @@ function renderHealth() {
 
 function populateSettings() {
   const settings = state.settings || {};
-  const provider = settings.providers?.[0] || { provider: "openai", id: "openai-main", api_key: "", models: [] };
-  document.getElementById("providerName").value = provider.provider || "openai";
-  document.getElementById("providerId").value = provider.id || "openai-main";
-  document.getElementById("providerApiKey").value = provider.api_key || "";
-  document.getElementById("balancedModel").value =
-    provider.models?.find((model) => model.role === "balanced")?.id || "";
-  document.getElementById("bestModel").value =
-    provider.models?.find((model) => model.role === "best_deep")?.id || "";
+  state.settings = {
+    ...settings,
+    providers: cloneProviders(settings.providers),
+  };
+  renderProviders();
 
   const routes = settings.routes || {};
-  document.getElementById("routeScan").value = routes.scan || "no_model";
-  document.getElementById("routeImport").value = routes.import || "no_model";
-  document.getElementById("routeCompile").value = routes.compile || "balanced";
-  document.getElementById("routeQuery").value = routes.query || "no_model";
-  document.getElementById("routeAsk").value = routes.ask || "best_deep";
-  document.getElementById("routeReflection").value = routes.reflection || "balanced";
+  routeScan.value = routes.scan || "no_model";
+  routeImport.value = routes.import || "no_model";
+  routeEnrichRaw.value = routes.enrich_raw || "balanced";
+  routeCompile.value = routes.compile || "balanced";
+  routeQuery.value = routes.query || "no_model";
+  routeAsk.value = routes.ask || "best_deep";
+  routeReflection.value = routes.reflection || "balanced";
 }
 
 async function fetchJson(url, options = {}) {
@@ -970,35 +1208,31 @@ saveSourcesButton.addEventListener("click", async () => {
   await saveInboxSources();
 });
 
-document.getElementById("settingsForm").addEventListener("submit", async (event) => {
+addProviderButton.addEventListener("click", addProvider);
+
+settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const providerPayload = cloneProviders(state.settings?.providers || []).map((provider, index) => createProviderPayload(provider, index));
   const payload = {
-    providers: [
-      {
-        id: document.getElementById("providerId").value,
-        provider: document.getElementById("providerName").value,
-        api_key: document.getElementById("providerApiKey").value,
-        models: [
-          { id: document.getElementById("balancedModel").value, role: "balanced" },
-          { id: document.getElementById("bestModel").value, role: "best_deep" },
-        ].filter((model) => model.id),
-      },
-    ],
+    providers: providerPayload,
     routes: {
-      scan: document.getElementById("routeScan").value,
-      import: document.getElementById("routeImport").value,
-      compile: document.getElementById("routeCompile").value,
-      query: document.getElementById("routeQuery").value,
-      ask: document.getElementById("routeAsk").value,
-      reflection: document.getElementById("routeReflection").value,
+      scan: routeScan.value,
+      import: routeImport.value,
+      enrich_raw: routeEnrichRaw.value,
+      compile: routeCompile.value,
+      query: routeQuery.value,
+      ask: routeAsk.value,
+      reflection: routeReflection.value,
     },
+    route_provider_preferences: buildRouteProviderPreferences(providerPayload),
   };
   state.settings = await fetchJson("/api/settings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  document.getElementById("settingsStatus").textContent = "本機設定已儲存。";
+  populateSettings();
+  settingsStatus.textContent = "本機設定已儲存。";
 });
 
 loadAll().catch((error) => {

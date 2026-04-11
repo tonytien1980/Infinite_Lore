@@ -351,62 +351,43 @@
         </section>
 
         <section class="page" data-page="settings">
-          <div class="grid two-col">
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">模型控制</p>
-                  <h3>模型路由與 API 存取</h3>
+          <form id="settingsForm" class="stack-form">
+            <div class="grid two-col">
+              <section class="panel">
+                <div class="panel-head split">
+                  <div>
+                    <p class="eyebrow">模型控制</p>
+                    <h3>模型路由與 API 存取</h3>
+                  </div>
+                  <button id="addProviderButton" class="ghost-button" type="button">新增供應商</button>
                 </div>
-              </div>
-              <form id="settingsForm" class="stack-form">
-                <label>
-                  <span>供應商</span>
-                  <input type="text" id="providerName" value="openai" />
-                </label>
-                <label>
-                  <span>供應商 ID</span>
-                  <input type="text" id="providerId" value="openai-main" autocomplete="username" />
-                </label>
-                <label>
-                  <span>API 金鑰</span>
-                  <input
-                    type="password"
-                    id="providerApiKey"
-                    placeholder="存放於本機設定，不進入知識庫"
-                    autocomplete="new-password"
-                  />
-                </label>
-                <label>
-                  <span>平衡模型</span>
-                  <input type="text" id="balancedModel" placeholder="模型識別碼" />
-                </label>
-                <label>
-                  <span>高品質 / 深度模型</span>
-                  <input type="text" id="bestModel" placeholder="模型識別碼" />
-                </label>
-                <button type="submit" class="primary-button">儲存本機設定</button>
-              </form>
-            </section>
+                <p class="empty-state">可同時保留雲端與本機模型設定，系統會依路由角色自動選用較合適的供應商順序。</p>
+                <div id="providerList" class="list-stack"></div>
+              </section>
 
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">功能路由</p>
-                  <h3>成本策略調校</h3>
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">功能路由</p>
+                    <h3>成本策略調校</h3>
+                  </div>
                 </div>
-              </div>
-              <div class="route-grid">
-                <label><span>掃描</span><select id="routeScan"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
-                <label><span>匯入</span><select id="routeImport"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
-                <label><span>編譯</span><select id="routeCompile"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced" selected>平衡</option><option value="best_deep">高品質</option></select></label>
-                <label><span>查詢</span><select id="routeQuery"><option value="no_model" selected>不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
-                <label><span>提問</span><select id="routeAsk"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep" selected>高品質</option></select></label>
-                <label><span>反思</span><select id="routeReflection"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced" selected>平衡</option><option value="best_deep">高品質</option></select></label>
-              </div>
-              <div id="settingsStatus" class="empty-state">本機設定會保存在 Vault 之外，不受版本控制；可後續擴充 API 供應商設定。</div>
-            </section>
-          </div>
+                <div class="route-grid">
+                  <label><span>掃描</span><select id="routeScan"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
+                  <label><span>匯入</span><select id="routeImport"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
+                  <label><span>原始理解</span><select id="routeEnrichRaw"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced" selected>平衡</option><option value="best_deep">高品質</option></select></label>
+                  <label><span>編譯</span><select id="routeCompile"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced" selected>平衡</option><option value="best_deep">高品質</option></select></label>
+                  <label><span>查詢</span><select id="routeQuery"><option value="no_model" selected>不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep">高品質</option></select></label>
+                  <label><span>提問</span><select id="routeAsk"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced">平衡</option><option value="best_deep" selected>高品質</option></select></label>
+                  <label><span>反思</span><select id="routeReflection"><option value="no_model">不使用模型</option><option value="cheap_fast">小而快</option><option value="balanced" selected>平衡</option><option value="best_deep">高品質</option></select></label>
+                </div>
+                <div class="button-row">
+                  <button type="submit" class="primary-button">儲存本機設定</button>
+                </div>
+                <div id="settingsStatus" class="empty-state">本機設定會保存在 Vault 之外，不受版本控制；可後續擴充 API 供應商設定。</div>
+              </section>
+            </div>
+          </form>
         </section>
       </main>
     </div>
