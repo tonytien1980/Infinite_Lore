@@ -11,18 +11,27 @@ from app_shell.window import (
     build_error_html,
     build_loading_html,
     create_shell_window,
+    open_error_dialog,
     prompt_for_vault_root,
     start_shell_window,
 )
 
 _VAULT_MARKERS = ("10_Domains", "30_Wiki")
+_NO_SELECTED_VAULT_MESSAGE = "尚未選擇知識庫資料夾，請先選擇知識庫資料夾。"
+_CHOOSE_VAULT_ERROR_PREFIX = "選擇知識庫資料夾時發生問題，請再試一次。"
 
 
 def is_valid_vault_root(candidate: Path) -> bool:
     candidate = Path(candidate).expanduser().resolve()
     return candidate.exists() and all((candidate / marker).exists() for marker in _VAULT_MARKERS)
 
-def resolve_launch_vault_root(config_path: Path, prompt_parent: Optional[object]) -> Path:
+
+def resolve_launch_vault_root(
+    config_path: Path,
+    prompt_parent: Optional[object],
+    *,
+    allow_prompt: bool = True,
+) -> Path:
     state_path = default_shell_state_path(config_path)
     candidates = []
 
@@ -40,6 +49,9 @@ def resolve_launch_vault_root(config_path: Path, prompt_parent: Optional[object]
     for candidate in candidates:
         if is_valid_vault_root(candidate):
             return candidate.resolve()
+
+    if not allow_prompt:
+        raise RuntimeError(_NO_SELECTED_VAULT_MESSAGE)
 
     selected_root = prompt_for_vault_root(prompt_parent)
     if selected_root is None:
@@ -66,29 +78,23 @@ class AppShellController:
 
     def bootstrap(self, window: object) -> None:
         self.window = window
-        window.load_html(build_loading_html("正在準備你的 Infinite Lore 工作台與知識庫..."))
-        self._stop_server()
-
-        try:
-            vault_root = self._resolve_vault_root(prompt_parent=window)
-            server = EmbeddedWorkbenchServer(vault_root=vault_root, config_path=self.config_path)
-            self.server = server
-            server.start()
-            window.load_url(server.base_url)
-        except Exception as exc:
-            self._stop_server()
-            self._render_error(str(exc))
+        self._launch(window, allow_prompt=True)
 
     def retry_launch(self) -> None:
         if self.window is None:
             return
-        self.bootstrap(self.window)
+        self._launch(self.window, allow_prompt=False)
 
     def choose_vault(self) -> None:
         if self.window is None:
             return
 
-        selected_root = prompt_for_vault_root(self.window)
+        try:
+            selected_root = prompt_for_vault_root(self.window)
+        except Exception as exc:
+            self._render_error(f"{_CHOOSE_VAULT_ERROR_PREFIX}\n{exc}")
+            return
+
         if selected_root is None:
             self._render_error("找不到可用的知識庫資料夾，且你尚未選擇資料夾。")
             return
@@ -96,8 +102,13 @@ class AppShellController:
             self._render_error("你選擇的資料夾不是有效的 Infinite Lore 知識庫。")
             return
 
-        selected_root = selected_root.resolve()
-        save_saved_vault_root(default_shell_state_path(self.config_path), selected_root)
+        try:
+            selected_root = selected_root.resolve()
+            save_saved_vault_root(default_shell_state_path(self.config_path), selected_root)
+        except Exception as exc:
+            self._render_error(f"{_CHOOSE_VAULT_ERROR_PREFIX}\n{exc}")
+            return
+
         self.initial_vault_root = selected_root
         self.retry_launch()
 
@@ -106,13 +117,28 @@ class AppShellController:
         if self.window is not None and hasattr(self.window, "destroy"):
             self.window.destroy()
 
-    def _resolve_vault_root(self, prompt_parent: object) -> Path:
+    def _launch(self, window: object, *, allow_prompt: bool) -> None:
+        window.load_html(build_loading_html("正在準備你的 Infinite Lore 工作台與知識庫..."))
+        self._stop_server()
+
+        try:
+            vault_root = self._resolve_vault_root(prompt_parent=window, allow_prompt=allow_prompt)
+            server = EmbeddedWorkbenchServer(vault_root=vault_root, config_path=self.config_path)
+            self.server = server
+            server.start()
+            window.load_url(server.base_url)
+        except Exception as exc:
+            self._stop_server()
+            self._render_error(str(exc))
+
+    def _resolve_vault_root(self, prompt_parent: object, *, allow_prompt: bool) -> Path:
         if self.initial_vault_root is not None:
             return self.initial_vault_root.resolve()
 
         return resolve_launch_vault_root(
             config_path=self.config_path,
             prompt_parent=prompt_parent,
+            allow_prompt=allow_prompt,
         )
 
     def _render_error(self, message: str) -> None:
@@ -143,7 +169,14 @@ def launch_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
         config_path=config_path,
         initial_vault_root=vault_root,
     )
-    controller.run()
+    try:
+        controller.run()
+    except Exception as exc:
+        message = f"Infinite Lore 啟動失敗。\n{exc}"
+        try:
+            open_error_dialog(message)
+        except Exception as dialog_exc:
+            raise RuntimeError(message) from dialog_exc
 
 
 def default_vault_root(config_path: Optional[Path] = None, prompt_parent: Optional[object] = None) -> Path:

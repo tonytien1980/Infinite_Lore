@@ -8,6 +8,9 @@ WINDOW_TITLE = "Infinite Lore"
 WINDOW_WIDTH = 1440
 WINDOW_HEIGHT = 980
 WINDOW_MIN_SIZE = (1200, 820)
+ERROR_WINDOW_WIDTH = 760
+ERROR_WINDOW_HEIGHT = 560
+ERROR_WINDOW_MIN_SIZE = (640, 420)
 
 try:
     import webview
@@ -234,4 +237,20 @@ def open_main_window(url: str) -> None:
 
 
 def open_error_dialog(message: str) -> None:
-    raise RuntimeError(message)
+    if webview is None:
+        raise RuntimeError(message)
+
+    webview.create_window(
+        WINDOW_TITLE,
+        html=build_error_html(
+            title="無法啟動 Infinite Lore",
+            message=message,
+            show_retry=False,
+            show_choose_vault=False,
+        ),
+        width=ERROR_WINDOW_WIDTH,
+        height=ERROR_WINDOW_HEIGHT,
+        min_size=ERROR_WINDOW_MIN_SIZE,
+        text_select=True,
+    )
+    webview.start(gui="cocoa", debug=False)

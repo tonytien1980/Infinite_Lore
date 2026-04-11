@@ -141,6 +141,24 @@ class AppShellLaunchTests(unittest.TestCase):
             )
             controller.run.assert_called_once()
 
+    def test_launch_app_routes_pre_window_failures_to_controlled_error_dialog(self) -> None:
+        from app_shell.main import launch_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            with mock.patch("app_shell.main.AppShellController") as controller_cls, mock.patch(
+                "app_shell.main.open_error_dialog"
+            ) as open_error_dialog:
+                controller = controller_cls.return_value
+                controller.run.side_effect = RuntimeError("window boom")
+
+                launch_app(vault_root=root, config_path=root / "workbench.json")
+
+            open_error_dialog.assert_called_once()
+            self.assertIn("Infinite Lore", open_error_dialog.call_args.args[0])
+            self.assertIn("window boom", open_error_dialog.call_args.args[0])
+
     def test_resolve_launch_vault_root_uses_saved_state_when_auto_candidates_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             temp_root = Path(tmp)
@@ -482,3 +500,76 @@ class AppShellUiTests(unittest.TestCase):
             self.assertIn("window.pywebview.api.choose_vault()", rendered_html)
             self.assertIn('onclick="window.pywebview.api.quit_app()"', rendered_html)
             window.load_url.assert_not_called()
+
+    def test_controller_retry_launch_does_not_reopen_picker_without_selected_vault(self) -> None:
+        from app_shell.main import AppShellController
+
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            config_path = temp_root / "config" / "workbench.json"
+            non_vault_root = temp_root / "existing-non-vault"
+            non_vault_root.mkdir(parents=True)
+
+            controller = AppShellController(config_path=config_path)
+            window = mock.Mock()
+            controller.window = window
+
+            with mock.patch(
+                "app_shell.main.build_loading_html",
+                return_value="loading html",
+            ), mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
+                Path,
+                "cwd",
+                return_value=non_vault_root,
+            ), mock.patch("app_shell.main.prompt_for_vault_root") as prompt_for_vault_root:
+                controller.retry_launch()
+
+            prompt_for_vault_root.assert_not_called()
+            rendered_html = window.load_html.call_args_list[-1][0][0]
+            self.assertIn("請先選擇知識庫資料夾", rendered_html)
+            self.assertIn("選擇知識庫資料夾", rendered_html)
+
+    def test_controller_choose_vault_renders_controlled_error_when_picker_fails(self) -> None:
+        from app_shell.main import AppShellController
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            controller = AppShellController(config_path=root / "workbench.json")
+            window = mock.Mock()
+            controller.window = window
+
+            with mock.patch(
+                "app_shell.main.prompt_for_vault_root",
+                side_effect=RuntimeError("dialog failed"),
+            ):
+                controller.choose_vault()
+
+            rendered_html = window.load_html.call_args[0][0]
+            self.assertIn("選擇知識庫資料夾時發生問題", rendered_html)
+            self.assertIn("dialog failed", rendered_html)
+
+    def test_controller_choose_vault_renders_controlled_error_when_save_fails(self) -> None:
+        from app_shell.main import AppShellController
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            selected_vault = root / "Chosen Vault"
+            selected_vault.mkdir(parents=True)
+            seed_vault(selected_vault)
+
+            controller = AppShellController(config_path=root / "workbench.json")
+            window = mock.Mock()
+            controller.window = window
+
+            with mock.patch(
+                "app_shell.main.prompt_for_vault_root",
+                return_value=selected_vault,
+            ), mock.patch(
+                "app_shell.main.save_saved_vault_root",
+                side_effect=OSError("disk full"),
+            ):
+                controller.choose_vault()
+
+            rendered_html = window.load_html.call_args[0][0]
+            self.assertIn("選擇知識庫資料夾時發生問題", rendered_html)
+            self.assertIn("disk full", rendered_html)
