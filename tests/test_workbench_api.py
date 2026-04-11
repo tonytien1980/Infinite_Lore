@@ -76,6 +76,10 @@ class _WorkbenchRootHtmlParser(HTMLParser):
             self._in_sidebar_nav = False
         if self._workspace_stack and tag == self._workspace_stack[-1]["tag"]:
             self.sections.append(self._workspace_stack.pop())
+        while self._element_stack and self._element_stack[-1]["tag"] != tag:
+            self._element_stack.pop()
+        if self._element_stack and self._element_stack[-1]["tag"] == tag:
+            self._element_stack.pop()
 
     def assert_nav_button(self, page: str, label: str) -> None:
         matches = [(button_page, button_label) for button_page, button_label in self.nav_buttons if button_page == page]
