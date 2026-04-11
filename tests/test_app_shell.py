@@ -1,3 +1,4 @@
+import json
 import tempfile
 import time
 import sys
@@ -7,8 +8,9 @@ from pathlib import Path
 
 import httpx
 
-from app_shell.main import default_vault_root
+from app_shell.main import default_vault_root, resolve_launch_vault_root
 from app_shell.runtime import EmbeddedWorkbenchServer
+from app_shell.state import default_shell_state_path
 
 
 def seed_vault(root: Path) -> None:
@@ -135,3 +137,68 @@ class AppShellLaunchTests(unittest.TestCase):
                     launch_app(vault_root=root, config_path=root / "workbench.json")
 
                 open_error.assert_called_once()
+
+    def test_resolve_launch_vault_root_uses_saved_state_when_auto_candidates_fail(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            saved_vault = temp_root / "Saved Vault"
+            saved_vault.mkdir(parents=True)
+            seed_vault(saved_vault)
+
+            config_path = temp_root / "config" / "workbench.json"
+            state_path = default_shell_state_path(config_path)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps({"last_vault_root": str(saved_vault.resolve())}),
+                encoding="utf-8",
+            )
+
+            invalid_cwd = temp_root / "not-a-vault"
+            with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
+                Path,
+                "cwd",
+                return_value=invalid_cwd,
+            ):
+                resolved = resolve_launch_vault_root(config_path=config_path, prompt_parent=None)
+
+            self.assertEqual(resolved, saved_vault.resolve())
+
+    def test_resolve_launch_vault_root_prompts_and_saves_valid_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            selected_vault = temp_root / "Chosen Vault"
+            selected_vault.mkdir(parents=True)
+            seed_vault(selected_vault)
+
+            config_path = temp_root / "config" / "workbench.json"
+            state_path = default_shell_state_path(config_path)
+
+            with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
+                Path,
+                "cwd",
+                return_value=temp_root / "not-a-vault",
+            ), mock.patch(
+                "app_shell.main.prompt_for_vault_root",
+                return_value=selected_vault,
+            ):
+                resolved = resolve_launch_vault_root(config_path=config_path, prompt_parent=mock.Mock())
+
+            self.assertEqual(resolved, selected_vault.resolve())
+            saved_payload = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(saved_payload["last_vault_root"], str(selected_vault.resolve()))
+
+    def test_resolve_launch_vault_root_raises_product_error_when_picker_is_cancelled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            config_path = temp_root / "config" / "workbench.json"
+
+            with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
+                Path,
+                "cwd",
+                return_value=temp_root / "not-a-vault",
+            ), mock.patch(
+                "app_shell.main.prompt_for_vault_root",
+                return_value=None,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "找不到可用的知識庫資料夾"):
+                    resolve_launch_vault_root(config_path=config_path, prompt_parent=mock.Mock())
