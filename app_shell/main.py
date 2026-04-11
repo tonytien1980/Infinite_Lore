@@ -59,8 +59,12 @@ def resolve_launch_vault_root(
     if not is_valid_vault_root(selected_root):
         raise RuntimeError("你選擇的資料夾不是有效的 Infinite Lore 知識庫。")
 
-    save_saved_vault_root(state_path, selected_root)
-    return selected_root.resolve()
+    selected_root = selected_root.resolve()
+    try:
+        save_saved_vault_root(state_path, selected_root)
+    except Exception:
+        pass
+    return selected_root
 
 
 class AppShellController:
@@ -102,14 +106,13 @@ class AppShellController:
             self._render_error("你選擇的資料夾不是有效的 Infinite Lore 知識庫。")
             return
 
-        try:
-            selected_root = selected_root.resolve()
-            save_saved_vault_root(default_shell_state_path(self.config_path), selected_root)
-        except Exception as exc:
-            self._render_error(f"{_CHOOSE_VAULT_ERROR_PREFIX}\n{exc}")
-            return
-
+        selected_root = selected_root.resolve()
         self.initial_vault_root = selected_root
+        try:
+            save_saved_vault_root(default_shell_state_path(self.config_path), selected_root)
+        except Exception:
+            pass
+
         self.retry_launch()
 
     def quit_app(self) -> None:

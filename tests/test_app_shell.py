@@ -217,6 +217,36 @@ class AppShellLaunchTests(unittest.TestCase):
             self.assertEqual(saved_payload["last_vault_root"], str(selected_vault.resolve()))
             prompt_for_vault_root.assert_called_once()
 
+    def test_resolve_launch_vault_root_returns_selected_vault_when_save_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            selected_vault = temp_root / "Chosen Vault"
+            selected_vault.mkdir(parents=True)
+            seed_vault(selected_vault)
+
+            config_path = temp_root / "config" / "workbench.json"
+            state_path = default_shell_state_path(config_path)
+
+            existing_non_vault = temp_root / "existing-non-vault"
+            existing_non_vault.mkdir(parents=True)
+
+            with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
+                Path,
+                "cwd",
+                return_value=existing_non_vault,
+            ), mock.patch(
+                "app_shell.main.prompt_for_vault_root",
+                return_value=selected_vault,
+            ) as prompt_for_vault_root, mock.patch(
+                "app_shell.main.save_saved_vault_root",
+                side_effect=OSError("disk full"),
+            ):
+                resolved = resolve_launch_vault_root(config_path=config_path, prompt_parent=mock.Mock())
+
+            self.assertEqual(resolved, selected_vault.resolve())
+            self.assertFalse(state_path.exists())
+            prompt_for_vault_root.assert_called_once()
+
     def test_resolve_launch_vault_root_raises_product_error_when_picker_is_cancelled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             temp_root = Path(tmp)
@@ -353,6 +383,23 @@ class AppShellUiTests(unittest.TestCase):
         self.assertNotIn("重新嘗試", html)
         self.assertNotIn("window.pywebview.api.retry_launch()", html)
         self.assertNotIn("window.pywebview.api.choose_vault()", html)
+
+    def test_open_error_dialog_uses_non_interactive_fallback_html(self) -> None:
+        from app_shell import window as window_module
+
+        fake_webview = mock.Mock()
+
+        with mock.patch.object(window_module, "webview", fake_webview):
+            window_module.open_error_dialog("window boom")
+
+        html = fake_webview.create_window.call_args.kwargs["html"]
+        self.assertIn("無法啟動 Infinite Lore", html)
+        self.assertIn("window boom", html)
+        self.assertNotIn("window.pywebview.api", html)
+        self.assertNotIn("結束應用程式", html)
+        self.assertEqual(fake_webview.create_window.call_args.kwargs["background_color"], "#F6EADF")
+        self.assertIn("global.quit", fake_webview.start.call_args.kwargs["localization"])
+        self.assertTrue(fake_webview.start.call_args.kwargs["private_mode"])
 
     def test_shell_window_api_forwards_actions_to_controller(self) -> None:
         from app_shell.window import ShellWindowApi
@@ -548,7 +595,7 @@ class AppShellUiTests(unittest.TestCase):
             self.assertIn("選擇知識庫資料夾時發生問題", rendered_html)
             self.assertIn("dialog failed", rendered_html)
 
-    def test_controller_choose_vault_renders_controlled_error_when_save_fails(self) -> None:
+    def test_controller_choose_vault_still_launches_when_save_fails(self) -> None:
         from app_shell.main import AppShellController
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -567,9 +614,9 @@ class AppShellUiTests(unittest.TestCase):
             ), mock.patch(
                 "app_shell.main.save_saved_vault_root",
                 side_effect=OSError("disk full"),
-            ):
+            ), mock.patch.object(controller, "retry_launch") as retry_launch:
                 controller.choose_vault()
 
-            rendered_html = window.load_html.call_args[0][0]
-            self.assertIn("選擇知識庫資料夾時發生問題", rendered_html)
-            self.assertIn("disk full", rendered_html)
+            self.assertEqual(controller.initial_vault_root, selected_vault.resolve())
+            retry_launch.assert_called_once_with()
+            window.load_html.assert_not_called()

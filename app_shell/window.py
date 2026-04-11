@@ -8,9 +8,29 @@ WINDOW_TITLE = "Infinite Lore"
 WINDOW_WIDTH = 1440
 WINDOW_HEIGHT = 980
 WINDOW_MIN_SIZE = (1200, 820)
+WINDOW_BACKGROUND_COLOR = "#F5F1E8"
 ERROR_WINDOW_WIDTH = 760
 ERROR_WINDOW_HEIGHT = 560
 ERROR_WINDOW_MIN_SIZE = (640, 420)
+ERROR_WINDOW_BACKGROUND_COLOR = "#F6EADF"
+WEBVIEW_LOCALIZATION = {
+    "global.cancel": "取消",
+    "global.ok": "確定",
+    "global.quit": "結束",
+    "global.quitConfirmation": "確定要結束應用程式嗎？",
+    "global.saveFile": "儲存檔案",
+    "linux.openFile": "開啟檔案",
+    "linux.openFiles": "開啟多個檔案",
+    "linux.openFolder": "選擇資料夾",
+    "cocoa.menu.about": "關於 Infinite Lore",
+    "cocoa.menu.fullscreen": "進入全螢幕",
+    "cocoa.menu.hide": "隱藏 Infinite Lore",
+    "cocoa.menu.hideOthers": "隱藏其他視窗",
+    "cocoa.menu.quit": "結束 Infinite Lore",
+    "cocoa.menu.services": "服務",
+    "cocoa.menu.showAll": "全部顯示",
+    "cocoa.menu.view": "檢視",
+}
 
 try:
     import webview
@@ -80,20 +100,31 @@ def build_error_html(
     *,
     show_retry: bool,
     show_choose_vault: bool,
+    show_quit: bool = True,
+    js_api_available: bool = True,
 ) -> str:
     safe_title = escape(title)
     safe_message = escape(message)
     actions = []
-    if show_retry:
+    if show_retry and js_api_available:
         actions.append(
             '<button type="button" class="primary" onclick="window.pywebview.api.retry_launch()">重新嘗試</button>'
         )
-    if show_choose_vault:
+    if show_choose_vault and js_api_available:
         actions.append(
             '<button type="button" onclick="window.pywebview.api.choose_vault()">選擇知識庫資料夾</button>'
         )
-    actions.append('<button type="button" class="ghost" onclick="window.pywebview.api.quit_app()">結束應用程式</button>')
+    if show_quit and js_api_available:
+        actions.append(
+            '<button type="button" class="ghost" onclick="window.pywebview.api.quit_app()">結束應用程式</button>'
+        )
     action_markup = "\n        ".join(actions)
+    actions_block = ""
+    if action_markup:
+        actions_block = f"""
+      <div class="actions">
+        {action_markup}
+      </div>"""
 
     return f"""<!doctype html>
 <html lang="zh-Hant">
@@ -166,9 +197,7 @@ def build_error_html(
       <p class="label">Infinite Lore</p>
       <h1>{safe_title}</h1>
       <p>{safe_message}</p>
-      <div class="actions">
-        {action_markup}
-      </div>
+      {actions_block}
     </main>
   </body>
 </html>
@@ -210,7 +239,9 @@ def create_shell_window(api: Optional[object]) -> object:
         width=WINDOW_WIDTH,
         height=WINDOW_HEIGHT,
         min_size=WINDOW_MIN_SIZE,
+        background_color=WINDOW_BACKGROUND_COLOR,
         text_select=True,
+        localization=WEBVIEW_LOCALIZATION,
     )
 
 
@@ -218,7 +249,13 @@ def start_shell_window(window: object, bootstrap_callback: object) -> None:
     if webview is None:
         raise RuntimeError("pywebview is not installed")
 
-    webview.start(lambda: bootstrap_callback(window), gui="cocoa", debug=False)
+    webview.start(
+        lambda: bootstrap_callback(window),
+        gui="cocoa",
+        debug=False,
+        localization=WEBVIEW_LOCALIZATION,
+        private_mode=True,
+    )
 
 
 def open_main_window(url: str) -> None:
@@ -231,9 +268,11 @@ def open_main_window(url: str) -> None:
         width=WINDOW_WIDTH,
         height=WINDOW_HEIGHT,
         min_size=WINDOW_MIN_SIZE,
+        background_color=WINDOW_BACKGROUND_COLOR,
         text_select=True,
+        localization=WEBVIEW_LOCALIZATION,
     )
-    webview.start(gui="cocoa", debug=False)
+    webview.start(gui="cocoa", debug=False, localization=WEBVIEW_LOCALIZATION, private_mode=True)
 
 
 def open_error_dialog(message: str) -> None:
@@ -247,10 +286,14 @@ def open_error_dialog(message: str) -> None:
             message=message,
             show_retry=False,
             show_choose_vault=False,
+            show_quit=False,
+            js_api_available=False,
         ),
         width=ERROR_WINDOW_WIDTH,
         height=ERROR_WINDOW_HEIGHT,
         min_size=ERROR_WINDOW_MIN_SIZE,
+        background_color=ERROR_WINDOW_BACKGROUND_COLOR,
         text_select=True,
+        localization=WEBVIEW_LOCALIZATION,
     )
-    webview.start(gui="cocoa", debug=False)
+    webview.start(gui="cocoa", debug=False, localization=WEBVIEW_LOCALIZATION, private_mode=True)
