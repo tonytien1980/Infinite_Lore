@@ -548,7 +548,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Review and approve the raw enrichment and multi-provider routing spec, then write the implementation plan for the next model-routing phase.`
+`Execute the approved raw enrichment and multi-provider routing plan, starting with provider schema and route resolution before the background enrichment lane.`
 
 ## 13. Future Adoption Direction
 
