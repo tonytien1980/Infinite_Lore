@@ -7,10 +7,9 @@ from pathlib import Path
 
 import httpx
 
-from app_shell.main import AppShellController, default_vault_root, resolve_launch_vault_root
+from app_shell.main import default_vault_root, resolve_launch_vault_root
 from app_shell.state import default_shell_state_path
 from app_shell.runtime import EmbeddedWorkbenchServer
-from app_shell.window import build_error_html, build_loading_html
 
 
 def seed_vault(root: Path) -> None:
@@ -299,6 +298,8 @@ class AppShellLaunchTests(unittest.TestCase):
 
 class AppShellUiTests(unittest.TestCase):
     def test_build_loading_html_uses_traditional_chinese_copy(self) -> None:
+        from app_shell.window import build_loading_html
+
         html = build_loading_html("正在準備知識庫...")
 
         self.assertIn("Infinite Lore", html)
@@ -306,6 +307,8 @@ class AppShellUiTests(unittest.TestCase):
         self.assertNotIn("Loading", html)
 
     def test_build_error_html_includes_recovery_actions(self) -> None:
+        from app_shell.window import build_error_html
+
         html = build_error_html(
             title="無法開啟知識工作台",
             message="請重新選擇知識庫資料夾。",
@@ -319,36 +322,100 @@ class AppShellUiTests(unittest.TestCase):
         self.assertIn("window.pywebview.api.retry_launch()", html)
         self.assertIn("window.pywebview.api.choose_vault()", html)
 
+    def test_build_error_html_omits_recovery_actions_when_flags_are_false(self) -> None:
+        from app_shell.window import build_error_html
+
+        html = build_error_html(
+            title="無法開啟知識工作台",
+            message="請重新選擇知識庫資料夾。",
+            show_retry=False,
+            show_choose_vault=False,
+        )
+
+        self.assertIn("無法開啟知識工作台", html)
+        self.assertIn("請重新選擇知識庫資料夾。", html)
+        self.assertIn("結束應用程式", html)
+        self.assertNotIn("重新嘗試", html)
+        self.assertNotIn("window.pywebview.api.retry_launch()", html)
+        self.assertNotIn("window.pywebview.api.choose_vault()", html)
+
     def test_controller_loads_workbench_url_after_successful_boot(self) -> None:
+        from app_shell.main import AppShellController
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             seed_vault(root)
             controller = AppShellController(config_path=root / "workbench.json")
-            controller.window = mock.Mock()
+            window = mock.Mock()
+            controller.window = window
+            event_log = []
 
             with mock.patch(
+                "app_shell.main.build_loading_html",
+                return_value="loading html",
+            ) as build_loading_html, mock.patch(
+                "app_shell.main.resolve_launch_vault_root",
+                return_value=root.resolve(),
+            ) as resolve_launch_vault_root, mock.patch(
+                "app_shell.main.EmbeddedWorkbenchServer"
+            ) as server_cls:
+                server = server_cls.return_value
+                server.base_url = "http://127.0.0.1:7788"
+                window.load_html.side_effect = lambda html: event_log.append(("load_html", html))
+                server.start.side_effect = lambda: event_log.append(("start", None))
+                window.load_url.side_effect = lambda url: event_log.append(("load_url", url))
+
+                controller.bootstrap(window)
+
+            self.assertEqual(
+                event_log,
+                [
+                    ("load_html", "loading html"),
+                    ("start", None),
+                    ("load_url", "http://127.0.0.1:7788"),
+                ],
+            )
+            build_loading_html.assert_called_once()
+            resolve_launch_vault_root.assert_called_once()
+            _, resolve_kwargs = resolve_launch_vault_root.call_args
+            self.assertEqual(resolve_kwargs["config_path"], root / "workbench.json")
+            self.assertIn("prompt_parent", resolve_kwargs)
+            self.assertIs(resolve_kwargs["prompt_parent"], window)
+            server_cls.assert_called_once_with(
+                vault_root=root.resolve(),
+                config_path=root / "workbench.json",
+            )
+
+    def test_controller_renders_error_html_when_server_start_fails(self) -> None:
+        from app_shell.main import AppShellController
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_vault(root)
+            controller = AppShellController(config_path=root / "workbench.json")
+            window = mock.Mock()
+            controller.window = window
+
+            with mock.patch(
+                "app_shell.main.build_loading_html",
+                return_value="loading html",
+            ), mock.patch(
                 "app_shell.main.resolve_launch_vault_root",
                 return_value=root.resolve(),
             ), mock.patch("app_shell.main.EmbeddedWorkbenchServer") as server_cls:
                 server = server_cls.return_value
                 server.base_url = "http://127.0.0.1:7788"
+                server.start.side_effect = RuntimeError("boot failed")
 
-                controller.bootstrap(controller.window)
+                controller.bootstrap(window)
 
-            controller.window.load_url.assert_called_once_with("http://127.0.0.1:7788")
-
-    def test_controller_renders_error_html_when_boot_fails(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            controller = AppShellController(config_path=root / "workbench.json")
-            controller.window = mock.Mock()
-
-            with mock.patch(
-                "app_shell.main.resolve_launch_vault_root",
-                side_effect=RuntimeError("找不到可用的知識庫資料夾。"),
-            ):
-                controller.bootstrap(controller.window)
-
-            controller.window.load_html.assert_called()
-            rendered_html = controller.window.load_html.call_args[0][0]
-            self.assertIn("找不到可用的知識庫資料夾", rendered_html)
+            window.load_html.assert_called()
+            rendered_html = window.load_html.call_args[0][0]
+            self.assertIn("無法開啟知識工作台", rendered_html)
+            self.assertIn("boot failed", rendered_html)
+            self.assertIn("重新嘗試", rendered_html)
+            self.assertIn("選擇知識庫資料夾", rendered_html)
+            self.assertIn("結束應用程式", rendered_html)
+            self.assertIn("window.pywebview.api.retry_launch()", rendered_html)
+            self.assertIn("window.pywebview.api.choose_vault()", rendered_html)
+            window.load_url.assert_not_called()
