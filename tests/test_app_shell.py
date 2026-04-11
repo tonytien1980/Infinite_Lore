@@ -141,6 +141,23 @@ class AppShellLaunchTests(unittest.TestCase):
                 server.start.assert_called_once()
                 open_window.assert_called_once_with("http://127.0.0.1:9999")
 
+    def test_launch_app_uses_controller_driven_startup_handoff(self) -> None:
+        from app_shell.main import launch_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            with mock.patch("app_shell.main.AppShellController") as controller_cls:
+                controller = controller_cls.return_value
+
+                launch_app(vault_root=root, config_path=root / "workbench.json")
+
+            controller_cls.assert_called_once_with(
+                config_path=root / "workbench.json",
+                initial_vault_root=root,
+            )
+            controller.run.assert_called_once()
+
     def test_launch_app_surfaces_startup_failure(self) -> None:
         from app_shell.main import launch_app
 
@@ -340,6 +357,20 @@ class AppShellUiTests(unittest.TestCase):
         self.assertNotIn("重新嘗試", html)
         self.assertNotIn("window.pywebview.api.retry_launch()", html)
         self.assertNotIn("window.pywebview.api.choose_vault()", html)
+
+    def test_shell_window_api_forwards_actions_to_controller(self) -> None:
+        from app_shell.window import ShellWindowApi
+
+        controller = mock.Mock()
+        api = ShellWindowApi(controller)
+
+        api.retry_launch()
+        api.choose_vault()
+        api.quit_app()
+
+        controller.retry_launch.assert_called_once_with()
+        controller.choose_vault.assert_called_once_with()
+        controller.quit_app.assert_called_once_with()
 
     def test_controller_loads_workbench_url_after_successful_boot(self) -> None:
         from app_shell.main import AppShellController
