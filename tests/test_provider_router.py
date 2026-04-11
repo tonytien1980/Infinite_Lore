@@ -7,6 +7,10 @@ from workbench.provider_router import resolve_route_provider
 class ProviderRouterTests(unittest.TestCase):
     def test_default_config_includes_enrich_raw_route(self) -> None:
         self.assertEqual(DEFAULT_CONFIG["routes"]["enrich_raw"], "balanced")
+        self.assertEqual(DEFAULT_CONFIG["providers"][0]["id"], "openai-main")
+        self.assertEqual(DEFAULT_CONFIG["providers"][0]["provider"], "openai")
+        self.assertEqual(DEFAULT_CONFIG["route_provider_preferences"]["ask"], ["openai-main"])
+        self.assertEqual(DEFAULT_CONFIG["route_provider_preferences"]["enrich_raw"], ["openai-main"])
 
     def test_openai_route_is_chosen_when_openai_provider_matches_role(self) -> None:
         settings = {
@@ -121,6 +125,35 @@ class ProviderRouterTests(unittest.TestCase):
 
         self.assertEqual(route["provider_id"], "ollama-local")
         self.assertEqual(route["model"], "qwen3:32b")
+
+    def test_local_provider_missing_base_url_is_skipped_for_runnable_provider(self) -> None:
+        settings = {
+            "providers": [
+                {
+                    "id": "ollama-local",
+                    "provider": "ollama",
+                    "api_key": "",
+                    "enabled": True,
+                    "base_url": "",
+                    "models": [{"id": "qwen3:14b", "role": "balanced"}],
+                },
+                {
+                    "id": "openai-main",
+                    "provider": "openai",
+                    "api_key": "sk-test",
+                    "enabled": True,
+                    "base_url": "",
+                    "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
+                },
+            ],
+            "routes": {"enrich_raw": "balanced"},
+            "route_provider_preferences": {"enrich_raw": ["ollama-local", "openai-main"]},
+        }
+
+        route = resolve_route_provider(settings, "enrich_raw")
+
+        self.assertEqual(route["provider_id"], "openai-main")
+        self.assertEqual(route["model"], "gpt-5.4-mini")
 
     def test_no_model_route_returns_none(self) -> None:
         settings = {
