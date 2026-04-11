@@ -107,6 +107,29 @@ function formatVaultName(path) {
   return segments[segments.length - 1] || path;
 }
 
+function formatEnrichmentStatus(item) {
+  const status = typeof item?.enrichment_status === "string" ? item.enrichment_status.trim() : "";
+  const reason =
+    typeof item?.enrichment_failure_reason === "string" ? item.enrichment_failure_reason.trim() : "";
+
+  if (!status) {
+    return "原始增補尚未排入背景處理";
+  }
+  if (status === "pending") {
+    return "原始增補等待背景處理";
+  }
+  if (status === "completed") {
+    return "原始增補已完成";
+  }
+  if (status === "failed") {
+    return reason ? `原始增補失敗：${reason}` : "原始增補失敗";
+  }
+  if (status === "deferred") {
+    return reason ? `原始增補暫緩：${reason}` : "原始增補已暫緩";
+  }
+  return `原始增補狀態：${status}`;
+}
+
 function createListItem(title, meta, detail) {
   const item = document.createElement("article");
   item.className = "list-item";
@@ -605,11 +628,12 @@ function renderDashboard() {
 
   imports.innerHTML = "";
   (state.dashboard?.recent_imports || []).forEach((item) => {
+    const detail = `${item.bundle_path} • ${item.conversion_status || "未定義"} • ${formatEnrichmentStatus(item)}`;
     imports.appendChild(
       createListItem(
         item.title,
         item.primary_domain || "未分類",
-        `${item.bundle_path} • ${item.conversion_status || "未定義"}`
+        detail
       )
     );
   });
@@ -640,8 +664,9 @@ function renderBundles() {
   container.innerHTML = "";
   state.bundles.forEach((bundle) => {
     const review = bundle.review_required === "true" ? "待審核" : "可用";
+    const detail = `${bundle.bundle_path} • ${review} • ${formatEnrichmentStatus(bundle)}`;
     container.appendChild(
-      createListItem(bundle.title, bundle.primary_domain || "未分類", `${bundle.bundle_path} • ${review}`)
+      createListItem(bundle.title, bundle.primary_domain || "未分類", detail)
     );
   });
   if (!container.children.length) container.textContent = "目前沒有待處理的項目。可在上方立即掃描，或先新增新的來源入口。";
