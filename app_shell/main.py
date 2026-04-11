@@ -6,7 +6,14 @@ from typing import Optional
 
 from app_shell.runtime import EmbeddedWorkbenchServer
 from app_shell.state import default_shell_state_path, load_saved_vault_root, save_saved_vault_root
-from app_shell.window import open_error_dialog, open_main_window, prompt_for_vault_root
+from app_shell.window import (
+    ShellWindowApi,
+    build_error_html,
+    build_loading_html,
+    create_shell_window,
+    prompt_for_vault_root,
+    start_shell_window,
+)
 
 _VAULT_MARKERS = ("10_Domains", "30_Wiki")
 
@@ -44,16 +51,99 @@ def resolve_launch_vault_root(config_path: Path, prompt_parent: Optional[object]
     return selected_root.resolve()
 
 
-def launch_app(vault_root: Path, config_path: Path) -> None:
-    server = EmbeddedWorkbenchServer(vault_root=vault_root, config_path=config_path)
-    try:
-        server.start()
-        open_main_window(server.base_url)
-    except Exception as exc:
-        open_error_dialog(str(exc))
-        raise
-    finally:
-        server.stop()
+class AppShellController:
+    def __init__(self, config_path: Path, initial_vault_root: Optional[Path] = None) -> None:
+        self.config_path = Path(config_path)
+        self.initial_vault_root = Path(initial_vault_root).resolve() if initial_vault_root is not None else None
+        self.window: Optional[object] = None
+        self.server: Optional[EmbeddedWorkbenchServer] = None
+
+    def run(self) -> None:
+        api = ShellWindowApi(self)
+        shell_window = create_shell_window(api)
+        self.window = shell_window
+        start_shell_window(shell_window, self.bootstrap)
+
+    def bootstrap(self, window: object) -> None:
+        self.window = window
+        window.load_html(build_loading_html("正在準備你的 Infinite Lore 工作台與知識庫..."))
+        self._stop_server()
+
+        try:
+            vault_root = self._resolve_vault_root(prompt_parent=window)
+            server = EmbeddedWorkbenchServer(vault_root=vault_root, config_path=self.config_path)
+            self.server = server
+            server.start()
+            window.load_url(server.base_url)
+        except Exception as exc:
+            self._stop_server()
+            self._render_error(str(exc))
+
+    def retry_launch(self) -> None:
+        if self.window is None:
+            return
+        self.bootstrap(self.window)
+
+    def choose_vault(self) -> None:
+        if self.window is None:
+            return
+
+        selected_root = prompt_for_vault_root(self.window)
+        if selected_root is None:
+            self._render_error("找不到可用的知識庫資料夾，且你尚未選擇資料夾。")
+            return
+        if not is_valid_vault_root(selected_root):
+            self._render_error("你選擇的資料夾不是有效的 Infinite Lore 知識庫。")
+            return
+
+        selected_root = selected_root.resolve()
+        save_saved_vault_root(default_shell_state_path(self.config_path), selected_root)
+        self.initial_vault_root = selected_root
+        self.retry_launch()
+
+    def quit_app(self) -> None:
+        self._stop_server()
+        if self.window is not None and hasattr(self.window, "destroy"):
+            self.window.destroy()
+
+    def _resolve_vault_root(self, prompt_parent: object) -> Path:
+        if self.initial_vault_root is not None:
+            return self.initial_vault_root.resolve()
+
+        return resolve_launch_vault_root(
+            config_path=self.config_path,
+            prompt_parent=prompt_parent,
+        )
+
+    def _render_error(self, message: str) -> None:
+        if self.window is None:
+            raise RuntimeError(message)
+
+        self.window.load_html(
+            build_error_html(
+                title="無法開啟知識工作台",
+                message=message,
+                show_retry=True,
+                show_choose_vault=True,
+            )
+        )
+
+    def _stop_server(self) -> None:
+        if self.server is None:
+            return
+        self.server.stop()
+        self.server = None
+
+
+def launch_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = None) -> None:
+    if config_path is None:
+        config_path = default_config_path()
+
+    controller = AppShellController(
+        config_path=config_path,
+        initial_vault_root=vault_root,
+    )
+    controller.run()
 
 
 def default_vault_root(config_path: Optional[Path] = None, prompt_parent: Optional[object] = None) -> Path:
