@@ -8,8 +8,18 @@ from pathlib import Path
 
 import httpx
 
-from app_shell.main import default_vault_root, resolve_launch_vault_root
+from app_shell.main import default_vault_root
 from app_shell.runtime import EmbeddedWorkbenchServer
+
+try:
+    from app_shell.main import resolve_launch_vault_root
+except ImportError:
+    resolve_launch_vault_root = None
+
+try:
+    from app_shell.state import default_shell_state_path
+except ImportError:
+    default_shell_state_path = None
 
 
 def seed_vault(root: Path) -> None:
@@ -152,9 +162,15 @@ class AppShellLaunchTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
+            if default_shell_state_path is None:
+                self.fail("app_shell.state.default_shell_state_path is not implemented yet")
+            self.assertEqual(default_shell_state_path(config_path), state_path)
+
             existing_non_vault = temp_root / "existing-non-vault"
             existing_non_vault.mkdir(parents=True)
 
+            if resolve_launch_vault_root is None:
+                self.fail("app_shell.main.resolve_launch_vault_root is not implemented yet")
             with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
                 Path,
                 "cwd",
@@ -178,6 +194,8 @@ class AppShellLaunchTests(unittest.TestCase):
             existing_non_vault = temp_root / "existing-non-vault"
             existing_non_vault.mkdir(parents=True)
 
+            if resolve_launch_vault_root is None:
+                self.fail("app_shell.main.resolve_launch_vault_root is not implemented yet")
             with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
                 Path,
                 "cwd",
@@ -201,6 +219,8 @@ class AppShellLaunchTests(unittest.TestCase):
             existing_non_vault.mkdir(parents=True)
             prompt_parent = mock.Mock()
 
+            if resolve_launch_vault_root is None:
+                self.fail("app_shell.main.resolve_launch_vault_root is not implemented yet")
             with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
                 Path,
                 "cwd",
@@ -224,6 +244,8 @@ class AppShellLaunchTests(unittest.TestCase):
             state_path = config_path.with_name("app-shell.json")
             prompt_parent = mock.Mock()
 
+            if resolve_launch_vault_root is None:
+                self.fail("app_shell.main.resolve_launch_vault_root is not implemented yet")
             with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
                 Path,
                 "cwd",
@@ -237,3 +259,40 @@ class AppShellLaunchTests(unittest.TestCase):
 
             prompt_for_vault_root.assert_called_once_with(prompt_parent)
             self.assertFalse(state_path.exists())
+
+    def test_resolve_launch_vault_root_falls_through_from_stale_saved_state_to_picker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            stale_saved_vault = temp_root / "Stale Vault"
+            stale_saved_vault.mkdir(parents=True)
+
+            config_path = temp_root / "config" / "workbench.json"
+            state_path = config_path.with_name("app-shell.json")
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps({"last_vault_root": str(stale_saved_vault.resolve())}),
+                encoding="utf-8",
+            )
+
+            expected_state_path = config_path.with_name("app-shell.json")
+            self.assertEqual(state_path, expected_state_path)
+            if default_shell_state_path is None:
+                self.fail("app_shell.state.default_shell_state_path is not implemented yet")
+            self.assertEqual(default_shell_state_path(config_path), expected_state_path)
+
+            picked_vault = temp_root / "Picked Vault"
+            picked_vault.mkdir(parents=True)
+            seed_vault(picked_vault)
+
+            prompt_parent = mock.Mock()
+            if resolve_launch_vault_root is None:
+                self.fail("app_shell.main.resolve_launch_vault_root is not implemented yet")
+            with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
+                Path,
+                "cwd",
+                return_value=temp_root / "existing-non-vault",
+            ), mock.patch("app_shell.main.prompt_for_vault_root", return_value=picked_vault) as prompt_for_vault_root:
+                resolved = resolve_launch_vault_root(config_path=config_path, prompt_parent=prompt_parent)
+
+            self.assertEqual(resolved, picked_vault.resolve())
+            prompt_for_vault_root.assert_called_once_with(prompt_parent)
