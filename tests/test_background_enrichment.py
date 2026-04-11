@@ -43,9 +43,11 @@ class BackgroundEnrichmentWorkerTests(unittest.TestCase):
         self.assertFalse(worker.is_running)
 
         worker.start()
+        worker_thread = worker.thread
 
         self.assertTrue(worker.is_running)
 
         worker.stop()
 
         self.assertFalse(worker.is_running)
+        self.assertFalse(worker_thread.is_alive())
