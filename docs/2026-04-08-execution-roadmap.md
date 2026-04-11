@@ -594,7 +594,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Choose the next post-enrichment slice: either add manual retry / recovery controls for failed or deferred enrichment, or deepen status visibility with richer per-bundle detail in the Workbench.`
+`Review and approve the manual enrichment retry and recovery controls spec, then write the implementation plan and execute that phase.`
 
 ## 13. Future Adoption Direction
 
@@ -631,3 +631,4 @@ Reference:
 - `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-implementation-plan.md`
 - `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-spec.md`
 - `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-implementation-plan.md`
+- `docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-spec.md`
