@@ -24,6 +24,7 @@
 - [macOS App Shell Implementation Plan](../docs/2026-04-11-macos-app-shell-implementation-plan.md)
 - [macOS App Shell Polish Spec](../docs/2026-04-11-macos-app-shell-polish-spec.md)
 - [macOS App Shell Polish Implementation Plan](../docs/2026-04-11-macos-app-shell-polish-implementation-plan.md)
+- [Raw Enrichment And Multi-Provider Routing Spec](../docs/2026-04-11-raw-enrichment-and-multi-provider-routing-spec.md)
 
 ## Domains
 

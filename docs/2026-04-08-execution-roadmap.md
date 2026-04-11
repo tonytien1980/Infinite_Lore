@@ -548,7 +548,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Start notarization / distribution-hardening planning on top of the delivered macOS app shell polish baseline.`
+`Review and approve the raw enrichment and multi-provider routing spec, then write the implementation plan for the next model-routing phase.`
 
 ## 13. Future Adoption Direction
 
@@ -581,3 +581,4 @@ Reference:
 - `docs/2026-04-11-macos-app-shell-implementation-plan.md`
 - `docs/2026-04-11-macos-app-shell-polish-spec.md`
 - `docs/2026-04-11-macos-app-shell-polish-implementation-plan.md`
+- `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-spec.md`
