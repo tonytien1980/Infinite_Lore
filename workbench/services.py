@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 
 from tools.health_check import check_vault
 from tools.import_bundle import import_source
+from tools.raw_enrichment import default_enrichment_state_path
 from tools.wiki_compile import compile_bundle, parse_frontmatter
 from workbench.source_store import load_source_state, summarize_source_state
 
@@ -57,6 +58,33 @@ def _read_enrichment_payload(bundle_path: Path) -> Dict[str, str]:
         "enrichment_failure_reason": str(payload.get("failure_reason", "") or ""),
         "enrichment_updated_at": str(payload.get("updated_at", "") or ""),
     }
+
+
+def _active_enrichment_bundle_paths(vault_root: Path) -> Set[str]:
+    state_path = default_enrichment_state_path(vault_root)
+    if not state_path.exists():
+        return set()
+
+    try:
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return set()
+
+    if not isinstance(payload, dict):
+        return set()
+
+    pending_bundles = payload.get("pending_bundles")
+    if not isinstance(pending_bundles, list):
+        return set()
+
+    active_paths: Set[str] = set()
+    for entry in pending_bundles:
+        if not isinstance(entry, dict):
+            continue
+        bundle_path = str(entry.get("bundle_path") or "").strip()
+        if bundle_path:
+            active_paths.add(bundle_path)
+    return active_paths
 
 
 DOMAIN_KEYWORDS = {
@@ -118,13 +146,15 @@ def get_dashboard(vault_root: Path) -> Dict[str, object]:
 
 def list_bundles(vault_root: Path) -> List[Dict[str, object]]:
     results: List[Dict[str, object]] = []
+    active_enrichment_bundle_paths = _active_enrichment_bundle_paths(vault_root)
     for bundle in _bundle_paths(vault_root):
+        bundle_path_text = bundle.relative_to(vault_root).as_posix()
         metadata_path = bundle / "metadata.md"
         metadata = _read_frontmatter(metadata_path) if metadata_path.exists() else {}
         enrichment = _read_enrichment_payload(bundle)
         results.append(
             {
-                "bundle_path": bundle.relative_to(vault_root).as_posix(),
+                "bundle_path": bundle_path_text,
                 "title": metadata.get("title", bundle.name),
                 "primary_domain": metadata.get("primary_domain", ""),
                 "conversion_status": metadata.get("conversion_status", ""),
@@ -135,6 +165,7 @@ def list_bundles(vault_root: Path) -> List[Dict[str, object]]:
                 "enrichment_model": enrichment["enrichment_model"],
                 "enrichment_failure_reason": enrichment["enrichment_failure_reason"],
                 "enrichment_updated_at": enrichment["enrichment_updated_at"],
+                "enrichment_queue_active": bundle_path_text in active_enrichment_bundle_paths,
             }
         )
     return results

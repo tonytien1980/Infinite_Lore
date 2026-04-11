@@ -667,8 +667,9 @@ function renderBundles() {
     const detail = `${bundle.bundle_path} • ${review} • ${formatEnrichmentStatus(bundle)}`;
     const item = createListItem(bundle.title, bundle.primary_domain || "未分類", detail);
     const status = typeof bundle?.enrichment_status === "string" ? bundle.enrichment_status.trim() : "";
+    const queueActive = bundle?.enrichment_queue_active === true;
 
-    if (status === "failed" || status === "deferred") {
+    if (queueActive && (status === "failed" || status === "deferred")) {
       const heading = item.querySelector("strong");
       if (heading) {
         const header = document.createElement("div");

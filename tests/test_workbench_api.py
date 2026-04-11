@@ -439,6 +439,63 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.json()["dismissed"])
 
+    def test_bundles_endpoint_exposes_queue_active_signal_before_and_after_dismiss(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw/inbox/deferred-bundle"
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.md").write_text(
+                "---\n"
+                "title: Deferred Bundle\n"
+                "primary_domain: ai-application\n"
+                "conversion_status: converted\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            (bundle / "enrichment.json").write_text(
+                json.dumps({"status": "deferred", "updated_at": "2026-04-11T00:00:00Z"}) + "\n",
+                encoding="utf-8",
+            )
+            state_path = root / "00_System" / "raw-enrichment-state.json"
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "pending_bundles": [
+                            {
+                                "bundle_path": "20_Raw/inbox/deferred-bundle",
+                                "status": "pending",
+                            }
+                        ]
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            initial_response = client.get("/api/bundles")
+
+            self.assertEqual(initial_response.status_code, 200)
+            self.assertEqual(initial_response.json()[0]["enrichment_queue_active"], True)
+
+            dismiss_response = client.post(
+                "/api/enrichment/dismiss",
+                json={"bundle_path": "20_Raw/inbox/deferred-bundle"},
+            )
+
+            self.assertEqual(dismiss_response.status_code, 200)
+            self.assertTrue(dismiss_response.json()["dismissed"])
+
+            refreshed_response = client.get("/api/bundles")
+
+            self.assertEqual(refreshed_response.status_code, 200)
+            refreshed_payload = refreshed_response.json()
+            self.assertEqual(len(refreshed_payload), 1)
+            self.assertEqual(refreshed_payload[0]["bundle_path"], "20_Raw/inbox/deferred-bundle")
+            self.assertEqual(refreshed_payload[0]["enrichment_status"], "deferred")
+            self.assertEqual(refreshed_payload[0]["enrichment_queue_active"], False)
+
     def test_import_file_endpoint_creates_bundle_and_wiki_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
