@@ -1,4 +1,5 @@
 import json
+import runpy
 import tempfile
 import sys
 import unittest
@@ -275,6 +276,19 @@ class AppShellLaunchTests(unittest.TestCase):
 
             self.assertEqual(resolved, picked_vault.resolve())
             prompt_for_vault_root.assert_called_once_with(prompt_parent)
+
+    def test_run_macos_app_defers_vault_resolution_to_launch_app(self) -> None:
+        script_path = Path(__file__).resolve().parents[1] / "tools" / "run_macos_app.py"
+        config_path = Path("/tmp/infinite-lore-workbench.json")
+
+        with mock.patch("app_shell.main.default_config_path", return_value=config_path) as default_config_path, mock.patch(
+            "app_shell.main.default_vault_root"
+        ) as default_vault_root, mock.patch("app_shell.main.launch_app") as launch_app:
+            runpy.run_path(str(script_path), run_name="__main__")
+
+        default_config_path.assert_called_once_with()
+        default_vault_root.assert_not_called()
+        launch_app.assert_called_once_with(config_path=config_path)
 
 
 class AppShellUiTests(unittest.TestCase):
