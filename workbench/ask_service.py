@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from openai import OpenAI
 
 from tools.wiki_compile import parse_frontmatter
+from workbench.provider_router import resolve_route_provider
 
 RELATION_INDEX_PATH = Path("00_System/relation-index.json")
 SUPPORTED_NOTE_TYPES = {"synthesis", "concept", "framework", "question", "reference"}
@@ -405,26 +406,6 @@ def retrieve_reflections(vault_root: Path, grounding: List[Dict[str, object]]) -
     return matches
 
 
-def resolve_route_model(settings: Dict[str, object], route_name: str) -> Optional[Dict[str, str]]:
-    role = settings.get("routes", {}).get(route_name)
-    if not role or role == "no_model":
-        return None
-
-    for provider in settings.get("providers", []):
-        provider_name = provider.get("provider")
-        api_key = provider.get("api_key")
-        if provider_name != "openai" or not api_key:
-            continue
-        for model in provider.get("models", []):
-            if model.get("role") == role and model.get("id"):
-                return {
-                    "provider": provider_name,
-                    "model": model["id"],
-                    "api_key": api_key,
-                }
-    return None
-
-
 def openai_answer(question: str, grounding: List[Dict[str, object]], model: str, api_key: str) -> str:
     context_blocks = []
     for note in grounding:
@@ -487,8 +468,8 @@ def answer_question(
             "answer_source": "local",
         }
 
-    route = resolve_route_model(settings, "ask")
-    if route:
+    route = resolve_route_provider(settings, "ask")
+    if route and route.get("provider") == "openai":
         generator = generate_answer or (lambda **kwargs: openai_answer(**kwargs))
         answer = generator(
             question=question,

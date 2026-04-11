@@ -209,6 +209,84 @@ class QueryAskTests(unittest.TestCase):
             self.assertEqual(result["answer"], "MODEL ANSWER")
             self.assertEqual(result["answer_source"], "model")
 
+    def test_ask_mode_stays_local_when_route_prefers_supported_non_openai_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_vault(root)
+
+            def should_not_run(**kwargs):
+                raise AssertionError("openai model path should not run when ask resolves to ollama")
+
+            result = answer_question(
+                vault_root=root,
+                question="What is knowledge compilation?",
+                requested_mode="ask",
+                settings={
+                    "providers": [
+                        {
+                            "id": "openai-main",
+                            "provider": "openai",
+                            "api_key": "sk-test",
+                            "enabled": True,
+                            "models": [{"id": "gpt-best", "role": "best_deep"}],
+                        },
+                        {
+                            "id": "ollama-local",
+                            "provider": "ollama",
+                            "base_url": "http://127.0.0.1:11434",
+                            "enabled": True,
+                            "models": [{"id": "qwen3:32b", "role": "best_deep"}],
+                        },
+                    ],
+                    "routes": {"query": "no_model", "ask": "best_deep"},
+                    "route_provider_preferences": {"ask": ["ollama-local", "openai-main"]},
+                },
+                generate_answer=should_not_run,
+            )
+
+            self.assertEqual(result["answer_source"], "local")
+            self.assertIn("Knowledge compilation", result["answer"])
+
+    def test_ask_mode_uses_model_when_route_prefers_openai_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_vault(root)
+
+            def fake_generate(**kwargs):
+                self.assertEqual(kwargs["model"], "gpt-best")
+                self.assertEqual(kwargs["api_key"], "sk-test")
+                return "MODEL ANSWER"
+
+            result = answer_question(
+                vault_root=root,
+                question="What is knowledge compilation?",
+                requested_mode="ask",
+                settings={
+                    "providers": [
+                        {
+                            "id": "ollama-local",
+                            "provider": "ollama",
+                            "base_url": "http://127.0.0.1:11434",
+                            "enabled": True,
+                            "models": [{"id": "qwen3:32b", "role": "best_deep"}],
+                        },
+                        {
+                            "id": "openai-main",
+                            "provider": "openai",
+                            "api_key": "sk-test",
+                            "enabled": True,
+                            "models": [{"id": "gpt-best", "role": "best_deep"}],
+                        },
+                    ],
+                    "routes": {"query": "no_model", "ask": "best_deep"},
+                    "route_provider_preferences": {"ask": ["openai-main", "ollama-local"]},
+                },
+                generate_answer=fake_generate,
+            )
+
+            self.assertEqual(result["answer"], "MODEL ANSWER")
+            self.assertEqual(result["answer_source"], "model")
+
     def test_ask_mode_returns_limit_when_evidence_is_insufficient(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
