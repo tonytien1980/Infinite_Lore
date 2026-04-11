@@ -443,6 +443,7 @@ def answer_question(
     trace = build_trace(grounding)
     relation_trace = build_relation_trace(vault_root, grounding)
     reflections = retrieve_reflections(vault_root, grounding)
+    route = resolve_route_provider(settings, "ask") if mode == "ask" else None
 
     if mode == "query":
         return {
@@ -458,6 +459,8 @@ def answer_question(
 
     if not grounding:
         answer, limits = local_answer(question, synthesis_notes, small_notes)
+        if route and route.get("provider") != "openai":
+            limits = [*limits, ASK_PROVIDER_FALLBACK_LIMIT]
         return {
             "mode": "ask",
             "answer": answer,
@@ -469,7 +472,6 @@ def answer_question(
             "answer_source": "local",
         }
 
-    route = resolve_route_provider(settings, "ask")
     if route and route.get("provider") == "openai":
         generator = generate_answer or (lambda **kwargs: openai_answer(**kwargs))
         answer = generator(

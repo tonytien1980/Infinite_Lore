@@ -334,6 +334,46 @@ class QueryAskTests(unittest.TestCase):
             self.assertTrue(result["limits"])
             self.assertIn("目前知識庫中的可用證據不足。", result["limits"])
 
+    def test_ask_mode_warns_when_non_openai_route_falls_back_without_grounding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_vault(root)
+
+            def should_not_run(**kwargs):
+                raise AssertionError("non-openai ask route should not execute the model path")
+
+            result = answer_question(
+                vault_root=root,
+                question="What does my library know about semiconductor wafer pricing?",
+                requested_mode="ask",
+                settings={
+                    "providers": [
+                        {
+                            "id": "openai-main",
+                            "provider": "openai",
+                            "api_key": "sk-test",
+                            "enabled": True,
+                            "models": [{"id": "gpt-best", "role": "best_deep"}],
+                        },
+                        {
+                            "id": "ollama-local",
+                            "provider": "ollama",
+                            "base_url": "http://127.0.0.1:11434",
+                            "enabled": True,
+                            "models": [{"id": "qwen3:32b", "role": "best_deep"}],
+                        },
+                    ],
+                    "routes": {"query": "no_model", "ask": "best_deep"},
+                    "route_provider_preferences": {"ask": ["ollama-local", "openai-main"]},
+                },
+                generate_answer=should_not_run,
+            )
+
+            self.assertEqual(result["answer_source"], "local")
+            self.assertIn("目前知識庫中沒有足夠可依據的內容", result["answer"])
+            self.assertIn("目前知識庫中的可用證據不足。", result["limits"])
+            self.assertIn("已選擇的提供者尚未支援 Ask 執行，已改用本地知識庫回答。", result["limits"])
+
     def test_relation_aware_retrieval_expands_from_lexical_anchor(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
