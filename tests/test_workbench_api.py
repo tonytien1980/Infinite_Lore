@@ -19,13 +19,16 @@ class _WorkbenchRootHtmlParser(HTMLParser):
         self.sections: List[Dict[str, Any]] = []
         self.html_attrs: Dict[str, Optional[str]] = {}
         self.elements_by_id: Dict[str, Dict[str, Optional[str]]] = {}
+        self.ancestors_by_id: Dict[str, Tuple[str, ...]] = {}
         self._in_sidebar_nav = False
         self._button_page: Optional[str] = None
         self._button_text_parts: List[str] = []
         self._workspace_stack: List[Dict[str, Any]] = []
+        self._element_stack: List[Dict[str, Optional[str]]] = []
 
     def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
         attr_map = {key: value for key, value in attrs}
+        self._element_stack.append({"tag": tag, "id": attr_map.get("id")})
         if tag == "html":
             self.html_attrs = attr_map
         if tag == "nav" and "nav" in (attr_map.get("class", "").split()):
@@ -48,7 +51,14 @@ class _WorkbenchRootHtmlParser(HTMLParser):
             )
         element_id = attr_map.get("id")
         if element_id is not None:
-            self.elements_by_id[element_id] = attr_map
+            element_info = {"tag": tag, **attr_map}
+            self.elements_by_id[element_id] = element_info
+            ancestor_ids = tuple(
+                element["id"]
+                for element in self._element_stack[:-1]
+                if element["id"] is not None
+            )
+            self.ancestors_by_id[element_id] = ancestor_ids
             for section in self._workspace_stack:
                 section["ids"].add(element_id)
 
@@ -91,6 +101,18 @@ class _WorkbenchRootHtmlParser(HTMLParser):
         if element_id not in self.elements_by_id:
             raise AssertionError(f"missing element id {element_id!r}")
         return self.elements_by_id[element_id]
+
+    def assert_element_tag(self, element_id: str, expected_tag: str) -> None:
+        actual_tag = self.attrs_for_id(element_id).get("tag")
+        if actual_tag != expected_tag:
+            raise AssertionError(f"{element_id} tag mismatch: expected {expected_tag!r}, got {actual_tag!r}")
+
+    def assert_descendant_of(self, element_id: str, ancestor_id: str) -> None:
+        ancestors = self.ancestors_by_id.get(element_id)
+        if ancestors is None:
+            raise AssertionError(f"missing element id {element_id!r}")
+        if ancestor_id not in ancestors:
+            raise AssertionError(f"{element_id} is not nested under {ancestor_id}")
 
 
 class WorkbenchApiTests(unittest.TestCase):
@@ -191,8 +213,11 @@ class WorkbenchApiTests(unittest.TestCase):
             parser = _WorkbenchRootHtmlParser()
             parser.feed(response.text)
 
-            self.assertIn("providerList", parser.elements_by_id)
-            self.assertIn("addProviderButton", parser.elements_by_id)
+            parser.assert_element_tag("settingsForm", "form")
+            parser.assert_element_tag("providerList", "div")
+            parser.assert_descendant_of("providerList", "settingsForm")
+            parser.assert_element_tag("addProviderButton", "button")
+            parser.assert_descendant_of("addProviderButton", "settingsForm")
 
     def test_root_html_settings_surface_uses_route_enrich_selector_and_drops_legacy_single_provider_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -205,7 +230,8 @@ class WorkbenchApiTests(unittest.TestCase):
             parser = _WorkbenchRootHtmlParser()
             parser.feed(response.text)
 
-            self.assertIn("routeEnrichRaw", parser.elements_by_id)
+            parser.assert_element_tag("routeEnrichRaw", "select")
+            parser.assert_descendant_of("routeEnrichRaw", "settingsForm")
             for legacy_id in ("providerName", "providerId", "providerApiKey", "balancedModel", "bestModel"):
                 self.assertNotIn(legacy_id, parser.elements_by_id)
 
