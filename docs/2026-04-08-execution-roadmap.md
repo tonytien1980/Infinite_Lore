@@ -272,6 +272,24 @@ Reference files:
 - `docs/2026-04-11-macos-app-shell-polish-spec.md`
 - `docs/2026-04-11-macos-app-shell-polish-implementation-plan.md`
 
+### 4.14 Raw Enrichment And Multi-Provider Routing
+
+Completed locally in a bounded delivered shape:
+
+- provider config and route resolution are multi-provider aware
+- Workbench settings now support multiple providers and an explicit `enrich_raw` route
+- `Ask` now obeys provider routing preferences honestly
+- OpenAI remains the only live Ask execution provider today
+- unsupported Ask routes now fall back to grounded local answers with an explicit warning
+- raw import and `Scan now` now queue enrichment sidecars and queue-state entries automatically
+- `tools/raw_enrichment.py` now provides a bounded local runner for processing queued bundles with OpenAI shared-first routing
+- enrichment state now handles duplicate queue entries, corrupt queue-state preservation, missing bundles, and read failures honestly
+
+Reference files:
+
+- `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-spec.md`
+- `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -308,6 +326,12 @@ As of this roadmap update, the verified baseline is:
 - packaged shell failure states now render a Traditional Chinese recovery surface instead of a raw traceback
 - when the app cannot infer the vault automatically, it can reuse the remembered vault or prompt for `選擇知識庫資料夾`
 - macOS shell packaging verification now uses `packaging/macos/requirements-shell.txt` as an additive shell/build baseline rather than as a full project bootstrap replacement
+- Workbench settings now support multiple providers plus an explicit `enrich_raw` route
+- `Ask` now obeys provider routing preferences instead of silently bypassing them
+- unsupported Ask routes now surface an explicit local-fallback warning
+- raw bundles now queue bundle-local `enrichment.json` sidecars plus `00_System/raw-enrichment-state.json` entries automatically
+- queued raw enrichment can now be processed through the bounded local runner in `tools/raw_enrichment.py`
+- raw enrichment queue state now self-heals duplicate entries and preserves corrupt state files before reset
 - tests pass
 - health check passes
 
@@ -317,6 +341,7 @@ Verified commands used recently:
 python3 -m unittest tests.test_import_bundle tests.test_wiki_compile tests.test_workbench_api tests.test_query_ask tests.test_health_check -v
 python3 -m unittest tests.test_vision_ocr tests.test_image_adapter tests.test_import_bundle tests.test_multimodal_detect tests.test_wiki_compile tests.test_query_ask -v
 python3 -m unittest tests.test_app_shell -v
+python3 -m unittest tests.test_provider_router tests.test_raw_enrichment tests.test_query_ask tests.test_workbench_api tests.test_app_shell -v
 python3 tools/health_check.py .
 python3 tools/run_workbench.py
 python3 tools/run_macos_app.py
@@ -341,6 +366,7 @@ The approved delivery order is:
 11. Workbench V2 redesign
 12. macOS app shell
 13. macOS app shell polish
+14. Raw enrichment and multi-provider routing
 
 This order should not be reversed unless there is a strong reason.
 
@@ -548,11 +574,11 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Execute the approved raw enrichment and multi-provider routing plan, starting with provider schema and route resolution before the background enrichment lane.`
+`Promote raw enrichment from the current bounded local runner into a truer background execution lane, then surface enrichment status more clearly inside the Workbench UI.`
 
 ## 13. Future Adoption Direction
 
-Phase 9, Phase 10, and the first Workbench V2 redesign pass are now delivered.
+Phase 9, Phase 10, the first Workbench V2 redesign pass, and the raw enrichment / multi-provider routing phase are now delivered locally.
 
 The next meaningful capability expansion should not be a graph UI.
 
@@ -582,3 +608,4 @@ Reference:
 - `docs/2026-04-11-macos-app-shell-polish-spec.md`
 - `docs/2026-04-11-macos-app-shell-polish-implementation-plan.md`
 - `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-spec.md`
+- `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-implementation-plan.md`

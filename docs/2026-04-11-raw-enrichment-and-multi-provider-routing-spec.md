@@ -1,8 +1,15 @@
 # Raw Enrichment And Multi-Provider Routing Specification
 
-**Status:** Approved for implementation
+**Status:** Delivered locally with bounded manual runner
 **Date:** 2026-04-11  
 **Project:** Infinite Lore
+
+**Delivery note:** This phase is delivered locally in a bounded form:
+
+- raw bundles are queued for enrichment automatically at import / scan time
+- pending bundles can be processed through `tools/raw_enrichment.py`
+- OpenAI shared-first routing is live for `Ask` and for the enrichment runner
+- a fuller always-on background scheduler and richer Workbench enrichment visibility remain future work
 
 ## 1. Purpose
 
@@ -554,14 +561,14 @@ What changes in this phase is:
 
 ## 19. First Implementation Boundaries
 
-The first implementation of this phase should include:
+The first delivered implementation of this phase includes:
 
 - multi-provider config structure
 - OpenAI shared-first operational default
 - explicit `enrich_raw` route
-- background raw enrichment queue / state model
+- automatic raw enrichment queue / state model
 - enrichment sidecar artifact
-- OpenAI-backed raw enrichment
+- OpenAI-backed raw enrichment through a bounded local runner
 - settings and route UX for the above
 
 The first implementation should **not** require:
@@ -573,10 +580,11 @@ The first implementation should **not** require:
 
 ## 20. Definition Of Done
 
-This phase is done when:
+This phase is locally delivered when:
 
 - raw capture remains deterministic and model-free
-- raw enrichment runs automatically in the background
+- new raw bundles are queued automatically for enrichment
+- queued bundles can be processed through the bounded local runner
 - enrichment failure does not block raw preservation
 - OpenAI is the real default model path for `Ask` and `enrich_raw`
 - the architecture supports local providers without requiring them immediately
@@ -585,14 +593,8 @@ This phase is done when:
 
 ## 21. Next Step After This Phase
 
-Once this spec is approved, the next step should be:
+After this delivered local baseline, the next step should be:
 
-- implementation planning for `raw enrichment + multi-provider routing`
-
-That plan should break the work into at least:
-
-1. provider config schema and backend routing changes
-2. settings UI changes
-3. raw enrichment queue and state model
-4. OpenAI shared-first enrichment implementation
-5. later local-provider execution slices
+- promote raw enrichment from the bounded local runner into a truer background execution lane
+- surface enrichment status more clearly in the Workbench UI
+- later add local-provider execution slices without breaking the current routing model

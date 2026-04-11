@@ -30,6 +30,7 @@ python3 tools/import_bundle.py --source <path-or-url> --domain <primary-domain>
 ```
 
 This creates a raw bundle in `20_Raw/inbox/`, then automatically produces source-grounded wiki notes in `30_Wiki/<domain>/`.
+It also queues a bundle-local raw enrichment sidecar and queue-state entry for later model-backed enrichment work.
 
 The current importer now supports:
 
@@ -70,6 +71,30 @@ Current multimodal behavior is intentionally bounded:
 - image imports stay `review_required: true`
 - the original source file is still preserved inside the raw bundle
 
+## Raw Enrichment
+
+- new raw bundles are preserved first and queued for enrichment automatically
+- queue state lives in:
+  - bundle-local `enrichment.json`
+  - `00_System/raw-enrichment-state.json`
+- enrichment execution is currently delivered as a bounded local runner, not a daemon:
+
+```bash
+python3 tools/raw_enrichment.py --root .
+```
+
+- optional config override:
+
+```bash
+python3 tools/raw_enrichment.py --root . --config ~/.config/infinite_lore/workbench.json
+```
+
+- current model strategy:
+  - `Ask` -> OpenAI shared-first
+  - `raw enrichment` -> OpenAI shared-first through the bounded runner
+  - `scan / RSS / web capture` -> no model
+  - non-OpenAI `enrich_raw` routes remain queued as `deferred` until a later execution path exists
+
 ## Workbench UI
 
 Run the local Workbench UI with:
@@ -88,6 +113,7 @@ The shipped Workbench V2 shell is organized as:
 - a top / middle / bottom homepage layout
 - a desktop-first shell posture that already assumes a windowed work surface, even before packaging as a desktop app
 - follow-up controls on `首頁` stay disabled until the answer has grounded note evidence
+- `設定` now supports multiple providers plus an explicit `enrich_raw` route without turning the homepage into a model control panel
 
 ## macOS App Shell
 
@@ -149,6 +175,9 @@ Use `首頁` as the main knowledge entry surface.
 - `Auto` is the default mode.
 - `Ask` produces a grounded answer from compiled wiki notes.
 - `Query` shows matching notes and source coverage without forcing a synthesized answer.
+- `Ask` now obeys provider routing preferences instead of silently skipping the configured route.
+- OpenAI is still the only live Ask execution provider today.
+- if `Ask` resolves to a non-OpenAI provider, the system falls back to a grounded local answer and surfaces an explicit warning in `limits`.
 - `Ask` now expands from lexical anchors through bounded relation edges:
   - `derived-from`
   - `shares-source`
