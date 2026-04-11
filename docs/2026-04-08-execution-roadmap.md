@@ -574,7 +574,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Review and approve the background raw enrichment lane + Workbench status visibility spec, then write the implementation plan and execute that phase.`
+`Execute the approved background raw enrichment lane + Workbench status visibility plan, starting with the server-owned worker before API and UI visibility.`
 
 ## 13. Future Adoption Direction
 

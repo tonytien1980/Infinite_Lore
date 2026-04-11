@@ -27,6 +27,7 @@
 - [Raw Enrichment And Multi-Provider Routing Spec](../docs/2026-04-11-raw-enrichment-and-multi-provider-routing-spec.md)
 - [Raw Enrichment And Multi-Provider Routing Implementation Plan](../docs/2026-04-11-raw-enrichment-and-multi-provider-routing-implementation-plan.md)
 - [Background Raw Enrichment Lane And Workbench Status Visibility Spec](../docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-spec.md)
+- [Background Raw Enrichment Lane And Workbench Status Visibility Implementation Plan](../docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-implementation-plan.md)
 
 ## Domains
 
