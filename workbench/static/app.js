@@ -665,9 +665,50 @@ function renderBundles() {
   state.bundles.forEach((bundle) => {
     const review = bundle.review_required === "true" ? "待審核" : "可用";
     const detail = `${bundle.bundle_path} • ${review} • ${formatEnrichmentStatus(bundle)}`;
-    container.appendChild(
-      createListItem(bundle.title, bundle.primary_domain || "未分類", detail)
-    );
+    const item = createListItem(bundle.title, bundle.primary_domain || "未分類", detail);
+    const status = typeof bundle?.enrichment_status === "string" ? bundle.enrichment_status.trim() : "";
+
+    if (status === "failed" || status === "deferred") {
+      const heading = item.querySelector("strong");
+      if (heading) {
+        const header = document.createElement("div");
+        header.className = "panel-head split";
+
+        const titleWrap = document.createElement("div");
+        const metaLine = item.querySelector(".eyebrow");
+        if (metaLine) {
+          metaLine.remove();
+          titleWrap.appendChild(metaLine);
+        }
+        heading.remove();
+        titleWrap.appendChild(heading);
+
+        const actions = document.createElement("div");
+        actions.className = "button-row";
+
+        const retryButton = document.createElement("button");
+        retryButton.type = "button";
+        retryButton.className = "ghost-button";
+        retryButton.textContent = "重試";
+        retryButton.addEventListener("click", async () => {
+          await runBundleEnrichmentAction("/api/enrichment/retry", bundle.bundle_path);
+        });
+
+        const dismissButton = document.createElement("button");
+        dismissButton.type = "button";
+        dismissButton.className = "ghost-button";
+        dismissButton.textContent = "清除";
+        dismissButton.addEventListener("click", async () => {
+          await runBundleEnrichmentAction("/api/enrichment/dismiss", bundle.bundle_path);
+        });
+
+        actions.append(retryButton, dismissButton);
+        header.append(titleWrap, actions);
+        item.prepend(header);
+      }
+    }
+
+    container.appendChild(item);
   });
   if (!container.children.length) container.textContent = "目前沒有待處理的項目。可在上方立即掃描，或先新增新的來源入口。";
 }
@@ -734,6 +775,15 @@ async function fetchJson(url, options = {}) {
     throw new Error(detail);
   }
   return response.json();
+}
+
+async function runBundleEnrichmentAction(url, bundlePath) {
+  await fetchJson(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bundle_path: bundlePath }),
+  });
+  await loadAll();
 }
 
 async function loadAll() {
