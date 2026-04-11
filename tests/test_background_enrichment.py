@@ -1,4 +1,5 @@
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -51,3 +52,38 @@ class BackgroundEnrichmentWorkerTests(unittest.TestCase):
 
         self.assertFalse(worker.is_running)
         self.assertFalse(worker_thread.is_alive())
+
+    def test_stop_keeps_live_thread_visible_until_it_actually_exits(self) -> None:
+        root, config_path = self._make_paths()
+        entered = threading.Event()
+        release = threading.Event()
+
+        def process_pending(_root: Path, _config_path: Path, *, limit: int) -> dict:
+            entered.set()
+            release.wait()
+            return {"processed": limit}
+
+        worker = BackgroundEnrichmentWorker(
+            vault_root=root,
+            config_path=config_path,
+            batch_size=1,
+            process_pending=process_pending,
+        )
+
+        worker.start()
+        self.assertTrue(entered.wait(timeout=1))
+        worker_thread = worker.thread
+
+        worker.stop()
+
+        self.assertIs(worker.thread, worker_thread)
+        self.assertTrue(worker_thread.is_alive())
+        self.assertTrue(worker.is_running)
+
+        release.set()
+        worker_thread.join(timeout=2)
+        self.assertFalse(worker_thread.is_alive())
+
+        worker.stop()
+        self.assertFalse(worker.is_running)
+        self.assertIsNone(worker.thread)

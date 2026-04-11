@@ -62,4 +62,5 @@ class BackgroundEnrichmentWorker:
             return
         self._stop_event.set()
         thread.join(timeout=2)
-        self._thread = None
+        if not thread.is_alive():
+            self._thread = None
