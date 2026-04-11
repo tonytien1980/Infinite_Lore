@@ -574,7 +574,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Promote raw enrichment from the current bounded local runner into a truer background execution lane, then surface enrichment status more clearly inside the Workbench UI.`
+`Review and approve the background raw enrichment lane + Workbench status visibility spec, then write the implementation plan and execute that phase.`
 
 ## 13. Future Adoption Direction
 
@@ -609,3 +609,4 @@ Reference:
 - `docs/2026-04-11-macos-app-shell-polish-implementation-plan.md`
 - `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-spec.md`
 - `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-implementation-plan.md`
+- `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-spec.md`
