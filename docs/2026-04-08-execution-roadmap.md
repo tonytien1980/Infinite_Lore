@@ -649,7 +649,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Define and execute the next enrichment-operations slice, starting with deeper per-bundle enrichment detail in Workbench now that manual retry / dismiss recovery is delivered.`
+`Review and approve the quiet per-bundle enrichment detail spec, then write the implementation plan for a low-noise 收件匣 detail slice.`
 
 The latest retry / dismiss verification for this phase was local-only:
 
@@ -658,6 +658,10 @@ The latest retry / dismiss verification for this phase was local-only:
 - temp Playwright runner
 
 It was not a production verification pass and did not include live OpenAI enrichment execution.
+
+The current proposed next slice is documented in:
+
+- `docs/2026-04-12-quiet-enrichment-detail-inbox-spec.md`
 
 ## 13. Future Adoption Direction
 
