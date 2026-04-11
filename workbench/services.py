@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -27,6 +28,35 @@ def _knowledge_paths(vault_root: Path) -> List[Path]:
 def _read_frontmatter(path: Path) -> Dict[str, object]:
     metadata, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
     return metadata
+
+
+def _read_enrichment_payload(bundle_path: Path) -> Dict[str, str]:
+    enrichment_path = bundle_path / "enrichment.json"
+    empty_payload = {
+        "enrichment_status": "",
+        "enrichment_provider": "",
+        "enrichment_model": "",
+        "enrichment_failure_reason": "",
+        "enrichment_updated_at": "",
+    }
+    if not enrichment_path.exists():
+        return empty_payload
+
+    try:
+        payload = json.loads(enrichment_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return empty_payload
+
+    if not isinstance(payload, dict):
+        return empty_payload
+
+    return {
+        "enrichment_status": str(payload.get("status", "") or ""),
+        "enrichment_provider": str(payload.get("provider", "") or ""),
+        "enrichment_model": str(payload.get("model", "") or ""),
+        "enrichment_failure_reason": str(payload.get("failure_reason", "") or ""),
+        "enrichment_updated_at": str(payload.get("updated_at", "") or ""),
+    }
 
 
 DOMAIN_KEYWORDS = {
@@ -62,6 +92,7 @@ def get_dashboard(vault_root: Path) -> Dict[str, object]:
         metadata_path = bundle / "metadata.md"
         if metadata_path.exists():
             metadata = _read_frontmatter(metadata_path)
+            enrichment = _read_enrichment_payload(bundle)
             if metadata.get("review_required") == "true":
                 warnings += 1
             recent_imports.append(
@@ -70,6 +101,8 @@ def get_dashboard(vault_root: Path) -> Dict[str, object]:
                     "title": metadata.get("title") or bundle.name,
                     "primary_domain": metadata.get("primary_domain", ""),
                     "conversion_status": metadata.get("conversion_status", ""),
+                    "enrichment_status": enrichment["enrichment_status"],
+                    "enrichment_updated_at": enrichment["enrichment_updated_at"],
                 }
             )
 
@@ -88,6 +121,7 @@ def list_bundles(vault_root: Path) -> List[Dict[str, object]]:
     for bundle in _bundle_paths(vault_root):
         metadata_path = bundle / "metadata.md"
         metadata = _read_frontmatter(metadata_path) if metadata_path.exists() else {}
+        enrichment = _read_enrichment_payload(bundle)
         results.append(
             {
                 "bundle_path": bundle.relative_to(vault_root).as_posix(),
@@ -96,6 +130,11 @@ def list_bundles(vault_root: Path) -> List[Dict[str, object]]:
                 "conversion_status": metadata.get("conversion_status", ""),
                 "compiled_note_refs": metadata.get("compiled_note_refs", []),
                 "review_required": metadata.get("review_required", "false"),
+                "enrichment_status": enrichment["enrichment_status"],
+                "enrichment_provider": enrichment["enrichment_provider"],
+                "enrichment_model": enrichment["enrichment_model"],
+                "enrichment_failure_reason": enrichment["enrichment_failure_reason"],
+                "enrichment_updated_at": enrichment["enrichment_updated_at"],
             }
         )
     return results
