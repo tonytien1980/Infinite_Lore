@@ -1,4 +1,5 @@
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -338,3 +339,94 @@ class RawEnrichmentProcessorTests(unittest.TestCase):
             self.assertEqual(sidecar["provider"], "openai")
             self.assertEqual(sidecar["model"], "gpt-5.4-mini")
             self.assertIn("OpenAI boom", sidecar["failure_reason"])
+
+    def test_process_pending_deleted_bundle_marks_failed_without_recreating_bundle_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = self._write_bundle(root, "source-twelve")
+            config_path = root / "workbench-config.json"
+            self._write_config(
+                config_path,
+                [
+                    {
+                        "id": "openai-main",
+                        "provider": "openai",
+                        "enabled": True,
+                        "api_key": "sk-test",
+                        "base_url": "",
+                        "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
+                    }
+                ],
+            )
+            queue_bundle_for_enrichment(root, bundle)
+            shutil.rmtree(bundle)
+
+            result = process_pending_enrichment(root, config_path, generate_enrichment=mock.Mock())
+
+            self.assertEqual(result["completed"], 0)
+            self.assertEqual(result["failed"], 1)
+            self.assertEqual(result["results"][0]["status"], "failed")
+            self.assertIn("missing", result["results"][0]["reason"].lower())
+            self.assertFalse(bundle.exists())
+
+            state = json.loads(default_enrichment_state_path(root).read_text(encoding="utf-8"))
+            self.assertEqual(len(state["pending_bundles"]), 1)
+            self.assertEqual(state["pending_bundles"][0]["bundle_path"], "20_Raw/inbox/source-twelve")
+            self.assertEqual(state["pending_bundles"][0]["status"], "failed")
+            self.assertIn("missing", state["pending_bundles"][0]["failure_reason"].lower())
+
+    def test_process_pending_keeps_completed_bundle_flushed_when_later_bundle_read_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle_one = self._write_bundle(root, "source-thirteen")
+            bundle_two = self._write_bundle(root, "source-fourteen")
+            config_path = root / "workbench-config.json"
+            self._write_config(
+                config_path,
+                [
+                    {
+                        "id": "openai-main",
+                        "provider": "openai",
+                        "enabled": True,
+                        "api_key": "sk-test",
+                        "base_url": "",
+                        "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
+                    }
+                ],
+            )
+            queue_bundle_for_enrichment(root, bundle_one)
+            queue_bundle_for_enrichment(root, bundle_two)
+            (bundle_two / "content.md").unlink()
+            (bundle_two / "content.md").mkdir()
+
+            fake_generate = mock.Mock(
+                return_value={
+                    "summary": "usable",
+                    "primary_domain_suggestion": "ai-application",
+                    "related_domains_suggestion": [],
+                    "topic_tags": [],
+                    "entity_hints": [],
+                    "quality_flags": [],
+                    "wiki_update_hint": "strengthen-existing-domain",
+                }
+            )
+
+            result = process_pending_enrichment(root, config_path, generate_enrichment=fake_generate)
+
+            self.assertEqual(result["completed"], 1)
+            self.assertEqual(result["failed"], 1)
+            self.assertEqual(len(result["results"]), 2)
+            self.assertEqual(result["results"][0]["status"], "completed")
+            self.assertEqual(result["results"][1]["status"], "failed")
+            self.assertIn("content.md", result["results"][1]["reason"])
+
+            state = json.loads(default_enrichment_state_path(root).read_text(encoding="utf-8"))
+            self.assertEqual(len(state["pending_bundles"]), 1)
+            self.assertEqual(state["pending_bundles"][0]["bundle_path"], "20_Raw/inbox/source-fourteen")
+            self.assertEqual(state["pending_bundles"][0]["status"], "failed")
+
+            sidecar_one = json.loads(default_enrichment_path(bundle_one).read_text(encoding="utf-8"))
+            self.assertEqual(sidecar_one["status"], "completed")
+            sidecar_two = json.loads(default_enrichment_path(bundle_two).read_text(encoding="utf-8"))
+            self.assertEqual(sidecar_two["status"], "failed")
+            self.assertIn("content.md", sidecar_two["failure_reason"])

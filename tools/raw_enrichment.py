@@ -248,6 +248,47 @@ def _write_sidecar_result(
     return sidecar
 
 
+def _build_result(
+    root: Path,
+    bundle_path: Path,
+    *,
+    status: str,
+    reason: str,
+    provider: str,
+    model: str,
+) -> Dict[str, Any]:
+    return {
+        "bundle_path": bundle_path.relative_to(root).as_posix(),
+        "status": status,
+        "reason": reason,
+        "provider": provider,
+        "model": model,
+        "failure_reason": reason,
+    }
+
+
+def _record_failed_bundle(
+    root: Path,
+    bundle_path: Path,
+    *,
+    provider: str,
+    model: str,
+    reason: str,
+    started_at: str = "",
+    write_sidecar: bool = True,
+) -> Dict[str, Any]:
+    if write_sidecar:
+        _write_sidecar_result(
+            bundle_path,
+            status="failed",
+            provider=provider,
+            model=model,
+            failure_reason=reason,
+            started_at=started_at,
+        )
+    return _build_result(root, bundle_path, status="failed", reason=reason, provider=provider, model=model)
+
+
 def enrich_bundle(
     root: Path,
     bundle_path: Path,
@@ -256,39 +297,44 @@ def enrich_bundle(
     generate_enrichment: Optional[Callable[..., Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     route = resolve_route_provider(settings, "enrich_raw")
-    relative_bundle_path = bundle_path.relative_to(root).as_posix()
+    if not bundle_path.exists():
+        return _record_failed_bundle(
+            root,
+            bundle_path,
+            provider="",
+            model="",
+            reason=f"Queued bundle path is missing: {bundle_path.relative_to(root).as_posix()}",
+            write_sidecar=False,
+        )
 
     if not route:
         reason = "No runnable provider is configured for enrich_raw."
         _write_sidecar_result(bundle_path, status="deferred", provider="", model="", failure_reason=reason)
-        return {
-            "bundle_path": relative_bundle_path,
-            "status": "deferred",
-            "reason": "no_runnable_provider",
-            "provider": "",
-            "model": "",
-            "failure_reason": reason,
-        }
+        return _build_result(root, bundle_path, status="deferred", reason="no_runnable_provider", provider="", model="")
 
     provider = route["provider"]
     model = route["model"]
     if provider != "openai":
         reason = f"Provider '{provider}' is not supported by the minimal raw enrichment runner yet."
         _write_sidecar_result(bundle_path, status="deferred", provider=provider, model=model, failure_reason=reason)
-        return {
-            "bundle_path": relative_bundle_path,
-            "status": "deferred",
-            "reason": "unsupported_provider",
-            "provider": provider,
-            "model": model,
-            "failure_reason": reason,
-        }
+        return _build_result(root, bundle_path, status="deferred", reason="unsupported_provider", provider=provider, model=model)
 
     metadata_path = bundle_path / "metadata.md"
     content_path = bundle_path / "content.md"
-    metadata_text = metadata_path.read_text(encoding="utf-8") if metadata_path.exists() else ""
-    content_text = content_path.read_text(encoding="utf-8") if content_path.exists() else ""
     started_at = now_iso()
+    try:
+        metadata_text = metadata_path.read_text(encoding="utf-8") if metadata_path.exists() else ""
+        content_text = content_path.read_text(encoding="utf-8") if content_path.exists() else ""
+    except (OSError, UnicodeDecodeError) as exc:
+        return _record_failed_bundle(
+            root,
+            bundle_path,
+            provider=provider,
+            model=model,
+            reason=str(exc) or exc.__class__.__name__,
+            started_at=started_at,
+        )
+
     generator = generate_enrichment or _default_generate_enrichment
 
     try:
@@ -311,32 +357,16 @@ def enrich_bundle(
             completed_at=now_iso(),
             payload=normalized_payload,
         )
-        return {
-            "bundle_path": relative_bundle_path,
-            "status": "completed",
-            "reason": "",
-            "provider": provider,
-            "model": model,
-            "failure_reason": "",
-        }
+        return _build_result(root, bundle_path, status="completed", reason="", provider=provider, model=model)
     except Exception as exc:
-        reason = str(exc) or exc.__class__.__name__
-        _write_sidecar_result(
+        return _record_failed_bundle(
+            root,
             bundle_path,
-            status="failed",
             provider=provider,
             model=model,
-            failure_reason=reason,
+            reason=str(exc) or exc.__class__.__name__,
             started_at=started_at,
         )
-        return {
-            "bundle_path": relative_bundle_path,
-            "status": "failed",
-            "reason": reason,
-            "provider": provider,
-            "model": model,
-            "failure_reason": reason,
-        }
 
 
 def process_pending_enrichment(
@@ -373,7 +403,17 @@ def process_pending_enrichment(
             continue
 
         bundle_path = root / bundle_path_text
-        result = enrich_bundle(root, bundle_path, settings, generate_enrichment=generate_enrichment)
+        try:
+            result = enrich_bundle(root, bundle_path, settings, generate_enrichment=generate_enrichment)
+        except Exception as exc:
+            result = _record_failed_bundle(
+                root,
+                bundle_path,
+                provider="",
+                model="",
+                reason=str(exc) or exc.__class__.__name__,
+                write_sidecar=bundle_path.exists(),
+            )
         processed += 1
         results.append(result)
 
