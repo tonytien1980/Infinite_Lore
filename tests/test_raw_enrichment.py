@@ -228,6 +228,14 @@ class RawEnrichmentQueueTests(unittest.TestCase):
             ]
             self.assertEqual(len(matching_entries), 1)
             self.assertEqual(matching_entries[0]["status"], "pending")
+            self.assertEqual(matching_entries[0]["provider"], "")
+            self.assertEqual(matching_entries[0]["model"], "")
+            self.assertEqual(matching_entries[0]["failure_reason"], "")
+            sidecar = json.loads(default_enrichment_path(bundle).read_text(encoding="utf-8"))
+            self.assertEqual(sidecar["status"], "pending")
+            self.assertEqual(sidecar["provider"], "")
+            self.assertEqual(sidecar["model"], "")
+            self.assertEqual(sidecar["failure_reason"], "")
             self.assertTrue(bundle.exists())
 
     def test_dismiss_bundle_from_enrichment_queue_removes_queue_entry_without_deleting_bundle(self) -> None:
