@@ -501,7 +501,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Review and approve the macOS app shell polish spec, then write the implementation plan for the shell-hardening pass before distribution work.`
+`Execute the approved macOS app shell polish plan, then re-verify the desktop shell before starting distribution hardening.`
 
 ## 13. Future Adoption Direction
 
@@ -533,3 +533,4 @@ Reference:
 - `docs/2026-04-11-macos-app-shell-design-spec.md`
 - `docs/2026-04-11-macos-app-shell-implementation-plan.md`
 - `docs/2026-04-11-macos-app-shell-polish-spec.md`
+- `docs/2026-04-11-macos-app-shell-polish-implementation-plan.md`

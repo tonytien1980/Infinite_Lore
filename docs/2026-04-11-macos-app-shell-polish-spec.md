@@ -1,6 +1,6 @@
 # macOS App Shell Polish Specification
 
-**Status:** Draft v1 awaiting user review
+**Status:** Approved for implementation
 **Date:** 2026-04-11
 **Project:** Infinite Lore
 
@@ -84,6 +84,12 @@ The user experience goal is:
 - app can still auto-find the current working vault in the common local case
 - if it cannot, the failure is explicit and recoverable
 - the app should move closer to a product that can live outside the repo tree
+
+The recommended fallback is:
+
+- show a simple `選擇知識庫資料夾` picker
+- let the user choose the vault root once
+- remember that choice for future launches
 
 ### 4.4 What this phase should not do
 
