@@ -123,24 +123,6 @@ class AppShellLaunchTests(unittest.TestCase):
             self.assertEqual(resolved, selected_vault.resolve())
             prompt_for_vault_root.assert_called_once_with(prompt_parent)
 
-    def test_launch_app_starts_server_then_opens_window(self) -> None:
-        from app_shell.main import launch_app
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            seed_vault(root)
-
-            with mock.patch("app_shell.main.EmbeddedWorkbenchServer") as server_cls, mock.patch(
-                "app_shell.main.open_main_window"
-            ) as open_window:
-                server = server_cls.return_value
-                server.base_url = "http://127.0.0.1:9999"
-
-                launch_app(vault_root=root, config_path=root / "workbench.json")
-
-                server.start.assert_called_once()
-                open_window.assert_called_once_with("http://127.0.0.1:9999")
-
     def test_launch_app_uses_controller_driven_startup_handoff(self) -> None:
         from app_shell.main import launch_app
 
@@ -157,24 +139,6 @@ class AppShellLaunchTests(unittest.TestCase):
                 initial_vault_root=root,
             )
             controller.run.assert_called_once()
-
-    def test_launch_app_surfaces_startup_failure(self) -> None:
-        from app_shell.main import launch_app
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            seed_vault(root)
-
-            with mock.patch("app_shell.main.EmbeddedWorkbenchServer") as server_cls, mock.patch(
-                "app_shell.main.open_error_dialog"
-            ) as open_error:
-                server = server_cls.return_value
-                server.start.side_effect = RuntimeError("boot failed")
-
-                with self.assertRaises(RuntimeError):
-                    launch_app(vault_root=root, config_path=root / "workbench.json")
-
-                open_error.assert_called_once()
 
     def test_resolve_launch_vault_root_uses_saved_state_when_auto_candidates_fail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -371,6 +335,27 @@ class AppShellUiTests(unittest.TestCase):
         controller.retry_launch.assert_called_once_with()
         controller.choose_vault.assert_called_once_with()
         controller.quit_app.assert_called_once_with()
+
+    def test_controller_run_wires_shell_window_bootstrap(self) -> None:
+        from app_shell.main import AppShellController
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            seed_vault(root)
+            controller = AppShellController(config_path=root / "workbench.json")
+            shell_window = mock.Mock()
+
+            with mock.patch("app_shell.main.ShellWindowApi") as api_cls, mock.patch(
+                "app_shell.main.create_shell_window",
+                return_value=shell_window,
+            ) as create_shell_window, mock.patch(
+                "app_shell.main.start_shell_window"
+            ) as start_shell_window:
+                controller.run()
+
+            api_cls.assert_called_once_with(controller)
+            create_shell_window.assert_called_once_with(api_cls.return_value)
+            start_shell_window.assert_called_once_with(shell_window, controller.bootstrap)
 
     def test_controller_loads_workbench_url_after_successful_boot(self) -> None:
         from app_shell.main import AppShellController
