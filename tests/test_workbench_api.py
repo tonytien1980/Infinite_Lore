@@ -313,6 +313,70 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertIn("bundle_count", payload)
             self.assertIn("knowledge_count", payload)
 
+    def test_bundles_endpoint_exposes_enrichment_status_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw/inbox/example"
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.md").write_text(
+                "---\n"
+                "title: Example\n"
+                "primary_domain: ai-application\n"
+                "conversion_status: converted\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            (bundle / "enrichment.json").write_text(
+                json.dumps(
+                    {
+                        "status": "failed",
+                        "provider": "openai",
+                        "model": "gpt-5.4-mini",
+                        "failure_reason": "OpenAI boom",
+                        "updated_at": "2026-04-11T00:00:00Z",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/api/bundles")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload[0]["enrichment_status"], "failed")
+            self.assertEqual(payload[0]["enrichment_provider"], "openai")
+            self.assertEqual(payload[0]["enrichment_model"], "gpt-5.4-mini")
+            self.assertEqual(payload[0]["enrichment_failure_reason"], "OpenAI boom")
+            self.assertEqual(payload[0]["enrichment_updated_at"], "2026-04-11T00:00:00Z")
+
+    def test_dashboard_recent_imports_expose_enrichment_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw/inbox/example"
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.md").write_text(
+                "---\n"
+                "title: Example\n"
+                "primary_domain: ai-application\n"
+                "conversion_status: converted\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            (bundle / "enrichment.json").write_text(
+                json.dumps({"status": "pending", "updated_at": "2026-04-11T00:00:00Z"}) + "\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/api/dashboard")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["recent_imports"][0]["enrichment_status"], "pending")
+            self.assertEqual(payload["recent_imports"][0]["enrichment_updated_at"], "2026-04-11T00:00:00Z")
+
     def test_import_file_endpoint_creates_bundle_and_wiki_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
