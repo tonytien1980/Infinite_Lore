@@ -256,6 +256,22 @@ Reference files:
 - `docs/2026-04-11-macos-app-shell-design-spec.md`
 - `docs/2026-04-11-macos-app-shell-implementation-plan.md`
 
+### 4.13 macOS App Shell Polish
+
+Completed:
+
+- desktop shell no longer depends only on `<vault>/dist/Infinite Lore.app`
+- remembered vault selection supports launches outside the repo tree
+- automatic launch fallback can prompt for `選擇知識庫資料夾`
+- startup and failure states are surfaced in Traditional Chinese shell views
+- shell window sizing, title, and localization are now explicitly productized at the app-shell layer
+- shell build guidance now uses a pinned macOS dependency baseline for packaging verification
+
+Reference files:
+
+- `docs/2026-04-11-macos-app-shell-polish-spec.md`
+- `docs/2026-04-11-macos-app-shell-polish-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -288,6 +304,10 @@ As of this roadmap update, the verified baseline is:
 - local insufficient-evidence Ask fallback copy is now in Traditional Chinese
 - local macOS app shell launches from source and as a packaged `.app`
 - packaged app startup and shutdown manage the embedded server automatically
+- packaged shell startup now shows a Traditional Chinese loading state before the Workbench is ready
+- packaged shell failure states now render a Traditional Chinese recovery surface instead of a raw traceback
+- when the app cannot infer the vault automatically, it can reuse the remembered vault or prompt for `選擇知識庫資料夾`
+- macOS shell packaging verification now uses `packaging/macos/requirements-shell.txt` as an additive shell/build baseline rather than as a full project bootstrap replacement
 - tests pass
 - health check passes
 
@@ -300,6 +320,7 @@ python3 -m unittest tests.test_app_shell -v
 python3 tools/health_check.py .
 python3 tools/run_workbench.py
 python3 tools/run_macos_app.py
+/Users/oldtien_base/.nvm/versions/node/v24.14.1/bin/node --check workbench/static/app.js
 tools/build_macos_app.sh
 ```
 
@@ -318,6 +339,8 @@ The approved delivery order is:
 9. Multimodal ingestion
 10. Image OCR and screenshot understanding
 11. Workbench V2 redesign
+12. macOS app shell
+13. macOS app shell polish
 
 This order should not be reversed unless there is a strong reason.
 
@@ -398,6 +421,30 @@ The Workbench now supports:
 - Traditional Chinese primary navigation
 - a top / middle / bottom homepage layout
 - a desktop-first shell posture for the local app
+
+### Phase 12: macOS App Shell
+
+This phase is now delivered and verified locally as the first packaged desktop baseline.
+
+The shell now supports:
+
+- source launch from `python3 tools/run_macos_app.py`
+- packaged build from `tools/build_macos_app.sh`
+- single-window desktop packaging around the current Workbench
+- managed embedded-server startup and shutdown
+- repo-backed vault auto-resolution from the normal local build layout
+
+### Phase 13: macOS App Shell Polish
+
+This phase is now delivered and verified locally as the current desktop-shell baseline.
+
+The shell now supports:
+
+- remembered vault reuse when automatic launch inference fails
+- `選擇知識庫資料夾` fallback for launches outside the repo build layout
+- Traditional Chinese loading and recovery surfaces before the Workbench is ready
+- explicit shell window sizing, title, and localization defaults
+- a pinned shell/build dependency baseline for packaging verification
 
 ## 9. Phase Boundaries
 
@@ -501,7 +548,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Execute the approved macOS app shell polish plan, then re-verify the desktop shell before starting distribution hardening.`
+`Start notarization / distribution-hardening planning on top of the delivered macOS app shell polish baseline.`
 
 ## 13. Future Adoption Direction
 

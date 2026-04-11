@@ -1,12 +1,12 @@
 # macOS App Shell Polish Specification
 
-**Status:** Approved for implementation
+**Status:** Delivered and verified locally
 **Date:** 2026-04-11
 **Project:** Infinite Lore
 
 ## 1. Purpose
 
-This specification defines the next polish phase after the first delivered `macOS App Shell`.
+This specification defines the polish phase that shipped immediately after the first delivered `macOS App Shell`.
 
 The packaged shell now works locally, but it is still closer to:
 
@@ -16,9 +16,9 @@ than to:
 
 - a stable desktop product surface ready for wider everyday use
 
-So this phase is not about adding more product features.
+This phase did not add new product features.
 
-It is about making the desktop shell:
+It delivered a desktop shell that is:
 
 - less dependent on the current development layout
 - more stable during launch and failure paths
@@ -35,7 +35,7 @@ The first desktop shell already proves these things:
 
 That means the next highest-value work is not notarization yet.
 
-The next highest-value work is to reduce the gap between:
+The delivered work reduced the gap between:
 
 - `it works on this machine in the local repo`
 
@@ -45,7 +45,7 @@ and
 
 ## 3. Scope Order
 
-This polish phase should proceed in this order:
+This polish phase was executed in this order:
 
 1. app independence from the current `<vault>/dist/Infinite Lore.app` assumption
 2. startup and error experience
@@ -69,23 +69,24 @@ That is good enough for proving the shell works, but it is not yet the right lon
 
 ### 4.2 What needs to improve
 
-The app should become less dependent on the build folder structure.
+The app is now less dependent on the build folder structure.
 
-The user should not have to think:
+The target user posture was:
 
 - “I must keep the app inside this repo path or it breaks.”
 
 ### 4.3 Polish goal
 
-This phase should introduce a better vault-resolution strategy for the desktop shell.
+This phase introduced a better vault-resolution strategy for the desktop shell.
 
-The user experience goal is:
+The delivered user experience is:
 
 - app can still auto-find the current working vault in the common local case
-- if it cannot, the failure is explicit and recoverable
-- the app should move closer to a product that can live outside the repo tree
+- if it cannot, the shell reuses the last confirmed vault root when available
+- if automatic resolution still fails, the failure is explicit and recoverable through a picker flow
+- the product can now live outside the repo tree more safely than the first shell version
 
-The recommended fallback is:
+The shipped fallback is:
 
 - show a simple `選擇知識庫資料夾` picker
 - let the user choose the vault root once
@@ -111,7 +112,7 @@ For example:
 
 ### 5.2 Polish goal
 
-The desktop shell should communicate its state clearly during:
+The desktop shell now communicates its state clearly during:
 
 - launching
 - waiting for embedded server readiness
@@ -132,7 +133,7 @@ Not:
 
 ### 5.4 Output posture
 
-Error handling should become:
+Error handling is now:
 
 - concise
 - readable
@@ -145,7 +146,7 @@ Error handling should become:
 
 The current desktop shell uses the Workbench UI as-is inside a macOS window.
 
-That is good enough for a first delivered shell, but there are still likely polish gaps in:
+That was good enough for a first delivered shell, but the polish pass closed the main gaps in:
 
 - initial window sizing
 - minimum size behavior
@@ -156,7 +157,7 @@ That is good enough for a first delivered shell, but there are still likely poli
 
 ### 6.2 Polish goal
 
-The window layer should feel:
+The delivered window layer now feels:
 
 - calmer
 - more intentional
@@ -170,7 +171,7 @@ It is about improving the first windowed product feel of the current shell.
 
 ## 7. Recommended Product Direction
 
-The recommended `app shell polish` direction is:
+The shipped `app shell polish` direction is:
 
 - keep the architecture simple
 - improve local robustness first
@@ -232,14 +233,14 @@ The shell should not feel:
 
 ## 10. Explicitly In Scope
 
-This polish phase may include:
+This delivered polish phase includes:
 
-- better vault discovery strategy
-- better launch-state messaging
-- better startup error handling
-- better window defaults
-- better app icon or shell-level assets
+- stronger vault discovery strategy with remembered-vault fallback
+- launch-state messaging through a Traditional Chinese loading view
+- startup error handling through a Traditional Chinese recovery view with retry / choose-vault / quit actions
+- better window defaults for title, size, minimum size, background, and localization
 - shell-level Traditional Chinese polish
+- pinned shell/build dependency guidance through `packaging/macos/requirements-shell.txt`
 
 ## 11. Explicitly Out Of Scope
 
@@ -255,6 +256,8 @@ This phase does **not** include:
 - multi-window workspace support
 - backend feature expansion unrelated to the shell
 
+`packaging/macos/requirements-shell.txt` is a verified additive shell/build baseline for the macOS packaging flow. It is not intended to replace the main project bootstrap or the broader Infinite Lore Python environment.
+
 ## 12. Definition Of Done
 
 This polish phase is done when:
@@ -263,10 +266,11 @@ This polish phase is done when:
 - startup and failure states are product-readable
 - the app window feels materially more like a finished macOS tool
 - the shell remains compatible with the current Workbench and vault behavior
+- the shell build can be re-verified with the additive pinned dependency baseline
 
 ## 13. Next Step After This Phase
 
-Once this polish phase is complete, the likely next step becomes:
+Now that this polish phase is complete, the likely next step becomes:
 
 - notarization / distribution hardening
 

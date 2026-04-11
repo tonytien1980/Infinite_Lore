@@ -109,11 +109,20 @@ The first delivered macOS app shell currently provides:
 - hidden localhost and no required browser tab
 - automatic embedded server startup and shutdown
 - the same shared vault workflow as the browser Workbench
+- a Traditional Chinese loading state before the Workbench is ready
+- a Traditional Chinese recovery view with retry / choose-vault / quit actions when shell launch fails
 
 Current local-build behavior:
 
 - the packaged `.app` auto-resolves the vault root when it is launched from the local build output under `<vault>/dist/Infinite Lore.app`
-- if that bundle is moved away from the local build layout, automatic vault resolution is no longer guaranteed in this first version
+- if that bundle is moved away from the local build layout, the shell next reuses the last confirmed vault root when available
+- if automatic resolution still fails, the shell opens a `選擇知識庫資料夾` picker and remembers the confirmed vault for later launches
+
+Shell build baseline note:
+
+- `packaging/macos/requirements-shell.txt` is the verified additive dependency baseline for the macOS shell and build flow
+- it exists to install the shell-specific `pywebview` / `PyInstaller` / PyObjC requirements used by `tools/build_macos_app.sh`
+- it is not a full project bootstrap replacement for the main Infinite Lore Python environment
 
 ## Automation And Scan Now
 

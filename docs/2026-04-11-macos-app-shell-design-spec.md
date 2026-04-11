@@ -1,6 +1,6 @@
 # macOS App Shell Design Specification
 
-**Status:** Delivered v1
+**Status:** Delivered and verified locally
 **Date:** 2026-04-11
 **Project:** Infinite Lore
 
@@ -33,6 +33,8 @@ The current verified baseline already includes:
 - image OCR
 
 So the app shell should wrap the existing system rather than replace it.
+
+This shell baseline has now been delivered and locally re-verified. The later polish pass kept this architecture intact while improving vault fallback behavior and startup/error presentation.
 
 ## 3. Approaches Considered
 
@@ -267,6 +269,11 @@ In the delivered local-build version, the shell now resolves the vault root auto
 
 This keeps the first local packaged shell compatible with the current repo-backed vault without introducing a separate setup phase.
 
+After the shipped shell-polish pass, launches outside that local build layout now fall through to:
+
+- the last remembered valid vault root when one exists
+- a `選擇知識庫資料夾` picker when automatic resolution still cannot find a valid vault
+
 ## 13. Packaging Strategy
 
 The first packaging target should be:
@@ -276,6 +283,8 @@ The first packaging target should be:
 - `onedir` app bundle
 
 This is preferred over a more aggressive single-file packaging posture because the goal is stability, inspectability, and low integration risk.
+
+For local build verification, `packaging/macos/requirements-shell.txt` is the additive verified shell/build baseline for `pywebview`, `PyInstaller`, and the pinned PyObjC bridge modules used by the macOS shell. It is not a full bootstrap replacement for the wider Infinite Lore project environment.
 
 ## 14. Verification Requirements
 
@@ -290,6 +299,7 @@ Before this phase is considered complete, verification should include:
 - `Scan now` still works
 - reflection / correction still work
 - app shutdown does not leave orphan server processes
+- shell build verification succeeds with the additive `packaging/macos/requirements-shell.txt` baseline installed
 
 ## 15. Definition Of Done
 
