@@ -259,6 +259,26 @@ class WorkbenchApiTests(unittest.TestCase):
         ):
             self.assertNotIn(legacy_hook, script_text)
 
+    def test_root_html_settings_script_round_trips_cheap_fast_provider_role(self) -> None:
+        app_js = Path(__file__).resolve().parents[1] / "workbench" / "static" / "app.js"
+        script_text = app_js.read_text(encoding="utf-8")
+
+        self.assertIn('model?.role === "cheap_fast"', script_text)
+        self.assertIn("normalized.cheap_fast", script_text)
+        self.assertIn('{ id: normalized.cheap_fast, role: "cheap_fast" }', script_text)
+
+    def test_root_html_settings_script_preserves_existing_route_provider_preferences(self) -> None:
+        app_js = Path(__file__).resolve().parents[1] / "workbench" / "static" / "app.js"
+        script_text = app_js.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "function buildRouteProviderPreferences(providers, existingPreferences)",
+            script_text,
+        )
+        self.assertIn("const existingList = existingPreferences?.[routeName];", script_text)
+        self.assertIn("const surviving = existingList.filter((providerId) => availableIds.includes(providerId));", script_text)
+        self.assertIn("route_provider_preferences: buildRouteProviderPreferences(providerPayload, state.settings?.route_provider_preferences)", script_text)
+
     def test_favicon_route_serves_shell_icon_asset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

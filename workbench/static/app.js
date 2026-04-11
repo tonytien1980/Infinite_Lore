@@ -156,6 +156,8 @@ function normalizeProvider(provider, index) {
     enabled: provider?.enabled !== false,
     api_key: typeof provider?.api_key === "string" ? provider.api_key : "",
     base_url: typeof provider?.base_url === "string" ? provider.base_url : "",
+    cheap_fast:
+      models.find((model) => model?.role === "cheap_fast" && typeof model.id === "string" && model.id.trim())?.id || "",
     balanced:
       models.find((model) => model?.role === "balanced" && typeof model.id === "string" && model.id.trim())?.id || "",
     best_deep:
@@ -176,6 +178,9 @@ function providerLabel(provider, index) {
 function createProviderPayload(provider, index) {
   const normalized = normalizeProvider(provider, index);
   const models = [];
+  if (normalized.cheap_fast) {
+    models.push({ id: normalized.cheap_fast, role: "cheap_fast" });
+  }
   if (normalized.balanced) {
     models.push({ id: normalized.balanced, role: "balanced" });
   }
@@ -192,21 +197,19 @@ function createProviderPayload(provider, index) {
   };
 }
 
-function buildRouteProviderPreferences(providers) {
-  const providerIds = providers
-    .map((provider, index) => normalizeProvider(provider, index))
-    .filter((provider) => provider.id)
-    .map((provider) => provider.id);
-  const openaiFirst = providers
-    .map((provider, index) => normalizeProvider(provider, index))
+function buildRouteProviderPreferences(providers, existingPreferences) {
+  const normalizedProviders = providers.map((provider, index) => normalizeProvider(provider, index)).filter((provider) => provider.id);
+  const availableIds = normalizedProviders.map((provider) => provider.id);
+  const openaiFirst = normalizedProviders
+    .slice()
     .sort((left, right) => {
       const leftScore = left.provider === "openai" ? 0 : 1;
       const rightScore = right.provider === "openai" ? 0 : 1;
       return leftScore - rightScore;
     })
     .map((provider) => provider.id);
-  const localFirst = providers
-    .map((provider, index) => normalizeProvider(provider, index))
+  const localFirst = normalizedProviders
+    .slice()
     .sort((left, right) => {
       const leftScore = left.provider === "openai" ? 1 : 0;
       const rightScore = right.provider === "openai" ? 1 : 0;
@@ -214,11 +217,21 @@ function buildRouteProviderPreferences(providers) {
     })
     .map((provider) => provider.id);
 
+  function mergePreference(routeName, fallbackList) {
+    const existingList = existingPreferences?.[routeName];
+    if (!Array.isArray(existingList) || !existingList.length) {
+      return fallbackList;
+    }
+    const surviving = existingList.filter((providerId) => availableIds.includes(providerId));
+    const missing = fallbackList.filter((providerId) => !surviving.includes(providerId));
+    return [...surviving, ...missing];
+  }
+
   return {
-    ask: openaiFirst,
-    enrich_raw: openaiFirst,
-    reflection: openaiFirst,
-    compile: localFirst.length ? localFirst : providerIds,
+    ask: mergePreference("ask", openaiFirst),
+    enrich_raw: mergePreference("enrich_raw", openaiFirst),
+    reflection: mergePreference("reflection", openaiFirst),
+    compile: mergePreference("compile", localFirst.length ? localFirst : availableIds),
   };
 }
 
@@ -353,6 +366,17 @@ function renderProviders() {
     });
     balancedLabel.appendChild(balancedInput);
 
+    const cheapFastLabel = document.createElement("label");
+    cheapFastLabel.innerHTML = "<span>小而快模型</span>";
+    const cheapFastInput = document.createElement("input");
+    cheapFastInput.type = "text";
+    cheapFastInput.value = provider.cheap_fast;
+    cheapFastInput.placeholder = "模型識別碼";
+    cheapFastInput.addEventListener("input", () => {
+      state.settings.providers[index].cheap_fast = cheapFastInput.value;
+    });
+    cheapFastLabel.appendChild(cheapFastInput);
+
     const bestLabel = document.createElement("label");
     bestLabel.innerHTML = "<span>高品質 / 深度模型</span>";
     const bestInput = document.createElement("input");
@@ -364,7 +388,16 @@ function renderProviders() {
     });
     bestLabel.appendChild(bestInput);
 
-    fields.append(providerTypeLabel, providerIdLabel, enabledLabel, apiKeyLabel, baseUrlLabel, balancedLabel, bestLabel);
+    fields.append(
+      providerTypeLabel,
+      providerIdLabel,
+      enabledLabel,
+      apiKeyLabel,
+      baseUrlLabel,
+      cheapFastLabel,
+      balancedLabel,
+      bestLabel
+    );
     card.append(header, fields);
     providerList.appendChild(card);
   });
@@ -1224,7 +1257,7 @@ settingsForm.addEventListener("submit", async (event) => {
       ask: routeAsk.value,
       reflection: routeReflection.value,
     },
-    route_provider_preferences: buildRouteProviderPreferences(providerPayload),
+    route_provider_preferences: buildRouteProviderPreferences(providerPayload, state.settings?.route_provider_preferences),
   };
   state.settings = await fetchJson("/api/settings", {
     method: "POST",
