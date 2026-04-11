@@ -8,7 +8,7 @@ class ProviderRouterTests(unittest.TestCase):
     def test_default_config_includes_enrich_raw_route(self) -> None:
         self.assertEqual(DEFAULT_CONFIG["routes"]["enrich_raw"], "balanced")
 
-    def test_openai_route_is_chosen_when_openai_provider_matches_role(self) -> None:
+    def test_openai_route_is_chosen_over_competing_eligible_provider(self) -> None:
         settings = {
             "providers": [
                 {
@@ -21,13 +21,24 @@ class ProviderRouterTests(unittest.TestCase):
                         {"id": "gpt-5.4-mini", "role": "balanced"},
                         {"id": "gpt-5.4", "role": "best_deep"},
                     ],
-                }
+                },
+                {
+                    "id": "ollama-local",
+                    "provider": "ollama",
+                    "api_key": "",
+                    "enabled": True,
+                    "base_url": "http://127.0.0.1:11434",
+                    "models": [
+                        {"id": "qwen3:14b", "role": "balanced"},
+                        {"id": "qwen3:32b", "role": "best_deep"},
+                    ],
+                },
             ],
             "routes": {
                 "ask": "best_deep",
                 "enrich_raw": "balanced",
             },
-            "route_provider_preferences": {},
+            "route_provider_preferences": {"ask": ["openai-main", "ollama-local"]},
         }
 
         route = resolve_route_provider(settings, "ask")
@@ -35,17 +46,9 @@ class ProviderRouterTests(unittest.TestCase):
         self.assertEqual(route["provider"], "openai")
         self.assertEqual(route["model"], "gpt-5.4")
 
-    def test_openai_is_preferred_when_local_provider_exists_but_is_not_enabled(self) -> None:
+    def test_openai_is_selected_when_preferred_local_provider_is_disabled(self) -> None:
         settings = {
             "providers": [
-                {
-                    "id": "openai-main",
-                    "provider": "openai",
-                    "api_key": "sk-test",
-                    "enabled": True,
-                    "base_url": "",
-                    "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
-                },
                 {
                     "id": "ollama-local",
                     "provider": "ollama",
@@ -54,9 +57,17 @@ class ProviderRouterTests(unittest.TestCase):
                     "base_url": "http://127.0.0.1:11434",
                     "models": [{"id": "qwen3:14b", "role": "balanced"}],
                 },
+                {
+                    "id": "openai-main",
+                    "provider": "openai",
+                    "api_key": "sk-test",
+                    "enabled": True,
+                    "base_url": "",
+                    "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
+                },
             ],
             "routes": {"enrich_raw": "balanced"},
-            "route_provider_preferences": {"enrich_raw": ["openai-main", "ollama-local"]},
+            "route_provider_preferences": {"enrich_raw": ["ollama-local", "openai-main"]},
         }
 
         route = resolve_route_provider(settings, "enrich_raw")
