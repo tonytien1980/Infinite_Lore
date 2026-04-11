@@ -7,6 +7,7 @@ from unittest import mock
 from tools.raw_enrichment import (
     default_enrichment_path,
     default_enrichment_state_path,
+    process_pending_enrichment,
     queue_bundle_for_enrichment,
 )
 
@@ -168,3 +169,172 @@ class RawEnrichmentQueueTests(unittest.TestCase):
             self.assertEqual(len(state["pending_bundles"]), 1)
             self.assertEqual(state["pending_bundles"][0]["bundle_path"], "20_Raw/inbox/source-eight")
             self.assertEqual(state["pending_bundles"][0]["status"], "pending")
+
+
+class RawEnrichmentProcessorTests(unittest.TestCase):
+    def _write_bundle(self, root: Path, name: str) -> Path:
+        bundle = root / "20_Raw" / "inbox" / name
+        bundle.mkdir(parents=True)
+        (bundle / "metadata.md").write_text(
+            "---\n"
+            "title: Sample Bundle\n"
+            "primary_domain: ai-application\n"
+            'source_refs: ["raw/sample"]\n'
+            "---\n",
+            encoding="utf-8",
+        )
+        (bundle / "content.md").write_text(
+            "# Sample Bundle\n\nThis bundle discusses knowledge workflows and AI automation.\n",
+            encoding="utf-8",
+        )
+        return bundle
+
+    def _write_config(self, path: Path, providers: list[dict]) -> None:
+        path.write_text(
+            json.dumps(
+                {
+                    "providers": providers,
+                    "routes": {"enrich_raw": "balanced"},
+                    "route_provider_preferences": {"enrich_raw": [provider["id"] for provider in providers]},
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def test_process_pending_bundle_with_openai_route_writes_completed_sidecar_and_removes_pending_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = self._write_bundle(root, "source-nine")
+            config_path = root / "workbench-config.json"
+            self._write_config(
+                config_path,
+                [
+                    {
+                        "id": "openai-main",
+                        "provider": "openai",
+                        "enabled": True,
+                        "api_key": "sk-test",
+                        "base_url": "",
+                        "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
+                    }
+                ],
+            )
+            queue_bundle_for_enrichment(root, bundle)
+            fake_generate = mock.Mock(
+                return_value={
+                    "summary": "Concise enrichment summary.",
+                    "primary_domain_suggestion": "ai-application",
+                    "related_domains_suggestion": ["consulting"],
+                    "topic_tags": ["knowledge-management"],
+                    "entity_hints": ["OpenAI"],
+                    "quality_flags": ["high-signal"],
+                    "wiki_update_hint": "strengthen-existing-domain",
+                }
+            )
+
+            result = process_pending_enrichment(root, config_path, generate_enrichment=fake_generate)
+
+            self.assertEqual(result["completed"], 1)
+            self.assertEqual(result["deferred"], 0)
+            self.assertEqual(result["failed"], 0)
+            self.assertEqual(result["results"][0]["status"], "completed")
+            fake_generate.assert_called_once()
+
+            state = json.loads(default_enrichment_state_path(root).read_text(encoding="utf-8"))
+            self.assertEqual(state["pending_bundles"], [])
+
+            sidecar = json.loads(default_enrichment_path(bundle).read_text(encoding="utf-8"))
+            self.assertEqual(sidecar["status"], "completed")
+            self.assertEqual(sidecar["provider"], "openai")
+            self.assertEqual(sidecar["model"], "gpt-5.4-mini")
+            self.assertEqual(sidecar["summary"], "Concise enrichment summary.")
+            self.assertEqual(sidecar["failure_reason"], "")
+            self.assertTrue(sidecar["started_at"])
+            self.assertTrue(sidecar["completed_at"])
+
+    def test_process_pending_bundle_with_non_openai_route_leaves_bundle_queued_and_does_not_call_generator(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = self._write_bundle(root, "source-ten")
+            config_path = root / "workbench-config.json"
+            self._write_config(
+                config_path,
+                [
+                    {
+                        "id": "ollama-local",
+                        "provider": "ollama",
+                        "enabled": True,
+                        "api_key": "",
+                        "base_url": "http://127.0.0.1:11434",
+                        "models": [{"id": "qwen3:14b", "role": "balanced"}],
+                    }
+                ],
+            )
+            queue_bundle_for_enrichment(root, bundle)
+            fake_generate = mock.Mock(side_effect=AssertionError("generator should not run"))
+
+            result = process_pending_enrichment(root, config_path, generate_enrichment=fake_generate)
+
+            self.assertEqual(result["completed"], 0)
+            self.assertEqual(result["deferred"], 1)
+            self.assertEqual(result["failed"], 0)
+            self.assertEqual(result["results"][0]["status"], "deferred")
+            self.assertEqual(result["results"][0]["reason"], "unsupported_provider")
+            fake_generate.assert_not_called()
+
+            state = json.loads(default_enrichment_state_path(root).read_text(encoding="utf-8"))
+            self.assertEqual(len(state["pending_bundles"]), 1)
+            self.assertEqual(state["pending_bundles"][0]["bundle_path"], "20_Raw/inbox/source-ten")
+            self.assertEqual(state["pending_bundles"][0]["status"], "deferred")
+
+            sidecar = json.loads(default_enrichment_path(bundle).read_text(encoding="utf-8"))
+            self.assertEqual(sidecar["status"], "deferred")
+            self.assertEqual(sidecar["provider"], "ollama")
+            self.assertEqual(sidecar["model"], "qwen3:14b")
+            self.assertIn("not supported", sidecar["failure_reason"])
+
+    def test_process_pending_bundle_failure_keeps_bundle_queued_and_records_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = self._write_bundle(root, "source-eleven")
+            config_path = root / "workbench-config.json"
+            self._write_config(
+                config_path,
+                [
+                    {
+                        "id": "openai-main",
+                        "provider": "openai",
+                        "enabled": True,
+                        "api_key": "sk-test",
+                        "base_url": "",
+                        "models": [{"id": "gpt-5.4-mini", "role": "balanced"}],
+                    }
+                ],
+            )
+            queue_bundle_for_enrichment(root, bundle)
+
+            result = process_pending_enrichment(
+                root,
+                config_path,
+                generate_enrichment=mock.Mock(side_effect=RuntimeError("OpenAI boom")),
+            )
+
+            self.assertEqual(result["completed"], 0)
+            self.assertEqual(result["deferred"], 0)
+            self.assertEqual(result["failed"], 1)
+            self.assertEqual(result["results"][0]["status"], "failed")
+            self.assertIn("OpenAI boom", result["results"][0]["reason"])
+
+            state = json.loads(default_enrichment_state_path(root).read_text(encoding="utf-8"))
+            self.assertEqual(len(state["pending_bundles"]), 1)
+            self.assertEqual(state["pending_bundles"][0]["bundle_path"], "20_Raw/inbox/source-eleven")
+            self.assertEqual(state["pending_bundles"][0]["status"], "failed")
+            self.assertIn("OpenAI boom", state["pending_bundles"][0]["failure_reason"])
+
+            sidecar = json.loads(default_enrichment_path(bundle).read_text(encoding="utf-8"))
+            self.assertEqual(sidecar["status"], "failed")
+            self.assertEqual(sidecar["provider"], "openai")
+            self.assertEqual(sidecar["model"], "gpt-5.4-mini")
+            self.assertIn("OpenAI boom", sidecar["failure_reason"])
