@@ -29,6 +29,7 @@
 - [Background Raw Enrichment Lane And Workbench Status Visibility Spec](../docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-spec.md)
 - [Background Raw Enrichment Lane And Workbench Status Visibility Implementation Plan](../docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-implementation-plan.md)
 - [Manual Enrichment Retry And Recovery Controls Spec](../docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-spec.md)
+- [Manual Enrichment Retry And Recovery Controls Implementation Plan](../docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-implementation-plan.md)
 
 ## Domains
 

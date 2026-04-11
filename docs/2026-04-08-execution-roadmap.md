@@ -594,7 +594,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Review and approve the manual enrichment retry and recovery controls spec, then write the implementation plan and execute that phase.`
+`Execute the approved manual enrichment retry and recovery controls plan, starting with queue action tests before API and inbox UI wiring.`
 
 ## 13. Future Adoption Direction
 
