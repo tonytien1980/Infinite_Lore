@@ -80,7 +80,6 @@ def queue_bundle_for_enrichment(root: Path, bundle_path: Path) -> None:
         sidecar_payload["last_error"] = ""
         sidecar_payload.setdefault("queued_at", queued_at)
         sidecar_payload["updated_at"] = queued_at
-    _write_json_atomic(sidecar_path, sidecar_payload)
 
     state_payload = _load_json_dict(state_path)
     pending_bundles = state_payload.get("pending_bundles")
@@ -117,3 +116,4 @@ def queue_bundle_for_enrichment(root: Path, bundle_path: Path) -> None:
     state_payload.setdefault("created_at", queued_at)
     state_payload["updated_at"] = queued_at
     _write_json_atomic(state_path, state_payload)
+    _write_json_atomic(sidecar_path, sidecar_payload)

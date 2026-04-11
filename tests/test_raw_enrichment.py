@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tools.raw_enrichment import (
     default_enrichment_path,
@@ -82,3 +83,33 @@ class RawEnrichmentQueueTests(unittest.TestCase):
             self.assertEqual(len(pending_entries), 1)
             self.assertEqual(pending_entries[0]["bundle_path"], "20_Raw/inbox/source-five")
             self.assertEqual(pending_entries[0]["status"], "pending")
+
+    def test_queue_persists_state_before_sidecar_when_sidecar_write_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw" / "inbox" / "source-six"
+            bundle.mkdir(parents=True)
+            state_path = default_enrichment_state_path(root)
+            sidecar_path = default_enrichment_path(bundle)
+
+            original_write = "tools.raw_enrichment._write_json_atomic"
+
+            def fake_write(target_path: Path, payload: dict) -> None:
+                if target_path == sidecar_path:
+                    raise OSError("disk full while writing sidecar")
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                with target_path.open("w", encoding="utf-8") as handle:
+                    json.dump(payload, handle, indent=2)
+                    handle.write("\n")
+
+            with mock.patch(original_write, side_effect=fake_write):
+                with self.assertRaises(OSError):
+                    queue_bundle_for_enrichment(root, bundle)
+
+            self.assertTrue(state_path.exists())
+            self.assertFalse(sidecar_path.exists())
+
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(state["pending_bundles"]), 1)
+            self.assertEqual(state["pending_bundles"][0]["bundle_path"], "20_Raw/inbox/source-six")
+            self.assertEqual(state["pending_bundles"][0]["status"], "pending")
