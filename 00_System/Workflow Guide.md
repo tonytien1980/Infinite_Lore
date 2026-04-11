@@ -77,7 +77,7 @@ Current multimodal behavior is intentionally bounded:
 - queue state lives in:
   - bundle-local `enrichment.json`
   - `00_System/raw-enrichment-state.json`
-- enrichment execution is currently delivered as a bounded local runner, not a daemon:
+- enrichment execution can still be run manually with:
 
 ```bash
 python3 tools/raw_enrichment.py --root .
@@ -91,9 +91,22 @@ python3 tools/raw_enrichment.py --root . --config ~/.config/infinite_lore/workbe
 
 - current model strategy:
   - `Ask` -> OpenAI shared-first
-  - `raw enrichment` -> OpenAI shared-first through the bounded runner
+  - `raw enrichment` -> OpenAI shared-first through the bounded runner and the Workbench background worker
   - `scan / RSS / web capture` -> no model
   - non-OpenAI `enrich_raw` routes remain queued as `deferred` until a later execution path exists
+- while the Workbench server is running, a single lightweight background worker now drains pending enrichment work automatically
+- the first delivered background lane is intentionally bounded:
+  - one local worker
+  - poll interval `15` seconds
+  - batch size `1`
+- enrichment state is now visible in:
+  - `摘要` recent imports
+  - `收件匣` bundle list
+- current visible statuses are:
+  - `pending`
+  - `completed`
+  - `failed`
+  - `deferred`
 
 ## Workbench UI
 
@@ -114,6 +127,7 @@ The shipped Workbench V2 shell is organized as:
 - a desktop-first shell posture that already assumes a windowed work surface, even before packaging as a desktop app
 - follow-up controls on `首頁` stay disabled until the answer has grounded note evidence
 - `設定` now supports multiple providers plus an explicit `enrich_raw` route without turning the homepage into a model control panel
+- `摘要` and `收件匣` now surface raw enrichment status directly inside the existing lists instead of adding a separate enrichment page
 
 ## macOS App Shell
 

@@ -290,6 +290,22 @@ Reference files:
 - `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-spec.md`
 - `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-implementation-plan.md`
 
+### 4.15 Background Raw Enrichment Lane And Workbench Status Visibility
+
+Completed:
+
+- Workbench server now owns a bounded background enrichment worker
+- the worker starts and stops with the local Workbench server lifecycle
+- queued raw enrichment work now drains automatically while Workbench is open
+- bundle and dashboard payloads expose enrichment status fields
+- `摘要` and `收件匣` now render enrichment status from those payloads
+- live local browser verification now confirms those statuses surface in the existing UI
+
+Reference files:
+
+- `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-spec.md`
+- `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -332,6 +348,8 @@ As of this roadmap update, the verified baseline is:
 - raw bundles now queue bundle-local `enrichment.json` sidecars plus `00_System/raw-enrichment-state.json` entries automatically
 - queued raw enrichment can now be processed through the bounded local runner in `tools/raw_enrichment.py`
 - raw enrichment queue state now self-heals duplicate entries and preserves corrupt state files before reset
+- Workbench server now drains queued enrichment automatically in the background
+- `摘要` and `收件匣` now show raw enrichment status directly in the existing UI
 - tests pass
 - health check passes
 
@@ -347,6 +365,7 @@ python3 tools/run_workbench.py
 python3 tools/run_macos_app.py
 /Users/oldtien_base/.nvm/versions/node/v24.14.1/bin/node --check workbench/static/app.js
 tools/build_macos_app.sh
+cd /tmp/il-pw && npx playwright test il-bg-ui.spec.js --reporter=line
 ```
 
 ## 6. Approved Build Order
@@ -367,6 +386,7 @@ The approved delivery order is:
 12. macOS app shell
 13. macOS app shell polish
 14. Raw enrichment and multi-provider routing
+15. Background raw enrichment lane and Workbench status visibility
 
 This order should not be reversed unless there is a strong reason.
 
@@ -574,11 +594,11 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Execute the approved background raw enrichment lane + Workbench status visibility plan, starting with the server-owned worker before API and UI visibility.`
+`Choose the next post-enrichment slice: either add manual retry / recovery controls for failed or deferred enrichment, or deepen status visibility with richer per-bundle detail in the Workbench.`
 
 ## 13. Future Adoption Direction
 
-Phase 9, Phase 10, the first Workbench V2 redesign pass, and the raw enrichment / multi-provider routing phase are now delivered locally.
+Phase 9, Phase 10, the first Workbench V2 redesign pass, the raw enrichment / multi-provider routing phase, and the first background enrichment lane are now delivered locally.
 
 The next meaningful capability expansion should not be a graph UI.
 
@@ -610,3 +630,4 @@ Reference:
 - `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-spec.md`
 - `docs/2026-04-11-raw-enrichment-and-multi-provider-routing-implementation-plan.md`
 - `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-spec.md`
+- `docs/2026-04-11-background-raw-enrichment-lane-and-workbench-status-implementation-plan.md`

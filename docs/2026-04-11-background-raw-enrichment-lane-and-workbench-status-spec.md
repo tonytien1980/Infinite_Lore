@@ -1,8 +1,16 @@
 # Background Raw Enrichment Lane And Workbench Status Visibility
 
-**Status:** Approved for implementation
+**Status:** Delivered and verified locally
 **Date:** 2026-04-11  
 **Project:** Infinite Lore
+
+**Delivery note:** The delivered version is intentionally bounded:
+
+- one server-owned background worker
+- poll interval `15` seconds
+- batch size `1`
+- enrichment status visible in existing `摘要` and `收件匣` surfaces
+- no daemon, launchd job, retry UI, or multi-worker scheduler in this phase
 
 ## 1. Purpose
 
@@ -254,10 +262,8 @@ This phase is done when:
 
 ## 15. Next Step After This Spec
 
-Once this spec is approved, the next step should be:
+After this delivered phase, the next step should be one of:
 
-- write a small implementation plan for:
-  1. server lifecycle worker
-  2. bundle/dashboard API visibility
-  3. Workbench status rendering
-  4. full verification and docs sync
+- manual retry / recovery controls for failed and deferred enrichment
+- richer per-bundle enrichment detail in the Workbench
+- later provider-specific execution beyond the current OpenAI shared-first path
