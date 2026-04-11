@@ -300,10 +300,11 @@ class AppShellUiTests(unittest.TestCase):
     def test_build_loading_html_uses_traditional_chinese_copy(self) -> None:
         from app_shell.window import build_loading_html
 
-        html = build_loading_html("正在準備知識庫...")
+        startup_copy = "正在準備知識庫..."
+        html = build_loading_html(startup_copy)
 
         self.assertIn("Infinite Lore", html)
-        self.assertIn("正在準備知識庫", html)
+        self.assertIn(startup_copy, html)
         self.assertNotIn("Loading", html)
 
     def test_build_error_html_includes_recovery_actions(self) -> None:
@@ -321,6 +322,7 @@ class AppShellUiTests(unittest.TestCase):
         self.assertIn("結束應用程式", html)
         self.assertIn("window.pywebview.api.retry_launch()", html)
         self.assertIn("window.pywebview.api.choose_vault()", html)
+        self.assertIn('onclick="window.pywebview.api.quit_app()"', html)
 
     def test_build_error_html_omits_recovery_actions_when_flags_are_false(self) -> None:
         from app_shell.window import build_error_html
@@ -418,4 +420,35 @@ class AppShellUiTests(unittest.TestCase):
             self.assertIn("結束應用程式", rendered_html)
             self.assertIn("window.pywebview.api.retry_launch()", rendered_html)
             self.assertIn("window.pywebview.api.choose_vault()", rendered_html)
+            window.load_url.assert_not_called()
+
+    def test_controller_renders_error_html_when_launch_resolution_fails(self) -> None:
+        from app_shell.main import AppShellController
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            controller = AppShellController(config_path=root / "workbench.json")
+            window = mock.Mock()
+            controller.window = window
+
+            with mock.patch(
+                "app_shell.main.build_loading_html",
+                return_value="loading html",
+            ), mock.patch(
+                "app_shell.main.resolve_launch_vault_root",
+                side_effect=RuntimeError("找不到可用的知識庫資料夾"),
+            ), mock.patch("app_shell.main.EmbeddedWorkbenchServer") as server_cls:
+                controller.bootstrap(window)
+
+            server_cls.assert_not_called()
+            window.load_html.assert_called()
+            rendered_html = window.load_html.call_args[0][0]
+            self.assertIn("無法開啟知識工作台", rendered_html)
+            self.assertIn("找不到可用的知識庫資料夾", rendered_html)
+            self.assertIn("重新嘗試", rendered_html)
+            self.assertIn("選擇知識庫資料夾", rendered_html)
+            self.assertIn("結束應用程式", rendered_html)
+            self.assertIn("window.pywebview.api.retry_launch()", rendered_html)
+            self.assertIn("window.pywebview.api.choose_vault()", rendered_html)
+            self.assertIn('onclick="window.pywebview.api.quit_app()"', rendered_html)
             window.load_url.assert_not_called()
