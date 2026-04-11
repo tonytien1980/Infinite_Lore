@@ -119,6 +119,28 @@ def _normalize_pending_entry(bundle_path: str, queued_at: str) -> Dict[str, Any]
     }
 
 
+def _resolve_bundle_path_text(root: Path, bundle_path_text: str, *, require_existing_dir: bool) -> tuple[Path, str]:
+    root_resolved = root.resolve()
+    bundle_path_text = bundle_path_text.strip()
+    if not bundle_path_text:
+        raise ValueError("Bundle path is required")
+
+    bundle_path_candidate = root / bundle_path_text
+    bundle_path = bundle_path_candidate.resolve()
+    try:
+        relative_bundle_path = bundle_path.relative_to(root_resolved).as_posix()
+    except ValueError as exc:
+        raise ValueError("Bundle path must be inside the vault") from exc
+
+    if Path(relative_bundle_path).parts[:1] != ("20_Raw",):
+        raise ValueError("Bundle path must point to a raw bundle under 20_Raw")
+
+    if require_existing_dir and not bundle_path.is_dir():
+        raise ValueError(f"Bundle path does not exist as a directory: {relative_bundle_path}")
+
+    return bundle_path_candidate, relative_bundle_path
+
+
 def queue_bundle_for_enrichment(root: Path, bundle_path: Path) -> None:
     queued_at = now_iso()
     sidecar_path = default_enrichment_path(bundle_path)
@@ -158,6 +180,47 @@ def queue_bundle_for_enrichment(root: Path, bundle_path: Path) -> None:
     state_payload["updated_at"] = queued_at
     _write_json_atomic(state_path, state_payload)
     _write_json_atomic(sidecar_path, sidecar_payload)
+
+
+def retry_bundle_for_enrichment(root: Path, bundle_path_text: str) -> Dict[str, str]:
+    bundle_path, relative_bundle_path = _resolve_bundle_path_text(root, bundle_path_text, require_existing_dir=True)
+    queue_bundle_for_enrichment(root, bundle_path)
+    sidecar = _load_sidecar(bundle_path)
+    return {
+        "bundle_path": relative_bundle_path,
+        "enrichment_status": str(sidecar.get("status") or ""),
+        "enrichment_updated_at": str(sidecar.get("updated_at") or ""),
+    }
+
+
+def dismiss_bundle_from_enrichment_queue(root: Path, bundle_path_text: str) -> Dict[str, Any]:
+    _, relative_bundle_path = _resolve_bundle_path_text(root, bundle_path_text, require_existing_dir=False)
+    state_path = default_enrichment_state_path(root)
+    state_payload = _load_json_dict(state_path, preserve_corrupt=True)
+    pending_bundles = state_payload.get("pending_bundles")
+    if not isinstance(pending_bundles, list):
+        pending_bundles = []
+
+    retained_entries = []
+    removed = 0
+    for entry in pending_bundles:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("bundle_path") or "") == relative_bundle_path:
+            removed += 1
+            continue
+        retained_entries.append(entry)
+
+    if removed == 0:
+        raise ValueError(f"No active queue entry exists for bundle: {relative_bundle_path}")
+
+    timestamp = now_iso()
+    state_payload["pending_bundles"] = retained_entries
+    state_payload.setdefault("created_at", timestamp)
+    state_payload["updated_at"] = timestamp
+    _write_json_atomic(state_path, state_payload)
+
+    return {"bundle_path": relative_bundle_path, "dismissed": True}
 
 
 def _default_generate_enrichment(
