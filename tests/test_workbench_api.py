@@ -377,6 +377,68 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(payload["recent_imports"][0]["enrichment_status"], "pending")
             self.assertEqual(payload["recent_imports"][0]["enrichment_updated_at"], "2026-04-11T00:00:00Z")
 
+    def test_retry_endpoint_requeues_failed_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw/inbox/retry-me"
+            bundle.mkdir(parents=True)
+            (bundle / "enrichment.json").write_text(
+                json.dumps({"status": "failed", "updated_at": "2026-04-11T00:00:00Z"}) + "\n",
+                encoding="utf-8",
+            )
+            state_path = root / "00_System" / "raw-enrichment-state.json"
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "pending_bundles": [
+                            {
+                                "bundle_path": "20_Raw/inbox/retry-me",
+                                "status": "failed",
+                            }
+                        ]
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post("/api/enrichment/retry", json={"bundle_path": "20_Raw/inbox/retry-me"})
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["bundle_path"], "20_Raw/inbox/retry-me")
+            self.assertEqual(payload["enrichment_status"], "pending")
+
+    def test_dismiss_endpoint_clears_active_queue_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw/inbox/dismiss-me"
+            bundle.mkdir(parents=True)
+            state_path = root / "00_System" / "raw-enrichment-state.json"
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "pending_bundles": [
+                            {
+                                "bundle_path": "20_Raw/inbox/dismiss-me",
+                                "status": "deferred",
+                            }
+                        ]
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.post("/api/enrichment/dismiss", json={"bundle_path": "20_Raw/inbox/dismiss-me"})
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.json()["dismissed"])
+
     def test_import_file_endpoint_creates_bundle_and_wiki_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
