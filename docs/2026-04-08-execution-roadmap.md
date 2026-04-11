@@ -501,7 +501,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the delivered macOS app shell as the new desktop baseline, then decide whether the next priority is app-shell polish, notarization/distribution hardening, or another product lane.`
+`Review and approve the macOS app shell polish spec, then write the implementation plan for the shell-hardening pass before distribution work.`
 
 ## 13. Future Adoption Direction
 
@@ -532,3 +532,4 @@ Reference:
 - `docs/2026-04-11-workbench-v2-implementation-plan.md`
 - `docs/2026-04-11-macos-app-shell-design-spec.md`
 - `docs/2026-04-11-macos-app-shell-implementation-plan.md`
+- `docs/2026-04-11-macos-app-shell-polish-spec.md`
