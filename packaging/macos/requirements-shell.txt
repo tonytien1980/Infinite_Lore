@@ -1,0 +1,7 @@
+pywebview==5.4
+PyInstaller==6.19.0
+pyobjc-core==11.1
+pyobjc-framework-Cocoa==11.1
+pyobjc-framework-Quartz==11.1
+pyobjc-framework-WebKit==11.1
+pyobjc-framework-Security==11.1
