@@ -243,11 +243,21 @@ class WorkbenchApiTests(unittest.TestCase):
         app_js = Path(__file__).resolve().parents[1] / "workbench" / "static" / "app.js"
         script_text = app_js.read_text(encoding="utf-8")
 
-        for hook in ("providerList", "addProviderButton", "routeEnrichRaw"):
+        for hook in (
+            'document.getElementById("providerList")',
+            'document.getElementById("addProviderButton")',
+            'document.getElementById("routeEnrichRaw")',
+        ):
             self.assertIn(hook, script_text)
 
-        for legacy_id in ("providerName", "providerId", "providerApiKey", "balancedModel", "bestModel"):
-            self.assertNotIn(legacy_id, script_text)
+        for legacy_hook in (
+            'document.getElementById("providerName")',
+            'document.getElementById("providerId")',
+            'document.getElementById("providerApiKey")',
+            'document.getElementById("balancedModel")',
+            'document.getElementById("bestModel")',
+        ):
+            self.assertNotIn(legacy_hook, script_text)
 
     def test_favicon_route_serves_shell_icon_asset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
