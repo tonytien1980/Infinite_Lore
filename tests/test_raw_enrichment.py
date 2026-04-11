@@ -238,6 +238,59 @@ class RawEnrichmentQueueTests(unittest.TestCase):
             self.assertEqual(sidecar["failure_reason"], "")
             self.assertTrue(bundle.exists())
 
+    def test_retry_bundle_for_enrichment_canonicalizes_equivalent_bundle_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle_path_text = "20_Raw/inbox/retry-me"
+            bundle = root / bundle_path_text
+            bundle.mkdir(parents=True)
+
+            state_path = default_enrichment_state_path(root)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "pending_bundles": [
+                            {
+                                "bundle_path": bundle_path_text,
+                                "status": "failed",
+                                "provider": "openai",
+                                "model": "gpt-test",
+                                "failure_reason": "temporary failure",
+                                "queued_at": "2026-01-01T00:00:00Z",
+                                "updated_at": "2026-01-01T00:00:00Z",
+                            }
+                        ]
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            default_enrichment_path(bundle).write_text(
+                json.dumps(
+                    {
+                        "status": "failed",
+                        "provider": "openai",
+                        "model": "gpt-test",
+                        "failure_reason": "temporary failure",
+                        "queued_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = raw_enrichment.retry_bundle_for_enrichment(root, "20_Raw/inbox/../inbox/retry-me")
+
+            self.assertEqual(result["bundle_path"], bundle_path_text)
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(state["pending_bundles"]), 1)
+            self.assertEqual(state["pending_bundles"][0]["bundle_path"], bundle_path_text)
+            self.assertEqual(state["pending_bundles"][0]["status"], "pending")
+
     def test_dismiss_bundle_from_enrichment_queue_removes_queue_entry_without_deleting_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

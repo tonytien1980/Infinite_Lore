@@ -125,27 +125,33 @@ def _resolve_bundle_path_text(root: Path, bundle_path_text: str, *, require_exis
     if not bundle_path_text:
         raise ValueError("Bundle path is required")
 
-    bundle_path_candidate = root / bundle_path_text
-    bundle_path = bundle_path_candidate.resolve()
+    bundle_path, relative_bundle_path = _canonicalize_bundle_path(root, root / bundle_path_text)
+    resolved_bundle_path = bundle_path.resolve()
+    if require_existing_dir and not resolved_bundle_path.is_dir():
+        raise ValueError(f"Bundle path does not exist as a directory: {relative_bundle_path}")
+
+    return bundle_path, relative_bundle_path
+
+
+def _canonicalize_bundle_path(root: Path, bundle_path: Path) -> tuple[Path, str]:
+    root_resolved = root.resolve()
+    resolved_bundle_path = bundle_path.resolve()
     try:
-        relative_bundle_path = bundle_path.relative_to(root_resolved).as_posix()
+        relative_bundle_path = resolved_bundle_path.relative_to(root_resolved).as_posix()
     except ValueError as exc:
         raise ValueError("Bundle path must be inside the vault") from exc
 
     if Path(relative_bundle_path).parts[:1] != ("20_Raw",):
         raise ValueError("Bundle path must point to a raw bundle under 20_Raw")
 
-    if require_existing_dir and not bundle_path.is_dir():
-        raise ValueError(f"Bundle path does not exist as a directory: {relative_bundle_path}")
-
-    return bundle_path_candidate, relative_bundle_path
+    return root / relative_bundle_path, relative_bundle_path
 
 
 def queue_bundle_for_enrichment(root: Path, bundle_path: Path) -> None:
+    bundle_path, relative_bundle_path = _canonicalize_bundle_path(root, bundle_path)
     queued_at = now_iso()
     sidecar_path = default_enrichment_path(bundle_path)
     state_path = default_enrichment_state_path(root)
-    relative_bundle_path = bundle_path.relative_to(root).as_posix()
 
     sidecar_payload = _load_sidecar(bundle_path, queued_at)
     sidecar_payload.update(
