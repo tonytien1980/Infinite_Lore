@@ -15,6 +15,7 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
 
 from workbench.config_store import load_config, save_config
 from workbench.ask_service import answer_question
+from workbench.background_enrichment import BackgroundEnrichmentWorker
 from workbench.reflection_service import apply_correction, draft_correction, draft_reflection, save_reflection
 from workbench.services import (
     get_dashboard,
@@ -37,6 +38,8 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
     static_dir = Path(__file__).resolve().parent / "static"
 
     app = FastAPI(title="Infinite Lore Workbench")
+    worker = BackgroundEnrichmentWorker(vault_root=vault_root, config_path=config_path)
+    app.state.background_enrichment_worker = worker
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -163,6 +166,14 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
     @app.get("/api/inbox/summary")
     def inbox_summary() -> dict:
         return get_inbox_summary(source_state_path)
+
+    @app.on_event("startup")
+    def startup_background_enrichment() -> None:
+        worker.start()
+
+    @app.on_event("shutdown")
+    def shutdown_background_enrichment() -> None:
+        worker.stop()
 
     return app
 
