@@ -101,6 +101,28 @@ class AppShellLaunchTests(unittest.TestCase):
                 ), mock.patch.object(Path, "cwd", return_value=cwd_root):
                     self.assertEqual(default_vault_root(), vault_root.resolve())
 
+    def test_default_vault_root_forwards_prompt_parent_to_picker_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            selected_vault = temp_root / "Selected Vault"
+            selected_vault.mkdir(parents=True)
+            seed_vault(selected_vault)
+
+            config_path = temp_root / "config" / "workbench.json"
+            prompt_parent = mock.Mock()
+            existing_non_vault = temp_root / "existing-non-vault"
+            existing_non_vault.mkdir(parents=True)
+
+            with mock.patch.object(sys, "frozen", False, create=True), mock.patch.object(
+                Path,
+                "cwd",
+                return_value=existing_non_vault,
+            ), mock.patch("app_shell.main.prompt_for_vault_root", return_value=selected_vault) as prompt_for_vault_root:
+                resolved = default_vault_root(config_path=config_path, prompt_parent=prompt_parent)
+
+            self.assertEqual(resolved, selected_vault.resolve())
+            prompt_for_vault_root.assert_called_once_with(prompt_parent)
+
     def test_launch_app_starts_server_then_opens_window(self) -> None:
         from app_shell.main import launch_app
 

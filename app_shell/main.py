@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-try:
-    import webview
-except ModuleNotFoundError:  # pragma: no cover - exercised only when pywebview is unavailable
-    webview = None
 import sys
 from pathlib import Path
 from typing import Optional
 
 from app_shell.runtime import EmbeddedWorkbenchServer
 from app_shell.state import default_shell_state_path, load_saved_vault_root, save_saved_vault_root
-from app_shell.window import open_error_dialog, open_main_window
+from app_shell.window import open_error_dialog, open_main_window, prompt_for_vault_root
 
 _VAULT_MARKERS = ("10_Domains", "30_Wiki")
 
@@ -18,17 +14,6 @@ _VAULT_MARKERS = ("10_Domains", "30_Wiki")
 def is_valid_vault_root(candidate: Path) -> bool:
     candidate = Path(candidate).expanduser().resolve()
     return candidate.exists() and all((candidate / marker).exists() for marker in _VAULT_MARKERS)
-
-
-def prompt_for_vault_root(prompt_parent: Optional[object]) -> Optional[Path]:
-    if prompt_parent is None or webview is None:
-        return None
-
-    selected = prompt_parent.create_file_dialog(webview.FOLDER_DIALOG, directory=str(Path.home()))
-    if not selected:
-        return None
-    return Path(selected[0]).expanduser().resolve()
-
 
 def resolve_launch_vault_root(config_path: Path, prompt_parent: Optional[object]) -> Path:
     state_path = default_shell_state_path(config_path)
@@ -71,10 +56,10 @@ def launch_app(vault_root: Path, config_path: Path) -> None:
         server.stop()
 
 
-def default_vault_root(config_path: Optional[Path] = None) -> Path:
+def default_vault_root(config_path: Optional[Path] = None, prompt_parent: Optional[object] = None) -> Path:
     if config_path is None:
         config_path = default_config_path()
-    return resolve_launch_vault_root(config_path=config_path, prompt_parent=None)
+    return resolve_launch_vault_root(config_path=config_path, prompt_parent=prompt_parent)
 
 
 def _default_vault_root_from_frozen_executable(executable: Path) -> Optional[Path]:
