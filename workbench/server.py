@@ -29,6 +29,7 @@ from workbench.services import (
     run_inbox_scan,
 )
 from workbench.source_store import load_source_state, replace_sources
+from tools.raw_enrichment import dismiss_bundle_from_enrichment_queue, retry_bundle_for_enrichment
 
 
 def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = None) -> FastAPI:
@@ -147,6 +148,20 @@ def create_app(vault_root: Optional[Path] = None, config_path: Optional[Path] = 
     @app.post("/api/inbox/scan")
     def inbox_scan() -> dict:
         return run_inbox_scan(vault_root, source_state_path)
+
+    @app.post("/api/enrichment/retry")
+    def enrichment_retry(payload: dict) -> dict:
+        try:
+            return retry_bundle_for_enrichment(vault_root, payload["bundle_path"])
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/enrichment/dismiss")
+    def enrichment_dismiss(payload: dict) -> dict:
+        try:
+            return dismiss_bundle_from_enrichment_queue(vault_root, payload["bundle_path"])
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/inbox/sources")
     def inbox_sources() -> dict:
