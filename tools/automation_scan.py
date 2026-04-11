@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from tools.import_bundle import import_source
+from tools.raw_enrichment import default_enrichment_path, queue_bundle_for_enrichment
 from tools.source_connectors import choose_canonical_url, dedup_candidates, discover_article_list_items, discover_rss_items
 from tools.wiki_compile import compile_bundle, read_note, write_note
 from workbench.services import infer_domains
@@ -769,6 +770,13 @@ def run_scan(vault_root: Path, configured_sources: List[Dict[str, Any]], state_p
                 new_failed.append(failure)
             updated_retry_keys.add(str(candidate.get("source_key", "")))
             continue
+
+        try:
+            if not default_enrichment_path(bundle).exists():
+                queue_bundle_for_enrichment(vault_root, bundle)
+        except Exception:
+            # Preserve import and compile flow even if enrichment bookkeeping fails.
+            pass
 
         try:
             compile_bundle(vault_root, bundle)

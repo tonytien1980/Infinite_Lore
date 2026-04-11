@@ -19,6 +19,7 @@ from pypdf import PdfReader
 from tools.image_adapter import extract_image_bundle
 from tools.multimodal_detect import MultimodalInputKind, classify_multimodal_input
 from tools.pptx_adapter import extract_pptx_bundle
+from tools.raw_enrichment import queue_bundle_for_enrichment
 
 
 VAULT_INBOX = Path("20_Raw/inbox")
@@ -547,6 +548,11 @@ def import_source(
         build_metadata(result, bundle_path, primary_domain, related_domains, privacy),
         encoding="utf-8",
     )
+    try:
+        queue_bundle_for_enrichment(root, bundle_path)
+    except Exception:
+        # Preserve raw import success even if enrichment bookkeeping fails.
+        pass
 
     return bundle_path
 
