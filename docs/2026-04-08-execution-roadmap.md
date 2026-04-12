@@ -682,15 +682,19 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Use the delivered quiet-detail Inbox baseline in live use before approving another enrichment UI expansion; if follow-up polish is needed, start with focus-retention and visual restraint rather than a new management surface.`
+`Review and approve the quiet enrichment detail polish spec, then write the smallest possible implementation plan for focus retention, lower flicker, and visual restraint.`
 
-The latest quiet-detail verification for this phase was local-only:
+The latest quiet-detail verification for the delivered baseline was local-only:
 
 - isolated temp vault
 - local temp Workbench server
 - Playwright CLI browser session
 
 It was not a production verification pass and did not include live OpenAI enrichment execution.
+
+The current proposed follow-up slice is documented in:
+
+- `docs/2026-04-12-quiet-enrichment-detail-polish-spec.md`
 
 ## 13. Future Adoption Direction
 
