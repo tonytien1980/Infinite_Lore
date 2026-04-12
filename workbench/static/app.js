@@ -2,6 +2,7 @@ const state = {
   page: "home",
   dashboard: null,
   bundles: [],
+  bundleDetailOpen: Object.create(null),
   knowledge: { synthesis: [], small_notes: [] },
   health: null,
   settings: null,
@@ -128,6 +129,136 @@ function formatEnrichmentStatus(item) {
     return reason ? `原始增補暫緩：${reason}` : "原始增補已暫緩";
   }
   return `原始增補狀態：${status}`;
+}
+
+function normalizeBundleText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeBundleTextList(value) {
+  return Array.isArray(value)
+    ? value.map((item) => normalizeBundleText(item)).filter((item) => item)
+    : [];
+}
+
+function formatBundleEnrichmentReason(bundle) {
+  const statusReason = normalizeBundleText(bundle?.enrichment_status_reason);
+  if (statusReason) {
+    return statusReason;
+  }
+
+  const status = normalizeBundleText(bundle?.enrichment_status);
+  if (status === "failed") {
+    return "這份資料暫時無法完成整理，先保留在收件匣等待後續處理。";
+  }
+  if (status === "deferred") {
+    return "這份資料暫時先保留，等待後續可用的整理路徑。";
+  }
+  return "";
+}
+
+function hasBundleEnrichmentDetail(bundle) {
+  return Boolean(
+    normalizeBundleText(bundle?.enrichment_summary) ||
+      normalizeBundleText(bundle?.enrichment_primary_domain_suggestion) ||
+      normalizeBundleTextList(bundle?.enrichment_related_domains_suggestion).length ||
+      normalizeBundleTextList(bundle?.enrichment_topic_tags).length ||
+      normalizeBundleTextList(bundle?.enrichment_entity_hints).length ||
+      formatBundleEnrichmentReason(bundle)
+  );
+}
+
+function formatBundleEnrichmentPreview(bundle) {
+  const summary = normalizeBundleText(bundle?.enrichment_summary);
+  if (summary) {
+    return summary;
+  }
+
+  const status = normalizeBundleText(bundle?.enrichment_status);
+  if (status === "failed" || status === "deferred") {
+    const reason = formatBundleEnrichmentReason(bundle);
+    return reason || "";
+  }
+
+  return "";
+}
+
+function createBundleEnrichmentSection(label, bodyText) {
+  const section = document.createElement("section");
+  section.className = "bundle-enrichment-section";
+
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = label;
+
+  const body = document.createElement("p");
+  body.className = "bundle-enrichment-text";
+  body.textContent = bodyText;
+
+  section.append(eyebrow, body);
+  return section;
+}
+
+function createBundleEnrichmentChipRow(label, items) {
+  const section = document.createElement("section");
+  section.className = "bundle-enrichment-section";
+
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = label;
+
+  const chips = document.createElement("div");
+  chips.className = "bundle-enrichment-chips";
+  items.forEach((item) => {
+    const chip = document.createElement("span");
+    chip.className = "bundle-enrichment-chip";
+    chip.textContent = item;
+    chips.appendChild(chip);
+  });
+
+  section.append(eyebrow, chips);
+  return section;
+}
+
+function buildBundleEnrichmentDetail(bundle) {
+  const detail = document.createDocumentFragment();
+
+  const summary = normalizeBundleText(bundle?.enrichment_summary);
+  if (summary) {
+    detail.appendChild(createBundleEnrichmentSection("整理摘要", summary));
+  }
+
+  const primaryDomain = normalizeBundleText(bundle?.enrichment_primary_domain_suggestion);
+  const relatedDomains = normalizeBundleTextList(bundle?.enrichment_related_domains_suggestion);
+  if (primaryDomain || relatedDomains.length) {
+    const bodyText = primaryDomain || "暫時還沒有主領域建議。";
+    detail.appendChild(createBundleEnrichmentSection("建議領域", bodyText));
+    if (relatedDomains.length) {
+      detail.appendChild(createBundleEnrichmentChipRow("相關領域", relatedDomains));
+    }
+  }
+
+  const topicTags = normalizeBundleTextList(bundle?.enrichment_topic_tags);
+  if (topicTags.length) {
+    detail.appendChild(createBundleEnrichmentChipRow("主題標籤", topicTags));
+  }
+
+  const entityHints = normalizeBundleTextList(bundle?.enrichment_entity_hints);
+  if (entityHints.length) {
+    detail.appendChild(createBundleEnrichmentChipRow("實體提示", entityHints));
+  }
+
+  const statusReason = formatBundleEnrichmentReason(bundle);
+  if (statusReason) {
+    detail.appendChild(createBundleEnrichmentSection("目前狀態說明", statusReason));
+  }
+
+  const updatedAt = normalizeBundleText(bundle?.enrichment_updated_at);
+  if (updatedAt) {
+    detail.appendChild(createBundleEnrichmentSection("最後更新", updatedAt));
+  }
+
+  return detail;
 }
 
 function createListItem(title, meta, detail) {
@@ -664,50 +795,83 @@ function renderBundles() {
   container.innerHTML = "";
   state.bundles.forEach((bundle) => {
     const review = bundle.review_required === "true" ? "待審核" : "可用";
-    const detail = `${bundle.bundle_path} • ${review} • ${formatEnrichmentStatus(bundle)}`;
-    const item = createListItem(bundle.title, bundle.primary_domain || "未分類", detail);
     const status = typeof bundle?.enrichment_status === "string" ? bundle.enrichment_status.trim() : "";
     const queueActive = bundle?.enrichment_queue_active === true;
+    const detailAvailable = hasBundleEnrichmentDetail(bundle);
+    const isOpen = state.bundleDetailOpen[bundle.bundle_path] === true;
+    const primaryDomain = normalizeBundleText(bundle?.primary_domain) || "未分類";
+    const previewText = formatBundleEnrichmentPreview(bundle);
+
+    const item = document.createElement("article");
+    item.className = "list-item bundle-card";
+
+    const header = document.createElement("div");
+    header.className = "panel-head split";
+
+    const titleWrap = document.createElement("div");
+    const metaLine = document.createElement("p");
+    metaLine.className = "eyebrow";
+    metaLine.textContent = `${primaryDomain} • ${bundle.bundle_path} • ${review} • ${formatEnrichmentStatus(bundle)}`;
+    const heading = document.createElement("strong");
+    heading.textContent = bundle.title || "";
+    titleWrap.append(metaLine, heading);
+
+    const actions = document.createElement("div");
+    actions.className = "button-row";
 
     if (queueActive && (status === "failed" || status === "deferred")) {
-      const heading = item.querySelector("strong");
-      if (heading) {
-        const header = document.createElement("div");
-        header.className = "panel-head split";
+      const retryButton = document.createElement("button");
+      retryButton.type = "button";
+      retryButton.className = "ghost-button";
+      retryButton.textContent = "重試";
+      retryButton.addEventListener("click", async () => {
+        await runBundleEnrichmentAction("/api/enrichment/retry", bundle.bundle_path);
+      });
 
-        const titleWrap = document.createElement("div");
-        const metaLine = item.querySelector(".eyebrow");
-        if (metaLine) {
-          metaLine.remove();
-          titleWrap.appendChild(metaLine);
-        }
-        heading.remove();
-        titleWrap.appendChild(heading);
+      const dismissButton = document.createElement("button");
+      dismissButton.type = "button";
+      dismissButton.className = "ghost-button";
+      dismissButton.textContent = "清除";
+      dismissButton.addEventListener("click", async () => {
+        await runBundleEnrichmentAction("/api/enrichment/dismiss", bundle.bundle_path);
+      });
 
-        const actions = document.createElement("div");
-        actions.className = "button-row";
-
-        const retryButton = document.createElement("button");
-        retryButton.type = "button";
-        retryButton.className = "ghost-button";
-        retryButton.textContent = "重試";
-        retryButton.addEventListener("click", async () => {
-          await runBundleEnrichmentAction("/api/enrichment/retry", bundle.bundle_path);
-        });
-
-        const dismissButton = document.createElement("button");
-        dismissButton.type = "button";
-        dismissButton.className = "ghost-button";
-        dismissButton.textContent = "清除";
-        dismissButton.addEventListener("click", async () => {
-          await runBundleEnrichmentAction("/api/enrichment/dismiss", bundle.bundle_path);
-        });
-
-        actions.append(retryButton, dismissButton);
-        header.append(titleWrap, actions);
-        item.prepend(header);
-      }
+      actions.append(retryButton, dismissButton);
     }
+
+    if (detailAvailable) {
+      const toggleButton = document.createElement("button");
+      toggleButton.type = "button";
+      toggleButton.className = "ghost-button bundle-enrichment-toggle";
+      toggleButton.textContent = isOpen ? "收起詳情" : "查看詳情";
+      toggleButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      toggleButton.addEventListener("click", () => {
+        state.bundleDetailOpen[bundle.bundle_path] = !isOpen;
+        renderBundles();
+      });
+      actions.appendChild(toggleButton);
+    }
+
+    header.append(titleWrap, actions);
+
+    const enrichment = document.createElement("div");
+    enrichment.className = "bundle-enrichment";
+
+    if (previewText) {
+      const preview = document.createElement("p");
+      preview.className = "bundle-enrichment-preview";
+      preview.textContent = previewText;
+      enrichment.appendChild(preview);
+    }
+
+    if (detailAvailable && isOpen) {
+      const detail = document.createElement("div");
+      detail.className = "bundle-enrichment-detail";
+      detail.appendChild(buildBundleEnrichmentDetail(bundle));
+      enrichment.appendChild(detail);
+    }
+
+    item.append(header, enrichment);
 
     container.appendChild(item);
   });
