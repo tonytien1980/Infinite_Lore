@@ -31,14 +31,26 @@ def _read_frontmatter(path: Path) -> Dict[str, object]:
     return metadata
 
 
-def _read_enrichment_payload(bundle_path: Path) -> Dict[str, str]:
+def _list_of_strings(value: object) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
+
+
+def _read_enrichment_payload(bundle_path: Path) -> Dict[str, object]:
     enrichment_path = bundle_path / "enrichment.json"
-    empty_payload = {
+    empty_payload: Dict[str, object] = {
         "enrichment_status": "",
         "enrichment_provider": "",
         "enrichment_model": "",
         "enrichment_failure_reason": "",
         "enrichment_updated_at": "",
+        "enrichment_summary": "",
+        "enrichment_primary_domain_suggestion": "",
+        "enrichment_related_domains_suggestion": [],
+        "enrichment_topic_tags": [],
+        "enrichment_entity_hints": [],
+        "enrichment_status_reason": "",
     }
     if not enrichment_path.exists():
         return empty_payload
@@ -57,6 +69,12 @@ def _read_enrichment_payload(bundle_path: Path) -> Dict[str, str]:
         "enrichment_model": str(payload.get("model", "") or ""),
         "enrichment_failure_reason": str(payload.get("failure_reason", "") or ""),
         "enrichment_updated_at": str(payload.get("updated_at", "") or ""),
+        "enrichment_summary": str(payload.get("summary", "") or ""),
+        "enrichment_primary_domain_suggestion": str(payload.get("primary_domain_suggestion", "") or ""),
+        "enrichment_related_domains_suggestion": _list_of_strings(payload.get("related_domains_suggestion")),
+        "enrichment_topic_tags": _list_of_strings(payload.get("topic_tags")),
+        "enrichment_entity_hints": _list_of_strings(payload.get("entity_hints")),
+        "enrichment_status_reason": str(payload.get("status_reason") or payload.get("failure_reason") or ""),
     }
 
 
@@ -165,6 +183,12 @@ def list_bundles(vault_root: Path) -> List[Dict[str, object]]:
                 "enrichment_model": enrichment["enrichment_model"],
                 "enrichment_failure_reason": enrichment["enrichment_failure_reason"],
                 "enrichment_updated_at": enrichment["enrichment_updated_at"],
+                "enrichment_summary": enrichment["enrichment_summary"],
+                "enrichment_primary_domain_suggestion": enrichment["enrichment_primary_domain_suggestion"],
+                "enrichment_related_domains_suggestion": enrichment["enrichment_related_domains_suggestion"],
+                "enrichment_topic_tags": enrichment["enrichment_topic_tags"],
+                "enrichment_entity_hints": enrichment["enrichment_entity_hints"],
+                "enrichment_status_reason": enrichment["enrichment_status_reason"],
                 "enrichment_queue_active": bundle_path_text in active_enrichment_bundle_paths,
             }
         )
