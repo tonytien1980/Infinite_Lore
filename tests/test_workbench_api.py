@@ -387,16 +387,19 @@ class WorkbenchApiTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 200)
             payload = response.json()
-            self.assertIn("summary", payload[0])
-            self.assertIn("primary_domain_suggestion", payload[0])
-            self.assertIn("related_domains_suggestion", payload[0])
-            self.assertIn("topic_tags", payload[0])
-            self.assertIn("entity_hints", payload[0])
-            self.assertEqual(payload[0]["summary"], "Quiet summary")
-            self.assertEqual(payload[0]["primary_domain_suggestion"], "consulting")
-            self.assertEqual(payload[0]["related_domains_suggestion"], ["ai-application", "management"])
-            self.assertEqual(payload[0]["topic_tags"], ["strategy", "workflow"])
-            self.assertEqual(payload[0]["entity_hints"], ["Project Atlas", "Jane Doe"])
+            self.assertIn("enrichment_summary", payload[0])
+            self.assertIn("enrichment_primary_domain_suggestion", payload[0])
+            self.assertIn("enrichment_related_domains_suggestion", payload[0])
+            self.assertIn("enrichment_topic_tags", payload[0])
+            self.assertIn("enrichment_entity_hints", payload[0])
+            self.assertEqual(payload[0]["enrichment_summary"], "Quiet summary")
+            self.assertEqual(payload[0]["enrichment_primary_domain_suggestion"], "consulting")
+            self.assertEqual(
+                payload[0]["enrichment_related_domains_suggestion"],
+                ["ai-application", "management"],
+            )
+            self.assertEqual(payload[0]["enrichment_topic_tags"], ["strategy", "workflow"])
+            self.assertEqual(payload[0]["enrichment_entity_hints"], ["Project Atlas", "Jane Doe"])
 
     def test_bundles_endpoint_defaults_quiet_detail_fields_when_sidecar_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -417,16 +420,16 @@ class WorkbenchApiTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 200)
             payload = response.json()
-            self.assertIn("summary", payload[0])
-            self.assertIn("primary_domain_suggestion", payload[0])
-            self.assertIn("related_domains_suggestion", payload[0])
-            self.assertIn("topic_tags", payload[0])
-            self.assertIn("entity_hints", payload[0])
-            self.assertEqual(payload[0]["summary"], "")
-            self.assertEqual(payload[0]["primary_domain_suggestion"], "")
-            self.assertEqual(payload[0]["related_domains_suggestion"], [])
-            self.assertEqual(payload[0]["topic_tags"], [])
-            self.assertEqual(payload[0]["entity_hints"], [])
+            self.assertIn("enrichment_summary", payload[0])
+            self.assertIn("enrichment_primary_domain_suggestion", payload[0])
+            self.assertIn("enrichment_related_domains_suggestion", payload[0])
+            self.assertIn("enrichment_topic_tags", payload[0])
+            self.assertIn("enrichment_entity_hints", payload[0])
+            self.assertEqual(payload[0]["enrichment_summary"], "")
+            self.assertEqual(payload[0]["enrichment_primary_domain_suggestion"], "")
+            self.assertEqual(payload[0]["enrichment_related_domains_suggestion"], [])
+            self.assertEqual(payload[0]["enrichment_topic_tags"], [])
+            self.assertEqual(payload[0]["enrichment_entity_hints"], [])
 
     def test_dashboard_recent_imports_expose_enrichment_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
