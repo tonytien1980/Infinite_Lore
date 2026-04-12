@@ -273,12 +273,12 @@ git add workbench/services.py tests/test_workbench_api.py
 git commit -m "feat: expose quiet enrichment detail bundle fields"
 ```
 
-## Task 3: Add Red Tests For Inbox-Only Quiet Detail Rendering Contract
+## Task 3: Add Quiet Detail Rendering Contract Tests
 
 **Files:**
 - Modify: `tests/test_workbench_api.py`
 
-- [ ] **Step 1: Add failing script-contract tests for preview and inline toggle behavior**
+- [ ] **Step 1: Add script-contract tests for preview/toggle behavior plus summary read-only guard**
 
 Append tests like:
 
@@ -323,7 +323,9 @@ python3 -m unittest \
 
 Expected:
 
-- FAIL because the quiet-detail helpers and toggle labels do not exist yet
+- the helper / toggle contract test should FAIL because the quiet-detail helpers and toggle labels do not exist yet
+- the summary read-only guard may already PASS if `renderDashboard()` still contains no quiet-detail hooks
+- this mixed result is acceptable for this task because one test is pinning a new capability while the other is preserving an existing invariant
 
 - [ ] **Step 3: Commit the red tests**
 
