@@ -81,6 +81,7 @@ Add tests to `WorkbenchApiTests` like:
             self.assertEqual(payload["enrichment_related_domains_suggestion"], ["consulting"])
             self.assertEqual(payload["enrichment_topic_tags"], ["knowledge-management", "workflow"])
             self.assertEqual(payload["enrichment_entity_hints"], ["OpenAI", "Infinite Lore"])
+            self.assertEqual(payload["enrichment_status_reason"], "")
 ```
 
 and:
@@ -111,6 +112,43 @@ and:
             self.assertEqual(payload["enrichment_related_domains_suggestion"], [])
             self.assertEqual(payload["enrichment_topic_tags"], [])
             self.assertEqual(payload["enrichment_entity_hints"], [])
+            self.assertEqual(payload["enrichment_status_reason"], "")
+
+    def test_bundles_endpoint_exposes_non_empty_enrichment_status_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw" / "inbox" / "deferred-bundle"
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.md").write_text(
+                "---\n"
+                "title: Deferred Bundle\n"
+                "primary_domain: ai-application\n"
+                "conversion_status: converted\n"
+                "review_required: false\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            (bundle / "enrichment.json").write_text(
+                json.dumps(
+                    {
+                        "status": "deferred",
+                        "failure_reason": "Provider 'ollama' is not supported by the minimal raw enrichment runner yet.",
+                        "updated_at": "2026-04-12T00:00:00Z",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/api/bundles")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()[0]
+            self.assertEqual(
+                payload["enrichment_status_reason"],
+                "Provider 'ollama' is not supported by the minimal raw enrichment runner yet.",
+            )
 ```
 
 - [ ] **Step 2: Run the focused tests to confirm RED**
@@ -120,7 +158,8 @@ Run:
 ```bash
 python3 -m unittest \
   tests.test_workbench_api.WorkbenchApiTests.test_bundles_endpoint_exposes_quiet_enrichment_detail_fields \
-  tests.test_workbench_api.WorkbenchApiTests.test_bundles_endpoint_defaults_quiet_detail_fields_when_sidecar_is_missing -v
+  tests.test_workbench_api.WorkbenchApiTests.test_bundles_endpoint_defaults_quiet_detail_fields_when_sidecar_is_missing \
+  tests.test_workbench_api.WorkbenchApiTests.test_bundles_endpoint_exposes_non_empty_enrichment_status_reason -v
 ```
 
 Expected:
@@ -158,6 +197,7 @@ def _read_enrichment_payload(bundle_path: Path) -> Dict[str, object]:
         "enrichment_related_domains_suggestion": [],
         "enrichment_topic_tags": [],
         "enrichment_entity_hints": [],
+        "enrichment_status_reason": "",
     }
 ```
 
@@ -175,6 +215,7 @@ and, after validating the JSON object:
         "enrichment_related_domains_suggestion": _list_of_strings(payload.get("related_domains_suggestion")),
         "enrichment_topic_tags": _list_of_strings(payload.get("topic_tags")),
         "enrichment_entity_hints": _list_of_strings(payload.get("entity_hints")),
+        "enrichment_status_reason": str(payload.get("status_reason") or payload.get("failure_reason") or ""),
     }
 ```
 
@@ -193,6 +234,7 @@ Extend the bundle payload assembly:
                 "enrichment_related_domains_suggestion": enrichment["enrichment_related_domains_suggestion"],
                 "enrichment_topic_tags": enrichment["enrichment_topic_tags"],
                 "enrichment_entity_hints": enrichment["enrichment_entity_hints"],
+                "enrichment_status_reason": enrichment["enrichment_status_reason"],
                 "enrichment_queue_active": bundle_path_text in active_enrichment_bundle_paths,
 ```
 
@@ -203,7 +245,8 @@ Run:
 ```bash
 python3 -m unittest \
   tests.test_workbench_api.WorkbenchApiTests.test_bundles_endpoint_exposes_quiet_enrichment_detail_fields \
-  tests.test_workbench_api.WorkbenchApiTests.test_bundles_endpoint_defaults_quiet_detail_fields_when_sidecar_is_missing -v
+  tests.test_workbench_api.WorkbenchApiTests.test_bundles_endpoint_defaults_quiet_detail_fields_when_sidecar_is_missing \
+  tests.test_workbench_api.WorkbenchApiTests.test_bundles_endpoint_exposes_non_empty_enrichment_status_reason -v
 ```
 
 Expected:
@@ -317,7 +360,7 @@ function formatBundleEnrichmentPreview(bundle) {
 
   const status = typeof bundle?.enrichment_status === "string" ? bundle.enrichment_status.trim() : "";
   const reason =
-    typeof bundle?.enrichment_failure_reason === "string" ? bundle.enrichment_failure_reason.trim() : "";
+    typeof bundle?.enrichment_status_reason === "string" ? bundle.enrichment_status_reason.trim() : "";
 
   if (status === "deferred") {
     return "這份資料暫時延後，因為目前尚未有可執行的增補路由。";
@@ -340,7 +383,7 @@ function buildBundleEnrichmentDetail(bundle) {
   const entityHints = joinHintList(bundle?.enrichment_entity_hints);
   const status = typeof bundle?.enrichment_status === "string" ? bundle.enrichment_status.trim() : "";
   const failureReason =
-    typeof bundle?.enrichment_failure_reason === "string" ? bundle.enrichment_failure_reason.trim() : "";
+    typeof bundle?.enrichment_status_reason === "string" ? bundle.enrichment_status_reason.trim() : "";
   const updatedAt =
     typeof bundle?.enrichment_updated_at === "string" ? bundle.enrichment_updated_at.trim() : "";
 
