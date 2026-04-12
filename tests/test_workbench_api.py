@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 import unittest
 from html.parser import HTMLParser
@@ -123,6 +124,21 @@ class WorkbenchApiTests(unittest.TestCase):
     def make_client(self, root: Path, config_path: Path) -> TestClient:
         app = create_app(vault_root=root, config_path=config_path)
         return TestClient(app)
+
+    def read_app_script(self) -> str:
+        app_js = Path(__file__).resolve().parents[1] / "workbench" / "static" / "app.js"
+        return app_js.read_text(encoding="utf-8")
+
+    def extract_function_block(self, script_text: str, function_name: str) -> str:
+        pattern = rf"function {re.escape(function_name)}\(\)\s*\{{"
+        match = re.search(pattern, script_text)
+        if not match:
+            raise AssertionError(f"missing function block for {function_name!r}")
+        start = match.start()
+        tail = script_text[match.end() :]
+        next_match = re.search(r"\nfunction [A-Za-z0-9_]+\(", tail)
+        end = match.end() + next_match.start() if next_match else len(script_text)
+        return script_text[start:end]
 
     def test_root_html_homepage_uses_top_middle_bottom_workspace_regions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -281,6 +297,26 @@ class WorkbenchApiTests(unittest.TestCase):
         self.assertIn("const existingList = existingPreferences?.[routeName];", script_text)
         self.assertIn("const surviving = existingList.filter((providerId) => availableIds.includes(providerId));", script_text)
         self.assertIn("route_provider_preferences: buildRouteProviderPreferences(providerPayload, state.settings?.route_provider_preferences)", script_text)
+
+    def test_bundle_rendering_script_includes_quiet_detail_preview_and_toggle_labels(self) -> None:
+        script_text = self.read_app_script()
+        render_bundles_block = self.extract_function_block(script_text, "renderBundles")
+
+        self.assertIn("function formatBundleEnrichmentPreview(bundle)", script_text)
+        self.assertIn("function buildBundleEnrichmentDetail(bundle)", script_text)
+        self.assertIn("查看詳情", render_bundles_block)
+        self.assertIn("收起詳情", render_bundles_block)
+        self.assertIn("bundle-enrichment-detail", render_bundles_block)
+
+    def test_quiet_detail_script_keeps_summary_surface_read_only(self) -> None:
+        script_text = self.read_app_script()
+        render_dashboard_block = self.extract_function_block(script_text, "renderDashboard")
+
+        self.assertNotIn("查看詳情", render_dashboard_block)
+        self.assertNotIn("收起詳情", render_dashboard_block)
+        self.assertNotIn("bundle-enrichment-detail", render_dashboard_block)
+        self.assertNotIn("function formatBundleEnrichmentPreview(bundle)", render_dashboard_block)
+        self.assertNotIn("function buildBundleEnrichmentDetail(bundle)", render_dashboard_block)
 
     def test_favicon_route_serves_shell_icon_asset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
