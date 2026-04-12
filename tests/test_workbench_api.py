@@ -351,6 +351,73 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(payload[0]["enrichment_failure_reason"], "OpenAI boom")
             self.assertEqual(payload[0]["enrichment_updated_at"], "2026-04-11T00:00:00Z")
 
+    def test_bundles_endpoint_exposes_quiet_enrichment_detail_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw/inbox/quiet-detail"
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.md").write_text(
+                "---\n"
+                "title: Quiet Detail\n"
+                "primary_domain: ai-application\n"
+                "conversion_status: converted\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            (bundle / "enrichment.json").write_text(
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "provider": "openai",
+                        "model": "gpt-5.4-mini",
+                        "summary": "Quiet summary",
+                        "primary_domain_suggestion": "consulting",
+                        "related_domains_suggestion": ["ai-application", "management"],
+                        "topic_tags": ["strategy", "workflow"],
+                        "entity_hints": ["Project Atlas", "Jane Doe"],
+                        "updated_at": "2026-04-11T00:00:00Z",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/api/bundles")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload[0]["summary"], "Quiet summary")
+            self.assertEqual(payload[0]["primary_domain_suggestion"], "consulting")
+            self.assertEqual(payload[0]["related_domains_suggestion"], ["ai-application", "management"])
+            self.assertEqual(payload[0]["topic_tags"], ["strategy", "workflow"])
+            self.assertEqual(payload[0]["entity_hints"], ["Project Atlas", "Jane Doe"])
+
+    def test_bundles_endpoint_defaults_quiet_detail_fields_when_sidecar_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw/inbox/missing-sidecar"
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.md").write_text(
+                "---\n"
+                "title: Missing Sidecar\n"
+                "primary_domain: ai-application\n"
+                "conversion_status: converted\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/api/bundles")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload[0]["summary"], "")
+            self.assertEqual(payload[0]["primary_domain_suggestion"], "")
+            self.assertEqual(payload[0]["related_domains_suggestion"], [])
+            self.assertEqual(payload[0]["topic_tags"], [])
+            self.assertEqual(payload[0]["entity_hints"], [])
+
     def test_dashboard_recent_imports_expose_enrichment_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
