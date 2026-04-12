@@ -439,6 +439,41 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(payload[0]["enrichment_topic_tags"], [])
             self.assertEqual(payload[0]["enrichment_entity_hints"], [])
 
+    def test_bundles_endpoint_exposes_non_empty_enrichment_status_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "20_Raw/inbox/review-needed"
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.md").write_text(
+                "---\n"
+                "title: Review Needed\n"
+                "primary_domain: ai-application\n"
+                "conversion_status: converted\n"
+                "---\n",
+                encoding="utf-8",
+            )
+            (bundle / "enrichment.json").write_text(
+                json.dumps(
+                    {
+                        "status": "failed",
+                        "failure_reason": "Needs a human pass",
+                        "updated_at": "2026-04-11T00:00:00Z",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            client = self.make_client(root, root / "workbench-config.json")
+
+            response = client.get("/api/bundles")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(len(payload), 1)
+            self.assertEqual(payload[0]["bundle_path"], "20_Raw/inbox/review-needed")
+            self.assertIn("enrichment_status_reason", payload[0])
+            self.assertEqual(payload[0]["enrichment_status_reason"], "Needs a human pass")
+
     def test_dashboard_recent_imports_expose_enrichment_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
