@@ -74,7 +74,7 @@ def _read_enrichment_payload(bundle_path: Path) -> Dict[str, object]:
         "enrichment_related_domains_suggestion": _list_of_strings(payload.get("related_domains_suggestion")),
         "enrichment_topic_tags": _list_of_strings(payload.get("topic_tags")),
         "enrichment_entity_hints": _list_of_strings(payload.get("entity_hints")),
-        "enrichment_status_reason": str(payload.get("status_reason") or payload.get("failure_reason") or ""),
+        "enrichment_status_reason": str(payload.get("status_reason") or ""),
     }
 
 

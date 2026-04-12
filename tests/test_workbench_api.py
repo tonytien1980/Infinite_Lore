@@ -457,6 +457,7 @@ class WorkbenchApiTests(unittest.TestCase):
                     {
                         "status": "failed",
                         "failure_reason": "Needs a human pass",
+                        "status_reason": "這份資料暫時延後，因為目前尚未有可執行的增補路由。",
                         "updated_at": "2026-04-11T00:00:00Z",
                     }
                 )
@@ -472,7 +473,10 @@ class WorkbenchApiTests(unittest.TestCase):
             self.assertEqual(len(payload), 1)
             self.assertEqual(payload[0]["bundle_path"], "20_Raw/inbox/review-needed")
             self.assertIn("enrichment_status_reason", payload[0])
-            self.assertEqual(payload[0]["enrichment_status_reason"], "Needs a human pass")
+            self.assertEqual(
+                payload[0]["enrichment_status_reason"],
+                "這份資料暫時延後，因為目前尚未有可執行的增補路由。",
+            )
 
     def test_dashboard_recent_imports_expose_enrichment_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
