@@ -387,6 +387,11 @@ class WorkbenchApiTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 200)
             payload = response.json()
+            self.assertIn("summary", payload[0])
+            self.assertIn("primary_domain_suggestion", payload[0])
+            self.assertIn("related_domains_suggestion", payload[0])
+            self.assertIn("topic_tags", payload[0])
+            self.assertIn("entity_hints", payload[0])
             self.assertEqual(payload[0]["summary"], "Quiet summary")
             self.assertEqual(payload[0]["primary_domain_suggestion"], "consulting")
             self.assertEqual(payload[0]["related_domains_suggestion"], ["ai-application", "management"])
@@ -412,6 +417,11 @@ class WorkbenchApiTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 200)
             payload = response.json()
+            self.assertIn("summary", payload[0])
+            self.assertIn("primary_domain_suggestion", payload[0])
+            self.assertIn("related_domains_suggestion", payload[0])
+            self.assertIn("topic_tags", payload[0])
+            self.assertIn("entity_hints", payload[0])
             self.assertEqual(payload[0]["summary"], "")
             self.assertEqual(payload[0]["primary_domain_suggestion"], "")
             self.assertEqual(payload[0]["related_domains_suggestion"], [])
