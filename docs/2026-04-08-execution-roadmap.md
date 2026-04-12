@@ -649,7 +649,7 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Review and approve the quiet per-bundle enrichment detail spec, then write the implementation plan for a low-noise 收件匣 detail slice.`
+`Execute the approved quiet enrichment detail plan, starting with bundle-payload red tests before inbox preview and inline detail wiring.`
 
 The latest retry / dismiss verification for this phase was local-only:
 
@@ -662,6 +662,7 @@ It was not a production verification pass and did not include live OpenAI enrich
 The current proposed next slice is documented in:
 
 - `docs/2026-04-12-quiet-enrichment-detail-inbox-spec.md`
+- `docs/2026-04-12-quiet-enrichment-detail-inbox-implementation-plan.md`
 
 ## 13. Future Adoption Direction
 

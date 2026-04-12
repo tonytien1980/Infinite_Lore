@@ -31,6 +31,7 @@
 - [Manual Enrichment Retry And Recovery Controls Spec](../docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-spec.md)
 - [Manual Enrichment Retry And Recovery Controls Implementation Plan](../docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-implementation-plan.md)
 - [Quiet Enrichment Detail In Inbox Spec](../docs/2026-04-12-quiet-enrichment-detail-inbox-spec.md)
+- [Quiet Enrichment Detail In Inbox Implementation Plan](../docs/2026-04-12-quiet-enrichment-detail-inbox-implementation-plan.md)
 
 ## Domains
 
