@@ -1,8 +1,16 @@
 # Quiet Enrichment Detail In Inbox
 
-**Status:** Approved for implementation
+**Status:** Delivered and verified locally
 **Date:** 2026-04-12  
 **Project:** Infinite Lore
+
+**Delivery note:** The delivered version is intentionally bounded:
+
+- quiet preview appears only when a bundle has meaningful quiet-detail content
+- `摘要` remains unchanged and overview-first
+- `收件匣` is the only surface that gets `查看詳情` / `收起詳情`
+- `enrichment_status_reason` stays separate from raw `enrichment_failure_reason`
+- retry / dismiss controls continue to coexist with the quiet-detail UI in actionable rows
 
 ## 1. Purpose
 

@@ -322,6 +322,22 @@ Reference files:
 - `docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-spec.md`
 - `docs/2026-04-11-manual-enrichment-retry-and-recovery-controls-implementation-plan.md`
 
+### 4.17 Quiet Enrichment Detail In Inbox
+
+Completed:
+
+- `收件匣` now shows a quiet preview line only when a bundle has meaningful enrichment detail
+- `收件匣` rows can expand inline through `查看詳情` / `收起詳情`
+- expanded detail shows interpretation-focused sections such as summary, domain hints, tags, entity hints, status explanation, and last updated
+- `摘要` remains overview-first and does not gain quiet-detail toggles
+- `enrichment_status_reason` is now separated from raw `enrichment_failure_reason` so quiet detail does not default to raw failure text
+- live local browser verification now confirms plain bundles stay compact while detail-rich bundles expand inline in `收件匣`
+
+Reference files:
+
+- `docs/2026-04-12-quiet-enrichment-detail-inbox-spec.md`
+- `docs/2026-04-12-quiet-enrichment-detail-inbox-implementation-plan.md`
+
 ## 5. Current Verified Baseline
 
 As of this roadmap update, the verified baseline is:
@@ -370,6 +386,10 @@ As of this roadmap update, the verified baseline is:
 - `摘要` remains read-only even after recovery controls were added to `收件匣`
 - dismissed bundles now preserve historical failed / deferred sidecar status without incorrectly keeping recovery buttons visible
 - local temp-vault browser verification now covers the retry / dismiss controls in `收件匣`
+- `收件匣` now shows quiet enrichment preview only when a bundle has meaningful detail instead of adding a noisy extra line to every row
+- `收件匣` now supports inline `查看詳情` / `收起詳情` for enrichment detail
+- `摘要` remains overview-first and still does not expose enrichment detail toggles
+- quiet operator-facing `enrichment_status_reason` is now distinct from raw `enrichment_failure_reason`
 - tests pass
 - health check passes
 
@@ -408,6 +428,7 @@ The approved delivery order is:
 14. Raw enrichment and multi-provider routing
 15. Background raw enrichment lane and Workbench status visibility
 16. Manual enrichment retry and recovery controls
+17. Quiet enrichment detail in Inbox
 
 This order should not be reversed unless there is a strong reason.
 
@@ -547,6 +568,18 @@ The system now supports:
 - dismiss that clears active queue state without deleting the raw bundle or sidecar
 - action visibility that follows true queue activity instead of stale historical status alone
 
+### Phase 17: Quiet Enrichment Detail In Inbox
+
+This phase is now delivered and verified locally as the current low-noise enrichment-understanding baseline.
+
+The system now supports:
+
+- quiet per-bundle preview only when meaningful detail exists
+- inbox-only inline expand/collapse for enrichment detail
+- interpretation-focused detail sections instead of model-maintenance clutter
+- separation between quiet status explanation and raw failure text
+- retention of `摘要` as an overview-first surface
+
 ## 9. Phase Boundaries
 
 ### Phase 4: Workbench UI
@@ -649,20 +682,15 @@ If there is uncertainty, prefer the next incomplete phase in this roadmap over i
 
 The next action should be:
 
-`Execute the approved quiet enrichment detail plan, starting with bundle-payload red tests before inbox preview and inline detail wiring.`
+`Use the delivered quiet-detail Inbox baseline in live use before approving another enrichment UI expansion; if follow-up polish is needed, start with focus-retention and visual restraint rather than a new management surface.`
 
-The latest retry / dismiss verification for this phase was local-only:
+The latest quiet-detail verification for this phase was local-only:
 
 - isolated temp vault
 - local temp Workbench server
-- temp Playwright runner
+- Playwright CLI browser session
 
 It was not a production verification pass and did not include live OpenAI enrichment execution.
-
-The current proposed next slice is documented in:
-
-- `docs/2026-04-12-quiet-enrichment-detail-inbox-spec.md`
-- `docs/2026-04-12-quiet-enrichment-detail-inbox-implementation-plan.md`
 
 ## 13. Future Adoption Direction
 

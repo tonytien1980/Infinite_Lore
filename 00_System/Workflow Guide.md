@@ -118,6 +118,23 @@ python3 tools/raw_enrichment.py --root . --config ~/.config/infinite_lore/workbe
 - action buttons follow true queue state rather than historical sidecar status alone:
   - failed / deferred history can remain visible after `清除`
   - but the inline controls disappear once that bundle is no longer active queue work
+- `收件匣` now also supports quiet per-bundle enrichment detail:
+  - a preview line appears only when a bundle has real quiet-detail content
+  - `查看詳情` / `收起詳情` expands inline detail only inside `收件匣`
+  - expanded detail focuses on:
+    - `整理摘要`
+    - `建議領域`
+    - `相關領域`
+    - `主題標籤`
+    - `實體提示`
+    - `目前狀態說明`
+    - `最後更新`
+- `摘要` remains overview-first:
+  - it continues to show status-oriented recent imports
+  - it does not gain quiet-detail preview lines or inline expand/collapse controls
+- quiet detail keeps curated operator copy separate from raw failure text:
+  - `enrichment_status_reason` is the calm UI-facing reason field
+  - raw `failure_reason` remains available in data contracts but is not surfaced as default quiet detail
 
 ## Workbench UI
 
@@ -139,6 +156,8 @@ The shipped Workbench V2 shell is organized as:
 - follow-up controls on `首頁` stay disabled until the answer has grounded note evidence
 - `設定` now supports multiple providers plus an explicit `enrich_raw` route without turning the homepage into a model control panel
 - `摘要` and `收件匣` now surface raw enrichment status directly inside the existing lists instead of adding a separate enrichment page
+- `收件匣` now adds low-noise enrichment preview and inline detail only when a bundle has meaningful quiet-detail content
+- `摘要` stays compact and does not gain detail toggles
 
 ## macOS App Shell
 
