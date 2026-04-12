@@ -132,6 +132,7 @@ and:
                 json.dumps(
                     {
                         "status": "deferred",
+                        "status_reason": "這份資料暫時延後，因為目前尚未有可執行的增補路由。",
                         "failure_reason": "Provider 'ollama' is not supported by the minimal raw enrichment runner yet.",
                         "updated_at": "2026-04-12T00:00:00Z",
                     }
@@ -147,7 +148,7 @@ and:
             payload = response.json()[0]
             self.assertEqual(
                 payload["enrichment_status_reason"],
-                "Provider 'ollama' is not supported by the minimal raw enrichment runner yet.",
+                "這份資料暫時延後，因為目前尚未有可執行的增補路由。",
             )
 ```
 
@@ -215,7 +216,7 @@ and, after validating the JSON object:
         "enrichment_related_domains_suggestion": _list_of_strings(payload.get("related_domains_suggestion")),
         "enrichment_topic_tags": _list_of_strings(payload.get("topic_tags")),
         "enrichment_entity_hints": _list_of_strings(payload.get("entity_hints")),
-        "enrichment_status_reason": str(payload.get("status_reason") or payload.get("failure_reason") or ""),
+        "enrichment_status_reason": str(payload.get("status_reason") or ""),
     }
 ```
 
